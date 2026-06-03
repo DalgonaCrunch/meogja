@@ -1,42 +1,48 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "오늘 뭐 먹지? - 식사메뉴 추천",
+  title: "뭐먹지 — 식사메뉴 추천",
   description: "참가자 선호도 기반 식사메뉴 추천 + 주변 맛집 검색",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
-        <header className="border-b px-4 py-3">
-          <nav className="max-w-4xl mx-auto flex items-center gap-6">
-            <a href="/" className="text-lg font-bold">🍽️ 오늘 뭐 먹지?</a>
-            <a href="/members" className="text-sm hover:underline">멤버 관리</a>
+    <html lang="ko" className="h-full">
+      <body className="min-h-full flex flex-col" style={{ background: "var(--bg)" }}>
+        <header style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
+          <nav style={{ maxWidth: 860, margin: "0 auto", padding: "0 20px", height: 56, display: "flex", alignItems: "center", gap: 28 }}>
+            <a href="/" className="nav-logo">
+              <span style={{ fontSize: 22 }}>🍽</span> 뭐먹지
+            </a>
+            <a href="/members" className="nav-link">멤버 관리</a>
           </nav>
         </header>
-        <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-6">
+        <main style={{ flex: 1, maxWidth: 860, margin: "0 auto", width: "100%", padding: "32px 20px" }}>
           {children}
         </main>
+        <style>{`
+          .nav-logo {
+            font-family: 'Fraunces', serif;
+            font-weight: 600;
+            font-size: 20px;
+            color: var(--text);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .nav-link {
+            font-size: 14px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.15s;
+          }
+          .nav-link:hover { color: var(--accent); }
+        `}</style>
       </body>
     </html>
   );
