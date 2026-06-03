@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
-import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories } from "@/lib/recommend";
+import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendations } from "@/lib/recommend";
 import HistoryTab from "./tabs/HistoryTab";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
@@ -112,6 +112,10 @@ export default function GroupPage() {
   // 분위기 + 배달 전용 제외
   const [atmosphere, setAtmosphere] = useState<string>("");
   const [excludeDelivery, setExcludeDelivery] = useState(true);
+  // 검색 모드
+  const [searchMode, setSearchMode] = useState<"restaurant" | "menu">("restaurant");
+  const [menuRecommendations, setMenuRecommendations] = useState<{ menu: string; large: string; medium: string; score: number }[]>([]);
+  const [selectedMenus, setSelectedMenus] = useState<string[]>([]);
   const [locationMode, setLocationMode] = useState<"auto" | "manual">("auto");
   const [locationQuery, setLocationQuery] = useState("");
   const [locationResults, setLocationResults] = useState<{ name: string; address: string; lat: number; lng: number }[]>([]);
@@ -269,6 +273,50 @@ export default function GroupPage() {
     return results.flat();
   }
 
+  async function handleMenuRecommend() {
+    if (selected.length === 0) return;
+    setLoading(true);
+    setMenuRecommendations([]);
+    setSelectedMenus([]);
+    const { data: prefs } = await getSupabase().from("food_preferences").select("*").in("member_id", selected);
+    if (prefs) {
+      const recs = getRecommendations(prefs, selected, 15);
+      setMenuRecommendations(recs);
+    }
+    setLoading(false);
+  }
+
+  async function handleRestaurantByMenus() {
+    if (selectedMenus.length === 0) return;
+    setLoading(true);
+    setScoredRestaurants([]);
+    const { data: prefs } = await getSupabase().from("food_preferences").select("*").in("member_id", selected);
+    const dislikes = new Set(prefs?.filter((p) => p.preference_type === "dislike").map((p) => p.food_name) ?? []);
+    const results = await Promise.all(selectedMenus.map((q) => searchNearbyFromProvider(q, [...providers][0] || "naver")));
+    const all = results.flat();
+    const seen = new Set<string>();
+    const unique = all.filter((r) => { const k = r.title + r.address; if (seen.has(k)) return false; seen.add(k); return true; });
+    const filtered = unique.filter((r) => {
+      const cat = (r.category || "").toLowerCase();
+      const title = (r.title || "").toLowerCase();
+      for (const d of dislikes) { if (cat.includes(d.toLowerCase())) return false; }
+      if (excludeDelivery) {
+        for (const kw of ["배달", "포장전문", "배달전문"]) { if (title.includes(kw) || cat.includes(kw)) return false; }
+      }
+      return true;
+    });
+    const scored: ScoredRestaurant[] = filtered.map((r) => ({
+      ...r, score: selectedMenus.some((m) => (r.category || "").toLowerCase().includes(m.toLowerCase())) ? 2 : 0,
+      matchedLikes: selectedMenus.filter((m) => (r.category || "").toLowerCase().includes(m.toLowerCase())),
+    }));
+    scored.sort((a, b) => {
+      if (a.distance !== null && b.distance !== null) return a.distance - b.distance;
+      return b.score - a.score;
+    });
+    setScoredRestaurants(scored.slice(0, 15));
+    setLoading(false);
+  }
+
   async function handleRecommend() {
     if (selected.length === 0) return;
     setLoading(true);
@@ -279,7 +327,7 @@ export default function GroupPage() {
     const dislikes = new Set(prefs?.filter((p) => p.preference_type === "dislike").map((p) => p.food_name) ?? []);
 
     // 카테고리 필터 우선 적용
-    const DEFAULT_QUERIES = ["한식", "중식", "일식", "양식", "분식"];
+    const DEFAULT_QUERIES = ["한식", "중식", "일식", "양식", "분식", "고기", "카페"];
     let queries: string[];
     if (filterItem) {
       queries = [filterItem];
@@ -287,10 +335,12 @@ export default function GroupPage() {
       queries = [filterMedium];
     } else if (filterLarge) {
       queries = getMediumCategories(filterLarge).slice(0, 5);
-    } else if (likes.length > 0) {
-      queries = [...new Set(likes)].slice(0, 6);
     } else {
-      queries = DEFAULT_QUERIES;
+      // 선호 + 기본 골고루 혼합 (선호 최대 4개 + 기본 3개)
+      const likeQueries = [...new Set(likes)].slice(0, 4);
+      const defaultFill = DEFAULT_QUERIES.filter((d) => !likeQueries.some((l) => l.includes(d) || d.includes(l))).slice(0, 3);
+      queries = [...likeQueries, ...defaultFill];
+      if (queries.length === 0) queries = DEFAULT_QUERIES.slice(0, 5);
     }
 
     // 병렬 검색
@@ -788,10 +838,35 @@ export default function GroupPage() {
             </div>
           )}
 
+          {/* 검색 모드 토글 */}
+          {selected.length > 0 && (
+            <div style={{ display: "flex", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 100, padding: 3, gap: 3, width: "fit-content" }}>
+              <button onClick={() => { setSearchMode("restaurant"); setScoredRestaurants([]); setMenuRecommendations([]); }} style={{
+                padding: "7px 18px", borderRadius: 100, border: "none", fontSize: 13, fontWeight: 600,
+                background: searchMode === "restaurant" ? "var(--text)" : "transparent",
+                color: searchMode === "restaurant" ? "#fff" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s",
+              }}>🏪 식당 바로 찾기</button>
+              <button onClick={() => { setSearchMode("menu"); setScoredRestaurants([]); setMenuRecommendations([]); }} style={{
+                padding: "7px 18px", borderRadius: 100, border: "none", fontSize: 13, fontWeight: 600,
+                background: searchMode === "menu" ? "var(--text)" : "transparent",
+                color: searchMode === "menu" ? "#fff" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s",
+              }}>🍜 메뉴 먼저 고르기</button>
+            </div>
+          )}
+
           {/* 액션 바 */}
           {selected.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              {searchMode === "menu" ? (
+                <button onClick={handleMenuRecommend} disabled={loading} style={{
+                  background: loading ? "var(--border)" : "var(--green)", color: loading ? "var(--text-muted)" : "#fff",
+                  border: "none", borderRadius: 100, padding: "12px 28px", fontSize: 15, fontWeight: 600,
+                  cursor: loading ? "default" : "pointer", transition: "all 0.15s",
+                }}>
+                  {loading ? "메뉴 추천 중…" : "🍜 메뉴 추천받기 →"}
+                </button>
+              ) : (
               <button onClick={handleRecommend} disabled={loading || providers.size === 0} style={{
                 background: (loading || providers.size === 0) ? "var(--border)" : "var(--accent)",
                 color: (loading || providers.size === 0) ? "var(--text-muted)" : "#fff",
@@ -800,6 +875,7 @@ export default function GroupPage() {
               }}>
                 {loading ? "주변 식당 검색 중…" : `${selected.length}명 기준 주변 맛집 추천 →`}
               </button>
+              )}
               <div style={{ display: "flex", gap: 6 }}>
                 {(["naver", "kakao"] as const).map((p) => {
                   const isOn = providers.has(p);
@@ -834,6 +910,49 @@ export default function GroupPage() {
           )}
 
           {/* 추천 식당 결과 */}
+          {/* 메뉴 먼저 고르기 결과 */}
+          {searchMode === "menu" && menuRecommendations.length > 0 && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+                <p style={{ fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 600 }}>
+                  추천 메뉴 <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)" }}>— 먹고 싶은 메뉴를 골라보세요</span>
+                </p>
+                <button onClick={handleMenuRecommend} style={{ padding: "6px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  🔄 다시 추천
+                </button>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                {menuRecommendations.map((rec) => {
+                  const isSel = selectedMenus.includes(rec.menu);
+                  const col = getCategoryColor(rec.medium);
+                  return (
+                    <button key={rec.menu} onClick={() => setSelectedMenus((prev) => isSel ? prev.filter((m) => m !== rec.menu) : [...prev, rec.menu])} style={{
+                      display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 100,
+                      border: isSel ? `2px solid ${col.border}` : "1.5px solid var(--border)",
+                      background: isSel ? col.bg : "var(--bg-card)",
+                      color: isSel ? col.text : "var(--text)",
+                      fontSize: 13, fontWeight: isSel ? 700 : 400, cursor: "pointer", transition: "all 0.15s",
+                      boxShadow: isSel ? `0 0 0 2px ${col.border}30` : "none",
+                    }}>
+                      <span>{categoryEmoji(rec.medium)}</span>
+                      {rec.menu}
+                      {rec.score > 0 && <span style={{ fontSize: 10, color: col.text, opacity: 0.7 }}>👍</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedMenus.length > 0 && providers.size > 0 && (
+                <button onClick={handleRestaurantByMenus} disabled={loading} style={{
+                  padding: "12px 28px", borderRadius: 100, border: "none",
+                  background: "var(--accent)", color: "#fff", fontSize: 15, fontWeight: 700,
+                  cursor: loading ? "default" : "pointer", width: "100%",
+                }}>
+                  {loading ? "식당 검색 중…" : `선택한 ${selectedMenus.length}개 메뉴로 식당 찾기 →`}
+                </button>
+              )}
+            </div>
+          )}
+
           {scoredRestaurants.length > 0 && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
@@ -841,7 +960,10 @@ export default function GroupPage() {
                   주변 추천 맛집
                   <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)", marginLeft: 10 }}>{scoredRestaurants.length}곳</span>
                 </p>
-                <div style={{ display: "flex", gap: 5 }}>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                  <button onClick={() => { setScoredRestaurants([]); searchMode === "menu" ? handleRestaurantByMenus() : handleRecommend(); }} style={{ padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 600, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer" }}>
+                    🔄 재검색
+                  </button>
                   {([["distance","📍 거리순"],["score","👍 선호순"],["rating","★ 별점순"],["category","🏷 카테고리"]] as const).map(([s, label]) => (
                     <button key={s} onClick={() => setSortBy(s)} style={{
                       padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 600,

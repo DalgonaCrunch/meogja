@@ -155,32 +155,34 @@ export default function Home() {
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[...publicGroups, ...privateGroups].map((group, i) => (
-              <div key={group.id}
-                className={`fade-up fade-up-${Math.min(i + 1, 5)}`}
+              <button key={group.id}
+                onClick={() => handleEnter(group)}
+                className={`fade-up fade-up-${Math.min(i + 1, 5)} group-card`}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "18px 22px", borderRadius: 16,
+                  padding: "18px 22px", borderRadius: 16, width: "100%",
                   background: "var(--bg-card)", border: "1px solid var(--border)",
-                  boxShadow: "var(--shadow)", textAlign: "left",
-                  transition: "all 0.15s",
+                  boxShadow: "var(--shadow)", textAlign: "left", cursor: "pointer",
+                  transition: "all 0.18s cubic-bezier(0.34,1.56,0.64,1)",
                 }}
+                onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-2px) scale(1.01)"; e.currentTarget.style.boxShadow = "var(--shadow-lg)"; e.currentTarget.style.borderColor = "var(--accent)"; }}
+                onMouseOut={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "var(--shadow)"; e.currentTarget.style.borderColor = "var(--border)"; }}
+                onMouseDown={(e) => { e.currentTarget.style.transform = "translateY(0) scale(0.98)"; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = "translateY(-2px) scale(1.01)"; }}
               >
-                <button onClick={() => handleEnter(group)} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
-                  <span style={{ fontSize: 22 }}>{group.is_private ? "🔒" : "🌐"}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: group.is_private ? "#FFF3E0" : "#E8F5E9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
+                    {group.is_private ? "🔒" : "🌐"}
+                  </div>
                   <div>
                     <p style={{ fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, color: "var(--text)" }}>{group.name}</p>
                     <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
                       {group.is_private ? "비공개 모임" : "공개 모임"} · {new Date(group.created_at).toLocaleDateString("ko-KR")}
                     </p>
                   </div>
-                </button>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 18, color: "var(--text-muted)" }}>→</span>
-                  <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(group); }} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title="모임 삭제">
-                    ✕
-                  </button>
                 </div>
-              </div>
+                <span style={{ fontSize: 20, color: "var(--text-muted)", transition: "transform 0.18s" }}>→</span>
+              </button>
             ))}
           </div>
         </div>
