@@ -33,6 +33,7 @@ export default function GroupPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [memberPrefs, setMemberPrefs] = useState<FoodPreference[]>([]);
   const [prefType, setPrefType] = useState<"like" | "dislike">("like");
+  const [customMenus, setCustomMenus] = useState<string[]>([]);
   const [selectedLarge, setSelectedLarge] = useState("");
   const [selectedMedium, setSelectedMedium] = useState("");
   const [customInput, setCustomInput] = useState("");
@@ -44,6 +45,7 @@ export default function GroupPage() {
   useEffect(() => {
     loadGroup();
     loadMembers();
+    loadCustomMenus();
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
@@ -51,6 +53,11 @@ export default function GroupPage() {
       );
     }
   }, [id]);
+
+  async function loadCustomMenus() {
+    const { data } = await getSupabase().from("custom_menus").select("name").order("created_at", { ascending: false });
+    if (data) setCustomMenus(data.map((d) => d.name));
+  }
 
   async function loadGroup() {
     const { data } = await getSupabase().from("groups").select("*").eq("id", id).single();
@@ -121,10 +128,15 @@ export default function GroupPage() {
     if (data) setMemberPrefs(data);
   }
 
-  async function addPreference(foodName: string) {
+  async function addPreference(foodName: string, isCustomInput = false) {
     if (!expandedId || !foodName.trim()) return;
     if (memberPrefs.find((p) => p.food_name === foodName && p.preference_type === prefType)) return;
     await getSupabase().from("food_preferences").insert({ member_id: expandedId, food_name: foodName.trim(), preference_type: prefType });
+    // 직접 입력한 경우 custom_menus DB에도 저장 (중복 무시)
+    if (isCustomInput) {
+      await getSupabase().from("custom_menus").upsert({ name: foodName.trim() }, { onConflict: "name", ignoreDuplicates: true });
+      setCustomMenus((prev) => prev.includes(foodName.trim()) ? prev : [foodName.trim(), ...prev]);
+    }
     await loadMemberPrefs(expandedId);
     setCustomInput("");
   }
@@ -376,8 +388,11 @@ export default function GroupPage() {
                     <div style={{ marginBottom: 16 }}>
                       <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 7 }}>직접 입력</p>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <input value={customInput} onChange={(e) => setCustomInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addPreference(customInput); } }} placeholder="음식명" style={{ flex: 1, padding: "7px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 13, outline: "none" }} onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
-                        <button onClick={() => addPreference(customInput)} style={{ padding: "7px 16px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>등록</button>
+                        <input value={customInput} onChange={(e) => setCustomInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addPreference(customInput, true); } }} placeholder="음식명 직접 입력" list="custom-menu-suggestions" style={{ flex: 1, padding: "7px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 13, outline: "none" }} onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
+                        <datalist id="custom-menu-suggestions">
+                          {customMenus.map((m) => <option key={m} value={m} />)}
+                        </datalist>
+                        <button onClick={() => addPreference(customInput, true)} style={{ padding: "7px 16px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>등록</button>
                       </div>
                     </div>
 
