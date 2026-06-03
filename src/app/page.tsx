@@ -1,333 +1,220 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabase, Member, FoodPreference } from "@/lib/supabase";
-import { getRecommendations } from "@/lib/recommend";
-
-type Restaurant = {
-  title: string;
-  category: string;
-  address: string;
-  mapx: string;
-  mapy: string;
-  link: string;
-};
-
-type Recommendation = {
-  menu: string;
-  large: string;
-  medium: string;
-  score: number;
-};
-
-const MEMBER_COLORS = [
-  "#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"
-];
+import { useRouter } from "next/navigation";
+import { getSupabase, Group } from "@/lib/supabase";
 
 export default function Home() {
-  const [members, setMembers] = useState<Member[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [preferences, setPreferences] = useState<FoodPreference[]>([]);
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [restaurants, setRestaurants] = useState<Record<string, Restaurant[]>>({});
-  const [loading, setLoading] = useState(false);
-  const [mapProvider, setMapProvider] = useState<"naver" | "kakao">("naver");
-  const [searchingMenu, setSearchingMenu] = useState<string | null>(null);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [locating, setLocating] = useState(false);
+  const router = useRouter();
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadMembers();
-    // 페이지 로드 시 위치 자동 요청
-    if (navigator.geolocation) {
-      setLocating(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-          setLocating(false);
-        },
-        () => setLocating(false)
-      );
-    }
-  }, []);
+  // 모임 생성
+  const [newName, setNewName] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [creating, setCreating] = useState(false);
 
-  async function loadMembers() {
-    const { data } = await getSupabase().from("members").select("*").order("name");
-    if (data) setMembers(data);
-  }
+  // 비공개 모임 입장
+  const [enterTarget, setEnterTarget] = useState<Group | null>(null);
+  const [enterPassword, setEnterPassword] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
 
-  function toggleMember(id: string) {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  }
+  useEffect(() => { loadGroups(); }, []);
 
-  async function handleRecommend() {
-    if (selected.length === 0) return;
+  async function loadGroups() {
     setLoading(true);
-    setRecommendations([]);
-    setRestaurants({});
-    const { data: prefs } = await getSupabase()
-      .from("food_preferences")
-      .select("*")
-      .in("member_id", selected);
-    if (prefs) {
-      setPreferences(prefs);
-      setRecommendations(getRecommendations(prefs, selected, 5));
-    }
+    const { data } = await getSupabase()
+      .from("groups").select("*").order("created_at", { ascending: false });
+    if (data) setGroups(data);
     setLoading(false);
   }
 
-  async function searchRestaurants(menu: string) {
-    setSearchingMenu(menu);
-    const endpoint = mapProvider === "naver" ? "/api/search" : "/api/search-kakao";
-    const params = new URLSearchParams({ query: menu });
-    if (location) {
-      if (mapProvider === "naver") {
-        // 네이버: mapx/mapy = 경도/위도 * 10^7 (정수)
-        params.set("x", String(Math.round(location.lng * 1e7)));
-        params.set("y", String(Math.round(location.lat * 1e7)));
-      } else {
-        // 카카오: x=경도, y=위도 (소수점)
-        params.set("x", String(location.lng));
-        params.set("y", String(location.lat));
-      }
-    }
-    const res = await fetch(`${endpoint}?${params}`);
-    const data = await res.json();
-    setRestaurants((prev) => ({ ...prev, [menu]: data.items || [] }));
-    setSearchingMenu(null);
+  async function createGroup(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setCreating(true);
+    const { data } = await getSupabase()
+      .from("groups")
+      .insert({ name: newName.trim(), is_private: isPrivate, password: isPrivate ? newPassword : null })
+      .select().single();
+    setCreating(false);
+    if (data) router.push(`/groups/${data.id}`);
   }
 
-  const selectedDislikes = [...new Set(
-    preferences.filter((p) => selected.includes(p.member_id) && p.preference_type === "dislike")
-      .map((p) => p.food_name)
-  )];
+  function handleEnter(group: Group) {
+    if (!group.is_private) {
+      router.push(`/groups/${group.id}`);
+    } else {
+      setEnterTarget(group);
+      setEnterPassword("");
+      setPasswordError(false);
+    }
+  }
+
+  function verifyPassword() {
+    if (!enterTarget) return;
+    if (enterPassword === enterTarget.password) {
+      router.push(`/groups/${enterTarget.id}`);
+    } else {
+      setPasswordError(true);
+    }
+  }
+
+  const publicGroups = groups.filter((g) => !g.is_private);
+  const privateGroups = groups.filter((g) => g.is_private);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
 
       {/* Hero */}
       <div className="fade-up">
-        <h1 style={{ fontFamily: "Fraunces, serif", fontSize: "clamp(36px,6vw,56px)", fontWeight: 600, lineHeight: 1.1, color: "var(--text)", marginBottom: 8 }}>
-          오늘 뭐 먹지?
+        <h1 style={{ fontFamily: "Fraunces, serif", fontSize: "clamp(36px,6vw,56px)", fontWeight: 600, lineHeight: 1.1, marginBottom: 8 }}>
+          뭐먹지
         </h1>
-        <p style={{ color: "var(--text-muted)", fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}>
-          함께 먹을 사람을 고르면 모두가 만족할 메뉴를 찾아드려요
-          {locating && <span style={{ fontSize: 12, color: "var(--accent)", display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)", display: "inline-block", animation: "pulse-dot 1s infinite" }} />
-            위치 확인 중
-          </span>}
-          {location && !locating && <span style={{ fontSize: 12, color: "var(--green)", display: "flex", alignItems: "center", gap: 4 }}>
-            📍 현재 위치 기반 검색
-          </span>}
+        <p style={{ color: "var(--text-muted)", fontSize: 15 }}>
+          모임을 만들고 함께 먹을 메뉴를 추천받으세요
         </p>
       </div>
 
-      {/* 멤버 선택 */}
-      <div className="fade-up fade-up-1" style={{ background: "var(--bg-card)", borderRadius: 16, padding: 24, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
-        <p style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 16 }}>
-          참가자 선택
+      {/* 모임 생성 */}
+      <div className="fade-up fade-up-1" style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
+        <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 18 }}>
+          새 모임 만들기
         </p>
-        {members.length === 0 ? (
-          <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
-            등록된 멤버가 없습니다.{" "}
-            <a href="/members" style={{ color: "var(--accent)", textDecoration: "underline" }}>멤버를 추가</a>해주세요.
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {members.map((m, i) => {
-              const isSelected = selected.includes(m.id);
-              const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => toggleMember(m.id)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 8,
-                    padding: "8px 16px", borderRadius: 100,
-                    border: isSelected ? `2px solid ${color}` : "2px solid var(--border)",
-                    background: isSelected ? color + "18" : "transparent",
-                    color: isSelected ? color : "var(--text)",
-                    fontWeight: isSelected ? 600 : 400,
-                    fontSize: 14, cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  <span style={{
-                    width: 28, height: 28, borderRadius: "50%",
-                    background: isSelected ? color : "var(--border)",
-                    color: isSelected ? "#fff" : "var(--text-muted)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 12, fontWeight: 700, flexShrink: 0,
-                    transition: "all 0.15s ease",
-                  }}>
-                    {m.name[0]}
-                  </span>
-                  {m.name}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        <form onSubmit={createGroup} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <input
+            value={newName} onChange={(e) => setNewName(e.target.value)}
+            placeholder="모임 이름 (예: 점심팀, 야식팀)"
+            required
+            style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 15, color: "var(--text)", outline: "none" }}
+            onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
+            onBlur={(e) => e.target.style.borderColor = "var(--border)"}
+          />
 
-      {/* 액션 바 */}
-      {selected.length > 0 && (
-        <div className="fade-up" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <button
-            onClick={handleRecommend}
-            disabled={loading}
-            style={{
-              background: loading ? "var(--border)" : "var(--accent)",
-              color: loading ? "var(--text-muted)" : "#fff",
-              border: "none", borderRadius: 100,
-              padding: "12px 28px", fontSize: 15, fontWeight: 600,
-              cursor: loading ? "default" : "pointer",
-              transition: "all 0.15s ease",
-              display: "flex", alignItems: "center", gap: 8,
-            }}
-            onMouseOver={(e) => { if (!loading) e.currentTarget.style.background = "var(--accent-hover)"; }}
-            onMouseOut={(e) => { if (!loading) e.currentTarget.style.background = "var(--accent)"; }}
-          >
-            {loading ? (
-              <>
-                <span style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid #ccc", borderTopColor: "#999", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
-                추천 중...
-              </>
-            ) : (
-              <>{selected.length}명으로 추천받기 →</>
-            )}
-          </button>
-
-          {/* 지도 제공자 선택 */}
-          <div style={{ display: "flex", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 100, padding: 3, gap: 2 }}>
-            {(["naver", "kakao"] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => setMapProvider(p)}
+          {/* 공개/비공개 토글 */}
+          <div style={{ display: "flex", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 100, padding: 4, gap: 4, width: "fit-content" }}>
+            {[false, true].map((priv) => (
+              <button key={String(priv)} type="button" onClick={() => setIsPrivate(priv)}
                 style={{
-                  padding: "6px 16px", borderRadius: 100, border: "none", fontSize: 13, fontWeight: 500,
-                  background: mapProvider === p ? "var(--text)" : "transparent",
-                  color: mapProvider === p ? "#fff" : "var(--text-muted)",
-                  cursor: "pointer", transition: "all 0.15s ease",
+                  padding: "7px 20px", borderRadius: 100, border: "none", fontSize: 13, fontWeight: 600,
+                  background: isPrivate === priv ? "var(--text)" : "transparent",
+                  color: isPrivate === priv ? "#fff" : "var(--text-muted)",
+                  cursor: "pointer", transition: "all 0.15s",
+                }}>
+                {priv ? "🔒 비공개" : "🌐 공개"}
+              </button>
+            ))}
+          </div>
+
+          {isPrivate && (
+            <input
+              value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="비밀번호 입력"
+              type="password"
+              required={isPrivate}
+              style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 15, color: "var(--text)", outline: "none" }}
+              onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
+              onBlur={(e) => e.target.style.borderColor = "var(--border)"}
+            />
+          )}
+
+          <button type="submit" disabled={creating} style={{
+            padding: "13px", borderRadius: 100, border: "none",
+            background: "var(--accent)", color: "#fff", fontSize: 15, fontWeight: 700,
+            cursor: creating ? "default" : "pointer",
+            opacity: creating ? 0.7 : 1, transition: "all 0.15s",
+          }}>
+            {creating ? "생성 중…" : "모임 만들기 →"}
+          </button>
+        </form>
+      </div>
+
+      {/* 모임 목록 */}
+      {!loading && groups.length > 0 && (
+        <div className="fade-up fade-up-2">
+          <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 16 }}>
+            모임 목록
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[...publicGroups, ...privateGroups].map((group, i) => (
+              <button key={group.id} onClick={() => handleEnter(group)}
+                className={`fade-up fade-up-${Math.min(i + 1, 5)}`}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "18px 22px", borderRadius: 16,
+                  background: "var(--bg-card)", border: "1px solid var(--border)",
+                  boxShadow: "var(--shadow)", cursor: "pointer", textAlign: "left",
+                  transition: "all 0.15s",
                 }}
+                onMouseOver={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "var(--shadow-lg)"; }}
+                onMouseOut={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "var(--shadow)"; }}
               >
-                {p === "naver" ? "네이버" : "카카오"}
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: 22 }}>{group.is_private ? "🔒" : "🌐"}</span>
+                  <div>
+                    <p style={{ fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, color: "var(--text)" }}>{group.name}</p>
+                    <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                      {group.is_private ? "비공개 모임" : "공개 모임"} · {new Date(group.created_at).toLocaleDateString("ko-KR")}
+                    </p>
+                  </div>
+                </div>
+                <span style={{ fontSize: 18, color: "var(--text-muted)" }}>→</span>
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* 제외 음식 */}
-      {selectedDislikes.length > 0 && (
-        <div className="fade-up" style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 12, color: "var(--text-muted)", marginRight: 4 }}>🚫 제외</span>
-          {selectedDislikes.map((food) => (
-            <span key={food} style={{ padding: "3px 10px", borderRadius: 100, background: "var(--red-soft)", color: "var(--red)", fontSize: 12, fontWeight: 500 }}>
-              {food}
-            </span>
-          ))}
+      {loading && (
+        <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "40px 0", fontSize: 14 }}>
+          불러오는 중…
         </div>
       )}
 
-      {/* 추천 결과 */}
-      {recommendations.length > 0 && (
-        <div>
-          <p style={{ fontFamily: "Fraunces, serif", fontSize: 22, fontWeight: 600, marginBottom: 16 }}>
-            추천 메뉴
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {recommendations.map((rec, i) => (
-              <div
-                key={i}
-                className={`fade-up fade-up-${Math.min(i + 1, 5)}`}
-                style={{
-                  background: "var(--bg-card)", borderRadius: 16,
-                  border: "1px solid var(--border)", boxShadow: "var(--shadow)",
-                  overflow: "hidden",
-                }}
-              >
-                {/* 티켓 헤더 */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderLeft: `4px solid ${MEMBER_COLORS[i % MEMBER_COLORS.length]}` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                    <span style={{ fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 600 }}>{rec.menu}</span>
-                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>{rec.large}</span>
-                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 500 }}>{rec.medium}</span>
-                    {rec.score > 0 && (
-                      <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 600 }}>
-                        👍 {rec.score}명 선호
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => searchRestaurants(rec.menu)}
-                    disabled={searchingMenu === rec.menu}
-                    style={{
-                      padding: "7px 14px", borderRadius: 100, fontSize: 12, fontWeight: 600,
-                      border: "1.5px solid var(--accent)", background: "transparent",
-                      color: "var(--accent)", cursor: "pointer", whiteSpace: "nowrap",
-                      transition: "all 0.15s ease", flexShrink: 0,
-                    }}
-                    onMouseOver={(e) => { e.currentTarget.style.background = "var(--accent)"; e.currentTarget.style.color = "#fff"; }}
-                    onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--accent)"; }}
-                  >
-                    {searchingMenu === rec.menu ? "검색중…" : `${mapProvider === "naver" ? "N" : "K"} 맛집 찾기`}
-                  </button>
-                </div>
-
-                {/* 식당 목록 */}
-                {restaurants[rec.menu] && (
-                  <div style={{ borderTop: "1px solid var(--border)" }}>
-                    {restaurants[rec.menu].length === 0 ? (
-                      <p style={{ padding: "12px 20px", fontSize: 13, color: "var(--text-muted)" }}>검색 결과 없음</p>
-                    ) : (
-                      restaurants[rec.menu].map((r, j) => (
-                        <div key={j} style={{
-                          display: "flex", alignItems: "center", justifyContent: "space-between",
-                          padding: "12px 20px",
-                          borderBottom: j < restaurants[rec.menu].length - 1 ? "1px solid var(--border)" : "none",
-                          background: j % 2 === 0 ? "transparent" : "#FAFAFA",
-                        }}>
-                          <div>
-                            <a href={r.link} target="_blank" rel="noopener noreferrer"
-                              style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", textDecoration: "none" }}
-                              onMouseOver={(e) => e.currentTarget.style.color = "var(--accent)"}
-                              onMouseOut={(e) => e.currentTarget.style.color = "var(--text)"}
-                            >
-                              {r.title}
-                            </a>
-                            <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{r.address}</p>
-                          </div>
-                          <a
-                            href={mapProvider === "naver"
-                              ? `https://map.naver.com/v5/search/${encodeURIComponent(r.title + " " + r.address)}`
-                              : `https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`}
-                            target="_blank" rel="noopener noreferrer"
-                            style={{
-                              padding: "5px 12px", borderRadius: 8, fontSize: 12,
-                              background: "var(--bg)", border: "1px solid var(--border)",
-                              color: "var(--text-muted)", textDecoration: "none", flexShrink: 0,
-                              transition: "all 0.15s ease",
-                            }}
-                            onMouseOver={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
-                            onMouseOut={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-muted)"; }}
-                          >
-                            🗺️ 지도
-                          </a>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+      {/* 비공개 모임 비밀번호 다이얼로그 */}
+      {enterTarget && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          zIndex: 50, padding: 20,
+        }} onClick={(e) => { if (e.target === e.currentTarget) setEnterTarget(null); }}>
+          <div style={{
+            background: "var(--bg-card)", borderRadius: 20, padding: 32,
+            width: "100%", maxWidth: 380, boxShadow: "var(--shadow-lg)",
+          }}>
+            <p style={{ fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 600, marginBottom: 6 }}>
+              🔒 {enterTarget.name}
+            </p>
+            <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 20 }}>비밀번호를 입력하세요</p>
+            <input
+              autoFocus
+              type="password"
+              value={enterPassword}
+              onChange={(e) => { setEnterPassword(e.target.value); setPasswordError(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter") verifyPassword(); }}
+              placeholder="비밀번호"
+              style={{
+                width: "100%", padding: "12px 18px", borderRadius: 100,
+                border: `1.5px solid ${passwordError ? "var(--red)" : "var(--border)"}`,
+                background: "var(--bg)", fontSize: 15, color: "var(--text)", outline: "none",
+                marginBottom: passwordError ? 6 : 16,
+              }}
+            />
+            {passwordError && <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 14 }}>비밀번호가 틀렸습니다</p>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setEnterTarget(null)} style={{
+                flex: 1, padding: "11px", borderRadius: 100, border: "1.5px solid var(--border)",
+                background: "transparent", color: "var(--text-muted)", fontSize: 14, fontWeight: 500, cursor: "pointer",
+              }}>취소</button>
+              <button onClick={verifyPassword} style={{
+                flex: 2, padding: "11px", borderRadius: 100, border: "none",
+                background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
+              }}>입장</button>
+            </div>
           </div>
         </div>
       )}
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

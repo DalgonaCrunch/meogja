@@ -14,8 +14,17 @@ export function getSupabase(): SupabaseClient {
   return _supabase;
 }
 
+export type Group = {
+  id: string;
+  name: string;
+  is_private: boolean;
+  password: string | null;
+  created_at: string;
+};
+
 export type Member = {
   id: string;
+  group_id: string;
   name: string;
   created_at: string;
 };
