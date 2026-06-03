@@ -29,6 +29,46 @@ export type Member = {
   created_at: string;
 };
 
+export type Session = {
+  id: string;
+  group_id: string;
+  participant_names: string[];
+  created_at: string;
+  picks?: SessionPick[];
+};
+
+export type SessionPick = {
+  id: string;
+  session_id: string;
+  restaurant_name: string;
+  restaurant_address: string;
+  restaurant_category: string;
+  restaurant_link: string;
+  map_provider: string;
+  created_at: string;
+};
+
+export type Favorite = {
+  id: string;
+  group_id: string;
+  restaurant_name: string;
+  restaurant_address: string;
+  restaurant_category: string;
+  restaurant_link: string;
+  created_at: string;
+};
+
+export type Review = {
+  id: string;
+  group_id: string;
+  member_id: string | null;
+  restaurant_name: string;
+  rating: number;
+  comment: string;
+  visited_at: string;
+  created_at: string;
+};
+
 export type FoodPreference = {
   id: string;
   member_id: string;

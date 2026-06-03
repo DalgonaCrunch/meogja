@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories } from "@/lib/recommend";
+import HistoryTab from "./tabs/HistoryTab";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
 
@@ -24,7 +25,8 @@ export default function GroupPage() {
 
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
-  const [tab, setTab] = useState<"recommend" | "members">("recommend");
+  const [tab, setTab] = useState<"recommend" | "history" | "members">("recommend");
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   // 추천 탭
   const [selected, setSelected] = useState<string[]>([]);
@@ -56,8 +58,35 @@ export default function GroupPage() {
     loadGroup();
     loadMembers();
     loadCustomMenus();
+    loadFavorites();
     requestAutoLocation();
   }, [id]);
+
+  async function loadFavorites() {
+    const { data } = await getSupabase().from("favorites").select("restaurant_name").eq("group_id", id);
+    if (data) setFavorites(new Set(data.map((f) => f.restaurant_name)));
+  }
+
+  async function toggleFavorite(r: ScoredRestaurant) {
+    const isFav = favorites.has(r.title);
+    if (isFav) {
+      await getSupabase().from("favorites").delete().eq("group_id", id).eq("restaurant_name", r.title);
+      setFavorites((prev) => { const next = new Set(prev); next.delete(r.title); return next; });
+    } else {
+      await getSupabase().from("favorites").upsert({ group_id: id, restaurant_name: r.title, restaurant_address: r.address, restaurant_category: r.category, restaurant_link: r.link }, { onConflict: "group_id,restaurant_name", ignoreDuplicates: true });
+      setFavorites((prev) => new Set([...prev, r.title]));
+    }
+  }
+
+  async function saveSession(participants: string[], picks: ScoredRestaurant[]) {
+    if (picks.length === 0) return;
+    const participantNames = members.filter((m) => selected.includes(m.id)).map((m) => m.name);
+    const { data: session } = await getSupabase().from("sessions").insert({ group_id: id, participant_names: participantNames }).select().single();
+    if (!session) return;
+    await getSupabase().from("session_picks").insert(
+      picks.map((p) => ({ session_id: session.id, restaurant_name: p.title, restaurant_address: p.address, restaurant_category: p.category, restaurant_link: p.link, map_provider: mapProvider }))
+    );
+  }
 
   function requestAutoLocation() {
     if (!navigator.geolocation) return;
@@ -175,7 +204,9 @@ export default function GroupPage() {
     });
 
     scored.sort((a, b) => b.score - a.score);
-    setScoredRestaurants(scored.slice(0, 15));
+    const top = scored.slice(0, 15);
+    setScoredRestaurants(top);
+    saveSession(selected, top.slice(0, 5));
     setLoading(false);
   }
 
@@ -257,7 +288,7 @@ export default function GroupPage() {
 
       {/* 탭 */}
       <div className="fade-up fade-up-1" style={{ display: "flex", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 100, padding: 4, gap: 4, width: "fit-content" }}>
-        {([["recommend", "🍽 메뉴 추천"], ["members", "👥 멤버 관리"]] as const).map(([t, label]) => (
+        {([["recommend", "🍽 추천"], ["history", "📋 기록"], ["members", "👥 멤버"]] as const).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: "8px 22px", borderRadius: 100, border: "none", fontSize: 14, fontWeight: 600,
             background: tab === t ? "var(--text)" : "transparent",
@@ -439,13 +470,18 @@ export default function GroupPage() {
                         <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.category}</p>
                         <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{r.address}</p>
                       </div>
-                      <a href={mapProvider === "naver"
-                        ? `https://map.naver.com/v5/search/${encodeURIComponent(r.title + " " + r.address)}`
-                        : `https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`}
-                        target="_blank" rel="noopener noreferrer"
-                        style={{ padding: "7px 14px", borderRadius: 100, fontSize: 12, fontWeight: 600, background: "var(--bg)", border: "1.5px solid var(--border)", color: "var(--text-muted)", textDecoration: "none", flexShrink: 0 }}>
-                        🗺️ 지도
-                      </a>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => toggleFavorite(r)} style={{ padding: "7px 12px", borderRadius: 100, fontSize: 14, background: favorites.has(r.title) ? "#FFF8E1" : "var(--bg)", border: `1.5px solid ${favorites.has(r.title) ? "#F5A623" : "var(--border)"}`, color: favorites.has(r.title) ? "#F5A623" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s" }}>
+                          {favorites.has(r.title) ? "★" : "☆"}
+                        </button>
+                        <a href={mapProvider === "naver"
+                          ? `https://map.naver.com/v5/search/${encodeURIComponent(r.title + " " + r.address)}`
+                          : `https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`}
+                          target="_blank" rel="noopener noreferrer"
+                          style={{ padding: "7px 14px", borderRadius: 100, fontSize: 12, fontWeight: 600, background: "var(--bg)", border: "1.5px solid var(--border)", color: "var(--text-muted)", textDecoration: "none" }}>
+                          🗺️
+                        </a>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -453,6 +489,11 @@ export default function GroupPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── 기록 탭 ── */}
+      {tab === "history" && (
+        <HistoryTab groupId={id} members={members} mapProvider={mapProvider} />
       )}
 
       {/* ── 멤버 관리 탭 ── */}
