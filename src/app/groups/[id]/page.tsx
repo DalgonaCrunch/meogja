@@ -184,6 +184,10 @@ export default function GroupPage() {
     if (location) {
       params.set("x", String(location.lng));
       params.set("y", String(location.lat));
+      // 네이버는 지역명을 쿼리에 포함하는 방식
+      if (provider === "naver" && location.label) {
+        params.set("location", location.label);
+      }
     }
     try {
       const res = await fetch(`${endpoint}?${params}`);
