@@ -22,6 +22,8 @@ export default function Home() {
 
   // 모임 삭제
   const [deleteTarget, setDeleteTarget] = useState<Group | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deletePasswordError, setDeletePasswordError] = useState(false);
 
   useEffect(() => { loadGroups(); }, []);
 
@@ -46,8 +48,14 @@ export default function Home() {
   }
 
   async function deleteGroup(group: Group) {
+    if (group.is_private && deletePassword !== group.password) {
+      setDeletePasswordError(true);
+      return;
+    }
     await getSupabase().from("groups").delete().eq("id", group.id);
     setDeleteTarget(null);
+    setDeletePassword("");
+    setDeletePasswordError(false);
     loadGroups();
   }
 
@@ -231,14 +239,33 @@ export default function Home() {
       {/* 모임 삭제 확인 다이얼로그 */}
       {deleteTarget && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}
-          onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}>
+          onClick={(e) => { if (e.target === e.currentTarget) { setDeleteTarget(null); setDeletePassword(""); setDeletePasswordError(false); } }}>
           <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, width: "100%", maxWidth: 360, boxShadow: "var(--shadow-lg)" }}>
             <p style={{ fontFamily: "Fraunces, serif", fontSize: 18, fontWeight: 600, marginBottom: 8 }}>모임 삭제</p>
-            <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 20 }}>
-              <strong style={{ color: "var(--text)" }}>{deleteTarget.name}</strong> 모임을 삭제하면 멤버, 선호도, 히스토리가 모두 삭제됩니다. 계속하시겠습니까?
+            <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: deleteTarget.is_private ? 14 : 20 }}>
+              <strong style={{ color: "var(--text)" }}>{deleteTarget.name}</strong> 모임을 삭제하면 멤버, 선호도, 히스토리가 모두 삭제됩니다.
             </p>
+            {deleteTarget.is_private && (
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>🔒 비공개 모임 — 비밀번호를 입력하세요</p>
+                <input
+                  autoFocus
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => { setDeletePassword(e.target.value); setDeletePasswordError(false); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") deleteGroup(deleteTarget); }}
+                  placeholder="비밀번호"
+                  style={{
+                    width: "100%", padding: "10px 14px", borderRadius: 100,
+                    border: `1.5px solid ${deletePasswordError ? "var(--red)" : "var(--border)"}`,
+                    background: "var(--bg)", fontSize: 14, color: "var(--text)", outline: "none",
+                  }}
+                />
+                {deletePasswordError && <p style={{ fontSize: 12, color: "var(--red)", marginTop: 4 }}>비밀번호가 틀렸습니다</p>}
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setDeleteTarget(null)} style={{ flex: 1, padding: 11, borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>취소</button>
+              <button onClick={() => { setDeleteTarget(null); setDeletePassword(""); setDeletePasswordError(false); }} style={{ flex: 1, padding: 11, borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>취소</button>
               <button onClick={() => deleteGroup(deleteTarget)} style={{ flex: 2, padding: 11, borderRadius: 100, border: "none", background: "var(--red)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>삭제</button>
             </div>
           </div>

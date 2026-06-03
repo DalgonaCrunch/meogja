@@ -497,10 +497,15 @@ export default function GroupPage() {
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{members.length}명의 멤버</p>
         </div>
         <button onClick={async () => {
-          if (confirm(`"${group.name}" 모임을 삭제하시겠습니까?\n멤버, 선호도, 히스토리가 모두 삭제됩니다.`)) {
-            await getSupabase().from("groups").delete().eq("id", id);
-            router.push("/");
+          if (group.is_private) {
+            const pw = prompt(`"${group.name}" 비공개 모임\n삭제하려면 비밀번호를 입력하세요:`);
+            if (pw === null) return;
+            if (pw !== group.password) { alert("비밀번호가 틀렸습니다."); return; }
+          } else {
+            if (!confirm(`"${group.name}" 모임을 삭제하시겠습니까?\n멤버, 선호도, 히스토리가 모두 삭제됩니다.`)) return;
           }
+          await getSupabase().from("groups").delete().eq("id", id);
+          router.push("/");
         }} style={{ padding: "6px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
           삭제
         </button>
@@ -776,13 +781,22 @@ export default function GroupPage() {
             )}
           </div>
 
+          {/* 멤버 미선택 안내 */}
+          {selected.length === 0 && members.length > 0 && (
+            <div style={{ padding: "16px 20px", borderRadius: 14, background: "var(--accent-soft)", border: "1.5px dashed var(--accent)", color: "var(--accent)", fontSize: 14, fontWeight: 500, textAlign: "center" }}>
+              👆 위에서 오늘 참가할 멤버를 먼저 선택하세요
+            </div>
+          )}
+
           {/* 액션 바 */}
           {selected.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <button onClick={handleRecommend} disabled={loading} style={{
-                background: loading ? "var(--border)" : "var(--accent)", color: loading ? "var(--text-muted)" : "#fff",
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <button onClick={handleRecommend} disabled={loading || providers.size === 0} style={{
+                background: (loading || providers.size === 0) ? "var(--border)" : "var(--accent)",
+                color: (loading || providers.size === 0) ? "var(--text-muted)" : "#fff",
                 border: "none", borderRadius: 100, padding: "12px 28px", fontSize: 15, fontWeight: 600,
-                cursor: loading ? "default" : "pointer", transition: "all 0.15s",
+                cursor: (loading || providers.size === 0) ? "default" : "pointer", transition: "all 0.15s",
               }}>
                 {loading ? "주변 식당 검색 중…" : `${selected.length}명 기준 주변 맛집 추천 →`}
               </button>
@@ -795,7 +809,7 @@ export default function GroupPage() {
                     <button key={p} onClick={() => {
                       setProviders((prev) => {
                         const next = new Set(prev);
-                        if (next.has(p) && next.size > 1) next.delete(p);
+                        if (next.has(p)) next.delete(p);
                         else next.add(p);
                         return next;
                       });
@@ -812,6 +826,10 @@ export default function GroupPage() {
               </div>
               {location && <span style={{ fontSize: 12, color: "var(--green)" }}>📍 {location.label || "위치 설정됨"}</span>}
               {!location && <span style={{ fontSize: 12, color: "var(--text-muted)" }}>📍 위치 미설정 (거리 무관 검색)</span>}
+            </div>
+              {providers.size === 0 && (
+                <p style={{ fontSize: 12, color: "var(--red)", fontWeight: 500 }}>⚠️ 네이버 또는 카카오 중 최소 하나를 선택하세요</p>
+              )}
             </div>
           )}
 
