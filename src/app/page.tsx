@@ -20,6 +20,9 @@ export default function Home() {
   const [enterPassword, setEnterPassword] = useState("");
   const [passwordError, setPasswordError] = useState(false);
 
+  // 모임 삭제
+  const [deleteTarget, setDeleteTarget] = useState<Group | null>(null);
+
   useEffect(() => { loadGroups(); }, []);
 
   async function loadGroups() {
@@ -40,6 +43,12 @@ export default function Home() {
       .select().single();
     setCreating(false);
     if (data) router.push(`/groups/${data.id}`);
+  }
+
+  async function deleteGroup(group: Group) {
+    await getSupabase().from("groups").delete().eq("id", group.id);
+    setDeleteTarget(null);
+    loadGroups();
   }
 
   function handleEnter(group: Group) {
@@ -138,19 +147,17 @@ export default function Home() {
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[...publicGroups, ...privateGroups].map((group, i) => (
-              <button key={group.id} onClick={() => handleEnter(group)}
+              <div key={group.id}
                 className={`fade-up fade-up-${Math.min(i + 1, 5)}`}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   padding: "18px 22px", borderRadius: 16,
                   background: "var(--bg-card)", border: "1px solid var(--border)",
-                  boxShadow: "var(--shadow)", cursor: "pointer", textAlign: "left",
+                  boxShadow: "var(--shadow)", textAlign: "left",
                   transition: "all 0.15s",
                 }}
-                onMouseOver={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "var(--shadow-lg)"; }}
-                onMouseOut={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "var(--shadow)"; }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button onClick={() => handleEnter(group)} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
                   <span style={{ fontSize: 22 }}>{group.is_private ? "🔒" : "🌐"}</span>
                   <div>
                     <p style={{ fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, color: "var(--text)" }}>{group.name}</p>
@@ -158,9 +165,14 @@ export default function Home() {
                       {group.is_private ? "비공개 모임" : "공개 모임"} · {new Date(group.created_at).toLocaleDateString("ko-KR")}
                     </p>
                   </div>
+                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 18, color: "var(--text-muted)" }}>→</span>
+                  <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(group); }} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title="모임 삭제">
+                    ✕
+                  </button>
                 </div>
-                <span style={{ fontSize: 18, color: "var(--text-muted)" }}>→</span>
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -211,6 +223,23 @@ export default function Home() {
                 flex: 2, padding: "11px", borderRadius: 100, border: "none",
                 background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
               }}>입장</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모임 삭제 확인 다이얼로그 */}
+      {deleteTarget && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}>
+          <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, width: "100%", maxWidth: 360, boxShadow: "var(--shadow-lg)" }}>
+            <p style={{ fontFamily: "Fraunces, serif", fontSize: 18, fontWeight: 600, marginBottom: 8 }}>모임 삭제</p>
+            <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 20 }}>
+              <strong style={{ color: "var(--text)" }}>{deleteTarget.name}</strong> 모임을 삭제하면 멤버, 선호도, 히스토리가 모두 삭제됩니다. 계속하시겠습니까?
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setDeleteTarget(null)} style={{ flex: 1, padding: 11, borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>취소</button>
+              <button onClick={() => deleteGroup(deleteTarget)} style={{ flex: 2, padding: 11, borderRadius: 100, border: "none", background: "var(--red)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>삭제</button>
             </div>
           </div>
         </div>

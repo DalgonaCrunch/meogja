@@ -456,12 +456,20 @@ export default function GroupPage() {
       {/* 헤더 */}
       <div className="fade-up" style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <button onClick={() => router.push("/")} style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid var(--border)", background: "transparent", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>←</button>
-        <div>
+        <div style={{ flex: 1 }}>
           <h1 style={{ fontFamily: "Fraunces, serif", fontSize: "clamp(24px,4vw,36px)", fontWeight: 600, lineHeight: 1.1 }}>
             {group.is_private ? "🔒 " : "🌐 "}{group.name}
           </h1>
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{members.length}명의 멤버</p>
         </div>
+        <button onClick={async () => {
+          if (confirm(`"${group.name}" 모임을 삭제하시겠습니까?\n멤버, 선호도, 히스토리가 모두 삭제됩니다.`)) {
+            await getSupabase().from("groups").delete().eq("id", id);
+            router.push("/");
+          }
+        }} style={{ padding: "6px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+          삭제
+        </button>
       </div>
 
       {/* 탭 */}
