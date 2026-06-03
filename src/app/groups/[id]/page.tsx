@@ -26,9 +26,15 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string
 
 function getSizeModifier(count: number): string {
   if (count === 1) return "혼밥";
-  if (count === 2) return "데이트";
   if (count >= 6 && count <= 10) return "단체석";
   if (count > 10) return "단체석 대관";
+  return "";
+}
+
+function getSizeLabel(count: number): string {
+  if (count === 1) return "혼밥 식당 우선";
+  if (count >= 6 && count <= 10) return "단체석 식당 우선";
+  if (count > 10) return "대규모 단체 식당 우선";
   return "";
 }
 
@@ -234,7 +240,12 @@ export default function GroupPage() {
 
   async function loadMembers() {
     const { data } = await getSupabase().from("members").select("*").eq("group_id", id).order("name");
-    if (data) setMembers(data);
+    if (data) {
+      setMembers(data);
+      // 삭제된 멤버가 선택 목록에 있으면 제거
+      const validIds = new Set(data.map((m) => m.id));
+      setSelected((prev) => prev.filter((id) => validIds.has(id)));
+    }
   }
 
   // 추천 탭 함수들
@@ -490,7 +501,7 @@ export default function GroupPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
               <a href={r.link} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, color: "var(--text)", textDecoration: "none" }}>{r.title}</a>
               {r.distance !== null && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--green-soft)", color: "var(--green)", fontWeight: 600, flexShrink: 0 }}>📍 {formatDistance(r.distance)}</span>}
-              {reviewAvgs[r.title] && <span style={{ fontSize: 12, color: "#F5A623", fontWeight: 700, flexShrink: 0 }}>★ {reviewAvgs[r.title].toFixed(1)}</span>}
+              {reviewAvgs[r.title] && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 700, flexShrink: 0 }}>⭐ 모임 {reviewAvgs[r.title].toFixed(1)}</span>}
               {r.score > 0 && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 600, flexShrink: 0 }}>👍 선호</span>}
               {r.matchedLikes.slice(0, 1).map((like) => <span key={like} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 500, flexShrink: 0 }}>{like}</span>)}
             </div>
@@ -631,9 +642,9 @@ export default function GroupPage() {
                 <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
                   👥 {selected.length}명
                 </span>
-                {getSizeModifier(selected.length) && (
+                {getSizeLabel(selected.length) && (
                   <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600 }}>
-                    {getSizeModifier(selected.length)} 적합 식당 우선
+                    {getSizeLabel(selected.length)}
                   </span>
                 )}
               </div>
@@ -964,7 +975,7 @@ export default function GroupPage() {
                   <button onClick={() => { setScoredRestaurants([]); searchMode === "menu" ? handleRestaurantByMenus() : handleRecommend(); }} style={{ padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 600, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer" }}>
                     🔄 재검색
                   </button>
-                  {([["distance","📍 거리순"],["score","👍 선호순"],["rating","★ 별점순"],["category","🏷 카테고리"]] as const).map(([s, label]) => (
+                  {([["distance","📍 거리순"],["score","👍 선호순"],["rating","⭐ 모임별점"],["category","🏷 카테고리"]] as const).map(([s, label]) => (
                     <button key={s} onClick={() => setSortBy(s)} style={{
                       padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 600,
                       border: sortBy === s ? "2px solid var(--accent)" : "1.5px solid var(--border)",
