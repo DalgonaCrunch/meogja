@@ -32,7 +32,11 @@ export default function GroupPage() {
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
   const [mapProvider, setMapProvider] = useState<"naver" | "kakao">("naver");
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [location, setLocation] = useState<{ lat: number; lng: number; label?: string; address?: string } | null>(null);
+  const [locationMode, setLocationMode] = useState<"auto" | "manual">("auto");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationResults, setLocationResults] = useState<{ name: string; address: string; lat: number; lng: number }[]>([]);
+  const [searchingLocation, setSearchingLocation] = useState(false);
 
   // 멤버 관리 탭
   const [newName, setNewName] = useState("");
@@ -52,14 +56,32 @@ export default function GroupPage() {
     loadGroup();
     loadMembers();
     loadCustomMenus();
-    if (navigator.geolocation) {
-      setLocating(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => { setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocating(false); },
-        () => setLocating(false)
-      );
-    }
+    requestAutoLocation();
   }, [id]);
+
+  function requestAutoLocation() {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: "현재 위치" }); setLocating(false); },
+      () => setLocating(false)
+    );
+  }
+
+  async function searchLocation() {
+    if (!locationQuery.trim()) return;
+    setSearchingLocation(true);
+    const res = await fetch(`/api/geocode?query=${encodeURIComponent(locationQuery)}`);
+    const data = await res.json();
+    setLocationResults(data.places || []);
+    setSearchingLocation(false);
+  }
+
+  function selectLocation(place: { name: string; address: string; lat: number; lng: number }) {
+    setLocation({ lat: place.lat, lng: place.lng, label: place.name, address: place.address });
+    setLocationResults([]);
+    setLocationQuery("");
+  }
 
   async function loadCustomMenus() {
     const { data } = await getSupabase().from("custom_menus").select("name").order("created_at", { ascending: false });
@@ -281,10 +303,88 @@ export default function GroupPage() {
             )}
           </div>
 
+          {/* 위치 설정 */}
+          <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: 22, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 14 }}>검색 위치</p>
+
+            {/* 현재 위치 / 직접 지정 토글 */}
+            <div style={{ display: "flex", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 100, padding: 3, gap: 3, marginBottom: 14, width: "fit-content" }}>
+              <button onClick={() => { setLocationMode("auto"); requestAutoLocation(); }} style={{
+                padding: "6px 18px", borderRadius: 100, border: "none", fontSize: 13, fontWeight: 600,
+                background: locationMode === "auto" ? "var(--text)" : "transparent",
+                color: locationMode === "auto" ? "#fff" : "var(--text-muted)",
+                cursor: "pointer", transition: "all 0.15s",
+              }}>📍 현재 위치</button>
+              <button onClick={() => setLocationMode("manual")} style={{
+                padding: "6px 18px", borderRadius: 100, border: "none", fontSize: 13, fontWeight: 600,
+                background: locationMode === "manual" ? "var(--text)" : "transparent",
+                color: locationMode === "manual" ? "#fff" : "var(--text-muted)",
+                cursor: "pointer", transition: "all 0.15s",
+              }}>🔍 직접 지정</button>
+            </div>
+
+            {/* 현재 위치 상태 */}
+            {locationMode === "auto" && (
+              <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                {locating && <span style={{ color: "var(--accent)" }}>위치 확인 중…</span>}
+                {location && !locating && <span style={{ color: "var(--green)" }}>✓ {location.label}</span>}
+                {!location && !locating && (
+                  <span>
+                    위치 권한이 없습니다.{" "}
+                    <button onClick={requestAutoLocation} style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>다시 시도</button>
+                    {" "}또는{" "}
+                    <button onClick={() => setLocationMode("manual")} style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>직접 지정</button>
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* 직접 지정 입력 */}
+            {locationMode === "manual" && (
+              <div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <input
+                    value={locationQuery}
+                    onChange={(e) => setLocationQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") searchLocation(); }}
+                    placeholder="장소명 또는 주소 입력 (예: 강남역, 판교테크노밸리)"
+                    style={{ flex: 1, padding: "9px 16px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 13, color: "var(--text)", outline: "none" }}
+                    onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
+                    onBlur={(e) => e.target.style.borderColor = "var(--border)"}
+                  />
+                  <button onClick={searchLocation} disabled={searchingLocation} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    {searchingLocation ? "…" : "검색"}
+                  </button>
+                </div>
+                {/* 검색 결과 */}
+                {locationResults.length > 0 && (
+                  <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+                    {locationResults.map((p, i) => (
+                      <button key={i} onClick={() => selectLocation(p)} style={{
+                        display: "block", width: "100%", padding: "10px 14px", textAlign: "left",
+                        background: "transparent", border: "none", borderBottom: i < locationResults.length - 1 ? "1px solid var(--border)" : "none",
+                        cursor: "pointer", transition: "background 0.1s",
+                      }}
+                        onMouseOver={(e) => e.currentTarget.style.background = "var(--bg)"}
+                        onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
+                      >
+                        <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{p.name}</p>
+                        <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{p.address}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {location && locationMode === "manual" && (
+                  <p style={{ fontSize: 12, color: "var(--green)", marginTop: 8 }}>✓ {location.label} ({location.address || ""})</p>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* 액션 바 */}
           {selected.length > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <button onClick={handleRecommend} disabled={loading || (!location && !locating)} style={{
+              <button onClick={handleRecommend} disabled={loading} style={{
                 background: loading ? "var(--border)" : "var(--accent)", color: loading ? "var(--text-muted)" : "#fff",
                 border: "none", borderRadius: 100, padding: "12px 28px", fontSize: 15, fontWeight: 600,
                 cursor: loading ? "default" : "pointer", transition: "all 0.15s",
@@ -301,9 +401,8 @@ export default function GroupPage() {
                   }}>{p === "naver" ? "네이버" : "카카오"}</button>
                 ))}
               </div>
-              {locating && <span style={{ fontSize: 12, color: "var(--accent)" }}>📍 위치 확인 중…</span>}
-              {location && !locating && <span style={{ fontSize: 12, color: "var(--green)" }}>📍 현재 위치 기준</span>}
-              {!location && !locating && <span style={{ fontSize: 12, color: "var(--red)" }}>📍 위치 권한 필요</span>}
+              {location && <span style={{ fontSize: 12, color: "var(--green)" }}>📍 {location.label || "위치 설정됨"}</span>}
+              {!location && <span style={{ fontSize: 12, color: "var(--text-muted)" }}>📍 위치 미설정 (거리 무관 검색)</span>}
             </div>
           )}
 
