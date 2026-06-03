@@ -51,6 +51,7 @@ export default function GroupPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [tab, setTab] = useState<"recommend" | "history" | "members">("recommend");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [reviewAvgs, setReviewAvgs] = useState<Record<string, number>>({});
 
   // 추천 탭
   const [selected, setSelected] = useState<string[]>([]);
@@ -84,8 +85,24 @@ export default function GroupPage() {
     loadMembers();
     loadCustomMenus();
     loadFavorites();
+    loadReviewAvgs();
     requestAutoLocation();
   }, [id]);
+
+  async function loadReviewAvgs() {
+    const { data } = await getSupabase().from("reviews").select("restaurant_name, rating").eq("group_id", id);
+    if (!data) return;
+    const map: Record<string, number[]> = {};
+    data.forEach((r) => {
+      if (!map[r.restaurant_name]) map[r.restaurant_name] = [];
+      map[r.restaurant_name].push(r.rating);
+    });
+    const avgs: Record<string, number> = {};
+    Object.entries(map).forEach(([name, ratings]) => {
+      avgs[name] = ratings.reduce((s, r) => s + r, 0) / ratings.length;
+    });
+    setReviewAvgs(avgs);
+  }
 
   async function loadFavorites() {
     const { data } = await getSupabase().from("favorites").select("restaurant_name").eq("group_id", id);
@@ -162,8 +179,9 @@ export default function GroupPage() {
     const endpoint = mapProvider === "naver" ? "/api/search" : "/api/search-kakao";
     const params = new URLSearchParams({ query, radius: String(radius) });
     if (location) {
-      params.set("x", mapProvider === "naver" ? String(Math.round(location.lng * 1e7)) : String(location.lng));
-      params.set("y", mapProvider === "naver" ? String(Math.round(location.lat * 1e7)) : String(location.lat));
+      // 네이버/카카오 모두 decimal degrees (소수점 좌표)로 전달
+      params.set("x", String(location.lng));
+      params.set("y", String(location.lat));
     }
     try {
       const res = await fetch(`${endpoint}?${params}`);
@@ -514,28 +532,38 @@ export default function GroupPage() {
                               📍 {formatDistance(r.distance)}
                             </span>
                           )}
-                          {r.score > 0 && (
-                            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 600, flexShrink: 0 }}>
-                              👍 선호 일치
+                          {reviewAvgs[r.title] && (
+                            <span style={{ fontSize: 12, color: "#F5A623", fontWeight: 700, flexShrink: 0 }}>
+                              ★ {reviewAvgs[r.title].toFixed(1)}
                             </span>
                           )}
-                          {r.matchedLikes.slice(0, 2).map((like) => (
+                          {r.score > 0 && (
+                            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 600, flexShrink: 0 }}>
+                              👍 선호
+                            </span>
+                          )}
+                          {r.matchedLikes.slice(0, 1).map((like) => (
                             <span key={like} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 500, flexShrink: 0 }}>{like}</span>
                           ))}
                         </div>
                         <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.category}</p>
                         <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{r.address}</p>
                       </div>
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => toggleFavorite(r)} style={{ padding: "7px 12px", borderRadius: 100, fontSize: 14, background: favorites.has(r.title) ? "#FFF8E1" : "var(--bg)", border: `1.5px solid ${favorites.has(r.title) ? "#F5A623" : "var(--border)"}`, color: favorites.has(r.title) ? "#F5A623" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s" }}>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+                        <button onClick={() => toggleFavorite(r)} style={{ width: 34, height: 34, borderRadius: "50%", fontSize: 16, background: favorites.has(r.title) ? "#FFF8E1" : "var(--bg)", border: `1.5px solid ${favorites.has(r.title) ? "#F5A623" : "var(--border)"}`, color: favorites.has(r.title) ? "#F5A623" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           {favorites.has(r.title) ? "★" : "☆"}
                         </button>
-                        <a href={mapProvider === "naver"
-                          ? `https://map.naver.com/v5/search/${encodeURIComponent(r.title + " " + r.address)}`
-                          : `https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`}
+                        <a href={`https://map.naver.com/v5/search/${encodeURIComponent(r.title + " " + r.address)}`}
                           target="_blank" rel="noopener noreferrer"
-                          style={{ padding: "7px 14px", borderRadius: 100, fontSize: 12, fontWeight: 600, background: "var(--bg)", border: "1.5px solid var(--border)", color: "var(--text-muted)", textDecoration: "none" }}>
-                          🗺️
+                          style={{ width: 34, height: 34, borderRadius: "50%", background: "#03C75A", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }}
+                          title="네이버지도">
+                          <span style={{ color: "#fff", fontWeight: 900, fontSize: 13 }}>N</span>
+                        </a>
+                        <a href={`https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`}
+                          target="_blank" rel="noopener noreferrer"
+                          style={{ width: 34, height: 34, borderRadius: "50%", background: "#FAE100", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }}
+                          title="카카오맵">
+                          <span style={{ color: "#3A1D1D", fontWeight: 900, fontSize: 13 }}>K</span>
                         </a>
                       </div>
                     </div>

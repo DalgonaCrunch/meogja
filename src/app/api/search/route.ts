@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("query");
-  const x = request.nextUrl.searchParams.get("x");
-  const y = request.nextUrl.searchParams.get("y");
+  const x = request.nextUrl.searchParams.get("x"); // longitude (decimal degrees)
+  const y = request.nextUrl.searchParams.get("y"); // latitude (decimal degrees)
   const radius = request.nextUrl.searchParams.get("radius") || "1000";
 
   if (!query) return NextResponse.json({ error: "query required" }, { status: 400 });
@@ -13,13 +13,13 @@ export async function GET(request: NextRequest) {
   if (!clientId || !clientSecret) return NextResponse.json({ error: "Naver API credentials not configured" }, { status: 500 });
 
   const params = new URLSearchParams({
-    query: `${query}`,
+    query: `${query} 맛집`,
     display: "5",
     sort: x && y ? "random" : "comment",
   });
 
   if (x && y) {
-    params.set("x", x);
+    params.set("x", x); // decimal degrees
     params.set("y", y);
   }
 
@@ -33,23 +33,19 @@ export async function GET(request: NextRequest) {
   }
 
   const data = await res.json();
-
-  // 네이버는 mapx/mapy가 좌표 * 10^7 형태
-  const userX = x ? parseInt(x) : null;
-  const userY = y ? parseInt(y) : null;
+  const userLng = x ? parseFloat(x) : null;
+  const userLat = y ? parseFloat(y) : null;
   const radiusM = parseInt(radius);
 
   const items = (data.items || [])
     .map((d: Record<string, string>) => {
-      const itemX = parseInt(d.mapx);
-      const itemY = parseInt(d.mapy);
+      // 네이버 mapx/mapy는 * 1e7 형태
+      const itemLng = parseInt(d.mapx) / 1e7;
+      const itemLat = parseInt(d.mapy) / 1e7;
       let distance: number | null = null;
 
-      if (userX && userY && itemX && itemY) {
-        // 좌표를 도 단위로 변환 후 거리 계산
-        const lng1 = userX / 1e7, lat1 = userY / 1e7;
-        const lng2 = itemX / 1e7, lat2 = itemY / 1e7;
-        distance = haversine(lat1, lng1, lat2, lng2);
+      if (userLng && userLat && itemLng && itemLat) {
+        distance = haversine(userLat, userLng, itemLat, itemLng);
       }
 
       return {
@@ -62,11 +58,11 @@ export async function GET(request: NextRequest) {
         distance,
       };
     })
-    .filter((item: { distance: number | null }) => item.distance === null || item.distance <= radiusM);
+    .filter((item: { distance: number | null }) => !userLng || item.distance === null || item.distance <= radiusM);
 
   items.sort((a: { distance: number | null }, b: { distance: number | null }) => {
-    if (a.distance === null || b.distance === null) return 0;
-    return a.distance - b.distance;
+    if (a.distance !== null && b.distance !== null) return a.distance - b.distance;
+    return 0;
   });
 
   return NextResponse.json({ items });
