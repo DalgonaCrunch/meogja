@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendations } from "@/lib/recommend";
+import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import HistoryTab from "./tabs/HistoryTab";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
@@ -97,6 +98,9 @@ export default function GroupPage() {
 
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [currentUser, setCurrentUser] = useState<CurrentUser>({ type: "none" });
+  const [isOwner, setIsOwner] = useState(false);
+  const [myMemberId, setMyMemberId] = useState<string | null>(null);
   const [tab, setTab] = useState<"recommend" | "history" | "members">("recommend");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [reviewAvgs, setReviewAvgs] = useState<Record<string, number>>({});
@@ -122,6 +126,8 @@ export default function GroupPage() {
   const [searchMode, setSearchMode] = useState<"restaurant" | "menu">("restaurant");
   const [menuRecommendations, setMenuRecommendations] = useState<{ menu: string; large: string; medium: string; score: number }[]>([]);
   const [selectedMenus, setSelectedMenus] = useState<string[]>([]);
+  const [voteUrl, setVoteUrl] = useState<string | null>(null);
+  const [creatingVote, setCreatingVote] = useState(false);
   const [locationMode, setLocationMode] = useState<"auto" | "manual">("auto");
   const [locationQuery, setLocationQuery] = useState("");
   const [locationResults, setLocationResults] = useState<{ name: string; address: string; lat: number; lng: number }[]>([]);
@@ -148,6 +154,7 @@ export default function GroupPage() {
     loadFavorites();
     loadReviewAvgs();
     requestAutoLocation();
+    getCurrentUser().then(setCurrentUser);
   }, [id]);
 
   async function loadReviewAvgs() {
@@ -236,15 +243,26 @@ export default function GroupPage() {
     const { data } = await getSupabase().from("groups").select("*").eq("id", id).single();
     if (!data) { router.push("/"); return; }
     setGroup(data);
+    const user = await getCurrentUser();
+    setCurrentUser(user);
+    if (user.type === "auth") setIsOwner(data.owner_id === user.user.id);
   }
 
   async function loadMembers() {
     const { data } = await getSupabase().from("members").select("*").eq("group_id", id).order("name");
     if (data) {
       setMembers(data);
-      // 삭제된 멤버가 선택 목록에 있으면 제거
       const validIds = new Set(data.map((m) => m.id));
       setSelected((prev) => prev.filter((id) => validIds.has(id)));
+      // 내 멤버 찾기
+      const user = await getCurrentUser();
+      if (user.type === "auth") {
+        const mine = data.find((m) => m.user_id === user.user.id);
+        setMyMemberId(mine?.id || null);
+      } else if (user.type === "guest") {
+        const mine = data.find((m) => m.guest_name === user.user.name || m.name === user.user.name);
+        setMyMemberId(mine?.id || null);
+      }
     }
   }
 
@@ -282,6 +300,25 @@ export default function GroupPage() {
     const providerList = [...providers];
     const results = await Promise.all(providerList.map((p) => searchNearbyFromProvider(query, p)));
     return results.flat();
+  }
+
+  async function startVote() {
+    if (scoredRestaurants.length === 0) return;
+    setCreatingVote(true);
+    const top5 = scoredRestaurants.slice(0, 5).map((r) => ({ title: r.title, address: r.address, category: r.category }));
+    const creatorName = currentUser.type === "auth" ? currentUser.user.display_name : currentUser.type === "guest" ? currentUser.user.name : "모임장";
+    const { data } = await getSupabase().from("group_votes").insert({
+      group_id: id,
+      title: "오늘의 식당 투표",
+      restaurants: top5,
+      created_by: creatorName,
+    }).select().single();
+    if (data) {
+      const url = `${window.location.origin}/vote/${data.id}`;
+      setVoteUrl(url);
+      await navigator.clipboard.writeText(url);
+    }
+    setCreatingVote(false);
   }
 
   async function handleMenuRecommend() {
@@ -432,8 +469,22 @@ export default function GroupPage() {
   async function addMember() {
     const name = newName.trim();
     if (!name) return;
-    await getSupabase().from("members").insert({ name, group_id: id });
+    const userId = currentUser.type === "auth" ? currentUser.user.id : null;
+    const guestName = currentUser.type === "guest" ? currentUser.user.name : null;
+    await getSupabase().from("members").insert({ name, group_id: id, user_id: userId, guest_name: guestName });
     setNewName("");
+    loadMembers();
+  }
+
+  async function joinAsMyself() {
+    // 현재 사용자 이름으로 멤버 추가
+    const name = currentUser.type === "auth"
+      ? (currentUser.user.display_name || currentUser.user.email?.split("@")[0] || "사용자")
+      : currentUser.type === "guest" ? currentUser.user.name : null;
+    if (!name) return;
+    const userId = currentUser.type === "auth" ? currentUser.user.id : null;
+    const guestName = currentUser.type === "guest" ? currentUser.user.name : null;
+    await getSupabase().from("members").upsert({ name, group_id: id, user_id: userId, guest_name: guestName }, { onConflict: "group_id,name", ignoreDuplicates: true });
     loadMembers();
   }
 
@@ -499,14 +550,29 @@ export default function GroupPage() {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-              <a href={r.link} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, color: "var(--text)", textDecoration: "none" }}>{r.title}</a>
+              {/* 이름 클릭 → 네이버 지도 검색 */}
+              <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--text)", textDecoration: "none" }}
+                onMouseOver={(e) => e.currentTarget.style.color = "var(--accent)"}
+                onMouseOut={(e) => e.currentTarget.style.color = "var(--text)"}
+              >{r.title}</a>
               {r.distance !== null && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--green-soft)", color: "var(--green)", fontWeight: 600, flexShrink: 0 }}>📍 {formatDistance(r.distance)}</span>}
               {reviewAvgs[r.title] && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 700, flexShrink: 0 }}>⭐ 모임 {reviewAvgs[r.title].toFixed(1)}</span>}
-              {r.score > 0 && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 600, flexShrink: 0 }}>👍 선호</span>}
+              {r.score > 0 && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, flexShrink: 0 }}>👍 선호</span>}
               {r.matchedLikes.slice(0, 1).map((like) => <span key={like} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 500, flexShrink: 0 }}>{like}</span>)}
             </div>
             <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.category}</p>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{r.address}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.address}</p>
+              {/* 홈페이지 링크: 유효한 http URL일 때만 표시 */}
+              {r.link && r.link.startsWith("http") && (
+                <a href={r.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "var(--text-muted)", textDecoration: "none", display: "flex", alignItems: "center", gap: 3, padding: "1px 6px", border: "1px solid var(--border)", borderRadius: 6, whiteSpace: "nowrap" }}
+                  onMouseOver={(e) => { e.currentTarget.style.color = "var(--accent)"; e.currentTarget.style.borderColor = "var(--accent)"; }}
+                  onMouseOut={(e) => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.borderColor = "var(--border)"; }}
+                >
+                  🌐 홈페이지
+                </a>
+              )}
+            </div>
           </div>
           <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
             <button onClick={() => toggleFavorite(r)} style={{ width: 34, height: 34, borderRadius: "50%", fontSize: 16, background: favorites.has(r.title) ? "#FFF8E1" : "var(--bg)", border: `1.5px solid ${favorites.has(r.title) ? "#F5A623" : "var(--border)"}`, color: favorites.has(r.title) ? "#F5A623" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -557,6 +623,18 @@ export default function GroupPage() {
           </h1>
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{members.length}명의 멤버</p>
         </div>
+        {/* 공유 버튼 */}
+        <button onClick={async () => {
+          const url = window.location.href;
+          if (navigator.share) {
+            navigator.share({ title: group.name, text: `"${group.name}" 모임에 참여하세요!`, url });
+          } else {
+            await navigator.clipboard.writeText(url);
+            alert("링크가 복사되었습니다!");
+          }
+        }} style={{ padding: "6px 12px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>
+          🔗 공유
+        </button>
         <button onClick={async () => {
           if (group.is_private) {
             const pw = prompt(`"${group.name}" 비공개 모임\n삭제하려면 비밀번호를 입력하세요:`);
@@ -964,6 +1042,19 @@ export default function GroupPage() {
             </div>
           )}
 
+          {voteUrl && (
+            <div style={{ padding: "14px 18px", borderRadius: 14, background: "var(--accent-soft)", border: "1.5px solid var(--accent)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>🗳️ 투표 링크가 복사되었습니다!</p>
+                <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>멤버들에게 공유하세요</p>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => navigator.clipboard.writeText(voteUrl)} style={{ padding: "6px 12px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>복사</button>
+                <a href={voteUrl} target="_blank" rel="noopener noreferrer" style={{ padding: "6px 12px", borderRadius: 100, border: "1.5px solid var(--accent)", color: "var(--accent)", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>열기</a>
+              </div>
+            </div>
+          )}
+
           {scoredRestaurants.length > 0 && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
@@ -972,8 +1063,11 @@ export default function GroupPage() {
                   <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)", marginLeft: 10 }}>{scoredRestaurants.length}곳</span>
                 </p>
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  <button onClick={() => { setScoredRestaurants([]); searchMode === "menu" ? handleRestaurantByMenus() : handleRecommend(); }} style={{ padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 600, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer" }}>
+                  <button onClick={() => { setScoredRestaurants([]); setVoteUrl(null); searchMode === "menu" ? handleRestaurantByMenus() : handleRecommend(); }} style={{ padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 600, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer" }}>
                     🔄 재검색
+                  </button>
+                  <button onClick={startVote} disabled={creatingVote} style={{ padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 600, border: "1.5px solid var(--accent)", background: "var(--accent-soft)", color: "var(--accent)", cursor: "pointer" }}>
+                    🗳️ {creatingVote ? "링크 생성 중…" : "투표 시작"}
                   </button>
                   {([["distance","📍 거리순"],["score","👍 선호순"],["rating","⭐ 모임별점"],["category","🏷 카테고리"]] as const).map(([s, label]) => (
                     <button key={s} onClick={() => setSortBy(s)} style={{
@@ -1030,14 +1124,27 @@ export default function GroupPage() {
       {tab === "members" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-          {/* 멤버 추가 */}
-          <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: 22, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 12 }}>새 멤버</p>
-            <form onSubmit={(e) => { e.preventDefault(); addMember(); }} style={{ display: "flex", gap: 8 }}>
-              <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="이름 입력" style={{ flex: 1, padding: "10px 16px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 14, color: "var(--text)", outline: "none" }} onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
-              <button type="submit" style={{ padding: "10px 20px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>추가</button>
-            </form>
-          </div>
+          {/* 멤버 추가 — 모임장만 자유롭게 추가, 일반 참여자는 본인만 참여 */}
+          {isOwner ? (
+            <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: 22, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 12 }}>새 멤버 추가 (모임장)</p>
+              <form onSubmit={(e) => { e.preventDefault(); addMember(); }} style={{ display: "flex", gap: 8 }}>
+                <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="이름 입력" style={{ flex: 1, padding: "10px 16px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 14, color: "var(--text)", outline: "none" }} onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
+                <button type="submit" style={{ padding: "10px 20px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>추가</button>
+              </form>
+            </div>
+          ) : myMemberId ? (
+            <div style={{ padding: "12px 16px", borderRadius: 12, background: "var(--green-soft)", border: "1px solid var(--green)", color: "var(--green)", fontSize: 13, fontWeight: 600 }}>
+              ✓ 이 모임에 참여 중입니다
+            </div>
+          ) : (
+            <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: 20, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 12 }}>이 모임에 참여하면 선호도를 설정할 수 있습니다</p>
+              <button onClick={joinAsMyself} style={{ padding: "10px 24px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                {currentUser.type === "auth" ? currentUser.user.display_name || "내 이름" : currentUser.type === "guest" ? currentUser.user.name : "이름"} 으로 참여하기
+              </button>
+            </div>
+          )}
 
           {/* 멤버 목록 */}
           {members.map((m, idx) => {
@@ -1051,10 +1158,16 @@ export default function GroupPage() {
                     <span style={{ fontSize: 15, fontWeight: 600 }}>{m.name}</span>
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => toggleExpand(m.id)} style={{ padding: "5px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, border: "1.5px solid var(--border)", background: isExpanded ? "var(--text)" : "transparent", color: isExpanded ? "#fff" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s" }}>
-                      {isExpanded ? "접기" : "선호도"}
-                    </button>
-                    <button onClick={() => deleteMember(m.id)} style={{ padding: "5px 12px", borderRadius: 100, fontSize: 12, border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", cursor: "pointer" }}>삭제</button>
+                    {/* 선호도 편집: 모임장 or 본인 멤버만 */}
+                    {(isOwner || m.id === myMemberId) && (
+                      <button onClick={() => toggleExpand(m.id)} style={{ padding: "5px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, border: "1.5px solid var(--border)", background: isExpanded ? "var(--text)" : "transparent", color: isExpanded ? "#fff" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s" }}>
+                        {isExpanded ? "접기" : "선호도"}
+                      </button>
+                    )}
+                    {/* 삭제: 모임장만 */}
+                    {isOwner && (
+                      <button onClick={() => deleteMember(m.id)} style={{ padding: "5px 12px", borderRadius: 100, fontSize: 12, border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", cursor: "pointer" }}>삭제</button>
+                    )}
                   </div>
                 </div>
 

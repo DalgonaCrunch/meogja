@@ -122,8 +122,9 @@ export default function Home() {
   }
 
   function handleEnter(group: Group) {
-    // 인증 전용 모임: 비로그인 시 로그인 페이지로
+    // 인증 전용 모임: 비로그인/게스트 차단
     if (group.require_auth && currentUser.type !== "auth") {
+      alert("이 모임은 로그인한 사용자만 참여할 수 있습니다.\n로그인 후 다시 시도해주세요.");
       router.push(`/login?next=/groups/${group.id}`);
       return;
     }
