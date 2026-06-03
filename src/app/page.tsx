@@ -20,7 +20,8 @@ type Restaurant = {
 
 type Recommendation = {
   menu: string;
-  category: string;
+  large: string;
+  medium: string;
   score: number;
 };
 
@@ -173,7 +174,8 @@ export default function Home() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-medium">{rec.menu}</span>
-                    <Badge variant="secondary">{rec.category}</Badge>
+                    <Badge variant="outline">{rec.large}</Badge>
+                    <Badge variant="secondary">{rec.medium}</Badge>
                     {rec.score > 0 && (
                       <Badge>👍 {rec.score}명 좋아함</Badge>
                     )}
