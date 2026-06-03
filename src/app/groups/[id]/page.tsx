@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
-import { getRecommendations, getAllLargeCategories, getMediumCategories, getMenuItems } from "@/lib/recommend";
+import { getRecommendations, getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems } from "@/lib/recommend";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
 
@@ -130,12 +130,25 @@ export default function GroupPage() {
 
   async function addPreference(foodName: string, isCustomInput = false) {
     if (!expandedId || !foodName.trim()) return;
-    if (memberPrefs.find((p) => p.food_name === foodName && p.preference_type === prefType)) return;
-    await getSupabase().from("food_preferences").insert({ member_id: expandedId, food_name: foodName.trim(), preference_type: prefType });
-    // 직접 입력한 경우 custom_menus DB에도 저장 (중복 무시)
+    const trimmed = foodName.trim();
+    const oppositeType = prefType === "like" ? "dislike" : "like";
+
+    // 이미 같은 타입으로 등록된 경우 skip
+    if (memberPrefs.find((p) => p.food_name === trimmed && p.preference_type === prefType)) return;
+
+    // 삭제 대상: 반대 타입의 동일 음식 + 카테고리 하위 항목들
+    const subItems = getCategorySubItems(trimmed);
+    const coverageSet = new Set([trimmed, ...subItems]);
+    const toDelete = memberPrefs.filter((p) => coverageSet.has(p.food_name) && p.preference_type === oppositeType);
+    if (toDelete.length > 0) {
+      await getSupabase().from("food_preferences").delete().in("id", toDelete.map((p) => p.id));
+    }
+
+    await getSupabase().from("food_preferences").insert({ member_id: expandedId, food_name: trimmed, preference_type: prefType });
+
     if (isCustomInput) {
-      await getSupabase().from("custom_menus").upsert({ name: foodName.trim() }, { onConflict: "name", ignoreDuplicates: true });
-      setCustomMenus((prev) => prev.includes(foodName.trim()) ? prev : [foodName.trim(), ...prev]);
+      await getSupabase().from("custom_menus").upsert({ name: trimmed }, { onConflict: "name", ignoreDuplicates: true });
+      setCustomMenus((prev) => prev.includes(trimmed) ? prev : [trimmed, ...prev]);
     }
     await loadMemberPrefs(expandedId);
     setCustomInput("");

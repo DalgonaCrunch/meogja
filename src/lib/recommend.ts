@@ -248,6 +248,27 @@ export function getMenuItems(large: string, medium: string): string[] {
   );
 }
 
+// 카테고리 이름에 속하는 모든 하위 항목 반환 (대분류→모든 중+소, 중분류→모든 소)
+export function getCategorySubItems(name: string): string[] {
+  const items: string[] = [];
+  for (const large of MENU_DATA) {
+    if (large.name === name) {
+      for (const medium of large.medium) {
+        items.push(medium.name);
+        items.push(...medium.items);
+      }
+      return items;
+    }
+    for (const medium of large.medium) {
+      if (medium.name === name) {
+        items.push(...medium.items);
+        return items;
+      }
+    }
+  }
+  return items;
+}
+
 export function getAllMenuItems(): string[] {
   const items: string[] = [];
   for (const large of MENU_DATA) {
