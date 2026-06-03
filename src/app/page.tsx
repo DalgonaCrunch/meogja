@@ -4,6 +4,38 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase, Group } from "@/lib/supabase";
 
+function CreateForm({ newName, setNewName, isPrivate, setIsPrivate, newPassword, setNewPassword, creating, onSubmit }: {
+  newName: string; setNewName: (v: string) => void;
+  isPrivate: boolean; setIsPrivate: (v: boolean) => void;
+  newPassword: string; setNewPassword: (v: string) => void;
+  creating: boolean; onSubmit: (e: React.FormEvent) => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="모임 이름 (예: 점심팀, 야식팀)" required
+        style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 15, color: "var(--text)", outline: "none" }}
+        onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
+      <div style={{ display: "flex", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 100, padding: 4, gap: 4, width: "fit-content" }}>
+        {[false, true].map((priv) => (
+          <button key={String(priv)} type="button" onClick={() => setIsPrivate(priv)} style={{
+            padding: "7px 20px", borderRadius: 100, border: "none", fontSize: 13, fontWeight: 600,
+            background: isPrivate === priv ? "var(--text)" : "transparent",
+            color: isPrivate === priv ? "#fff" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s",
+          }}>{priv ? "🔒 비공개" : "🌐 공개"}</button>
+        ))}
+      </div>
+      {isPrivate && (
+        <input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="비밀번호 입력" type="password" required={isPrivate}
+          style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 15, color: "var(--text)", outline: "none" }}
+          onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
+      )}
+      <button type="submit" disabled={creating} style={{ padding: "13px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: creating ? "default" : "pointer", opacity: creating ? 0.7 : 1 }}>
+        {creating ? "생성 중…" : "모임 만들기 →"}
+      </button>
+    </form>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
@@ -14,6 +46,7 @@ export default function Home() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [creating, setCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   // 비공개 모임 입장
   const [enterTarget, setEnterTarget] = useState<Group | null>(null);
@@ -94,58 +127,36 @@ export default function Home() {
         </p>
       </div>
 
-      {/* 모임 생성 */}
-      <div className="fade-up fade-up-1" style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
-        <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 18 }}>
-          새 모임 만들기
-        </p>
-        <form onSubmit={createGroup} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <input
-            value={newName} onChange={(e) => setNewName(e.target.value)}
-            placeholder="모임 이름 (예: 점심팀, 야식팀)"
-            required
-            style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 15, color: "var(--text)", outline: "none" }}
-            onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
-            onBlur={(e) => e.target.style.borderColor = "var(--border)"}
-          />
-
-          {/* 공개/비공개 토글 */}
-          <div style={{ display: "flex", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 100, padding: 4, gap: 4, width: "fit-content" }}>
-            {[false, true].map((priv) => (
-              <button key={String(priv)} type="button" onClick={() => setIsPrivate(priv)}
-                style={{
-                  padding: "7px 20px", borderRadius: 100, border: "none", fontSize: 13, fontWeight: 600,
-                  background: isPrivate === priv ? "var(--text)" : "transparent",
-                  color: isPrivate === priv ? "#fff" : "var(--text-muted)",
-                  cursor: "pointer", transition: "all 0.15s",
-                }}>
-                {priv ? "🔒 비공개" : "🌐 공개"}
-              </button>
-            ))}
-          </div>
-
-          {isPrivate && (
-            <input
-              value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="비밀번호 입력"
-              type="password"
-              required={isPrivate}
-              style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 15, color: "var(--text)", outline: "none" }}
-              onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
-              onBlur={(e) => e.target.style.borderColor = "var(--border)"}
-            />
+      {/* 모임 생성 — 모임 없으면 바로, 있으면 버튼 토글 */}
+      {!loading && groups.length > 0 ? (
+        <>
+          {!showCreateForm ? (
+            <button onClick={() => setShowCreateForm(true)} className="fade-up fade-up-1" style={{
+              padding: "14px 28px", borderRadius: 100, border: "2px dashed var(--border)",
+              background: "transparent", color: "var(--text-muted)", fontSize: 14, fontWeight: 600,
+              cursor: "pointer", transition: "all 0.18s", textAlign: "center",
+            }}
+              onMouseOver={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+              onMouseOut={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-muted)"; }}
+            >
+              + 새 모임 만들기
+            </button>
+          ) : (
+            <div className="fade-up" style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)" }}>새 모임 만들기</p>
+                <button onClick={() => { setShowCreateForm(false); setNewName(""); setIsPrivate(false); setNewPassword(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 18 }}>✕</button>
+              </div>
+              <CreateForm newName={newName} setNewName={setNewName} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} creating={creating} onSubmit={createGroup} />
+            </div>
           )}
-
-          <button type="submit" disabled={creating} style={{
-            padding: "13px", borderRadius: 100, border: "none",
-            background: "var(--accent)", color: "#fff", fontSize: 15, fontWeight: 700,
-            cursor: creating ? "default" : "pointer",
-            opacity: creating ? 0.7 : 1, transition: "all 0.15s",
-          }}>
-            {creating ? "생성 중…" : "모임 만들기 →"}
-          </button>
-        </form>
-      </div>
+        </>
+      ) : !loading ? (
+        <div className="fade-up fade-up-1" style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
+          <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 18 }}>새 모임 만들기</p>
+          <CreateForm newName={newName} setNewName={setNewName} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} creating={creating} onSubmit={createGroup} />
+        </div>
+      ) : null}
 
       {/* 모임 목록 */}
       {!loading && groups.length > 0 && (

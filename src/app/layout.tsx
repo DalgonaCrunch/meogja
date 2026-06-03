@@ -17,7 +17,6 @@ export default function RootLayout({
             <a href="/" className="nav-logo">
               <span style={{ fontSize: 22 }}>🍽</span> 뭐먹지
             </a>
-            <a href="/members" className="nav-link">멤버 관리</a>
           </nav>
         </header>
         <main style={{ flex: 1, maxWidth: 860, margin: "0 auto", width: "100%", padding: "32px 20px" }}>
