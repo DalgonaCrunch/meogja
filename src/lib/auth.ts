@@ -55,6 +55,14 @@ export async function signInWithGoogle() {
   if (error) throw error;
 }
 
+export async function signInWithKakao() {
+  const { error } = await getSupabase().auth.signInWithOAuth({
+    provider: "kakao",
+    options: { redirectTo: `${window.location.origin}/auth/callback` },
+  });
+  if (error) throw error;
+}
+
 export async function signOut() {
   await getSupabase().auth.signOut();
   clearGuestUser();
