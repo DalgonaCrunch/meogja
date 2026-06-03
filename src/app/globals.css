@@ -1,52 +1,135 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,600&family=Noto+Sans+KR:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --bg: #FAF7F2;
+  --bg: #FFF9F2;
   --bg-card: #FFFFFF;
-  --text: #1C1C1E;
-  --text-muted: #6B6B6B;
-  --accent: #F4631E;
-  --accent-hover: #D9521A;
-  --accent-soft: #FFF0E9;
-  --green: #3D7A5A;
-  --green-soft: #EBF5EF;
-  --red: #D94F4F;
-  --red-soft: #FCEAEA;
-  --border: #E8E2D9;
-  --shadow: 0 2px 12px rgba(28,28,30,0.08);
-  --shadow-lg: 0 8px 32px rgba(28,28,30,0.12);
+  --bg-card2: #FFFBF5;
+  --text: #2D1B00;
+  --text-muted: #8B6E52;
+  --accent: #FF6B35;
+  --accent-hover: #E55A26;
+  --accent-soft: #FFF0EA;
+  --accent2: #FF9F68;
+  --green: #2E9E6B;
+  --green-soft: #E8F8F0;
+  --red: #E53935;
+  --red-soft: #FDECEA;
+  --border: #F0E4D4;
+  --shadow: 0 4px 16px rgba(255,107,53,0.08);
+  --shadow-lg: 0 12px 40px rgba(255,107,53,0.15);
+  --shadow-card: 0 2px 12px rgba(45,27,0,0.07);
+  --radius: 20px;
+  --radius-sm: 12px;
+  --font-display: 'Jua', sans-serif;
+  --font-body: 'Noto Sans KR', sans-serif;
 }
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   background: var(--bg);
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(255,159,104,0.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 90%, rgba(255,107,53,0.06) 0%, transparent 50%);
   color: var(--text);
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
-h1, h2, h3 {
-  font-family: 'Fraunces', serif;
-}
+h1, h2, h3 { font-family: var(--font-display); }
 
+/* Animations */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
+@keyframes bounceIn {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
-.fade-up {
-  animation: fadeUp 0.4s ease both;
+.fade-up { animation: fadeUp 0.45s cubic-bezier(0.34,1.56,0.64,1) both; }
+.fade-up-1 { animation-delay: 0.06s; }
+.fade-up-2 { animation-delay: 0.12s; }
+.fade-up-3 { animation-delay: 0.18s; }
+.fade-up-4 { animation-delay: 0.24s; }
+.fade-up-5 { animation-delay: 0.30s; }
+
+.bounce-in { animation: bounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+/* Nav */
+.nav-logo {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--text);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.5px;
+}
+.nav-logo:hover { color: var(--accent); }
+.nav-link {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+.nav-link:hover { color: var(--accent); }
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  box-shadow: var(--shadow-card);
+  padding: 24px;
 }
 
-.fade-up-1 { animation-delay: 0.05s; }
-.fade-up-2 { animation-delay: 0.1s; }
-.fade-up-3 { animation-delay: 0.15s; }
-.fade-up-4 { animation-delay: 0.2s; }
-.fade-up-5 { animation-delay: 0.25s; }
+/* Buttons */
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 100px;
+  padding: 12px 28px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 4px 14px rgba(255,107,53,0.3);
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(255,107,53,0.4);
+}
+.btn-primary:active { transform: scale(0.97); }
+
+/* Decorative food emojis */
+.food-deco {
+  position: absolute;
+  font-size: 32px;
+  opacity: 0.12;
+  pointer-events: none;
+  animation: float 4s ease-in-out infinite;
+}

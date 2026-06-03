@@ -3,8 +3,8 @@ import "./globals.css";
 import AuthHeader from "./AuthHeader";
 
 export const metadata: Metadata = {
-  title: "뭐먹지 — 식사메뉴 추천",
-  description: "참가자 선호도 기반 식사메뉴 추천 + 주변 맛집 검색",
+  title: "오늘 뭐 먹지? 🍴",
+  description: "모임별 선호도 기반 식사메뉴 추천 + 주변 맛집 검색",
 };
 
 export default function RootLayout({

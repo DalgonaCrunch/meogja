@@ -152,12 +152,18 @@ export default function Home() {
     <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
 
       {/* Hero */}
-      <div className="fade-up">
-        <h1 style={{ fontFamily: "Fraunces, serif", fontSize: "clamp(36px,6vw,56px)", fontWeight: 600, lineHeight: 1.1, marginBottom: 8 }}>
-          뭐먹지
-        </h1>
-        <p style={{ color: "var(--text-muted)", fontSize: 15 }}>
-          모임을 만들고 함께 먹을 메뉴를 추천받으세요
+      <div className="fade-up" style={{ textAlign: "center", padding: "20px 0 8px" }}>
+        <div style={{ position: "relative", display: "inline-block" }}>
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(40px,8vw,68px)", lineHeight: 1.1, marginBottom: 12, color: "var(--text)", letterSpacing: "-1px" }}>
+            오늘 뭐 먹지? 🍴
+          </h1>
+          {/* Decorative food emojis */}
+          <span style={{ position: "absolute", top: -10, left: -30, fontSize: 28, opacity: 0.15, animation: "float 3.5s ease-in-out infinite", pointerEvents: "none" }}>🍜</span>
+          <span style={{ position: "absolute", top: 0, right: -30, fontSize: 24, opacity: 0.15, animation: "float 4s ease-in-out 0.5s infinite", pointerEvents: "none" }}>🍱</span>
+          <span style={{ position: "absolute", bottom: -5, left: -20, fontSize: 20, opacity: 0.12, animation: "float 5s ease-in-out 1s infinite", pointerEvents: "none" }}>🥩</span>
+        </div>
+        <p style={{ color: "var(--text-muted)", fontSize: 16, fontWeight: 400 }}>
+          모임을 만들고 모두가 만족하는 메뉴를 찾아보세요 ✨
         </p>
       </div>
 
