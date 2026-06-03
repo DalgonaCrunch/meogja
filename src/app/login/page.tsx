@@ -11,12 +11,29 @@ function LoginContent() {
   const [guestName, setGuestName] = useState("");
   const [showGuest, setShowGuest] = useState(false);
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
+  const [isWebView, setIsWebView] = useState(false);
 
   useEffect(() => {
     getCurrentUser().then((u) => {
       if (u.type !== "none") router.replace(next);
     });
+    // WebView 감지 (카카오톡, 인스타그램, 라인 등 인앱브라우저)
+    const ua = navigator.userAgent;
+    const webview = /KAKAOTALK|NAVER|Instagram|FBAN|FBAV|Line\/|MicroMessenger|WebView|wv\b/.test(ua);
+    setIsWebView(webview);
   }, [router, next]);
+
+  function openInExternalBrowser() {
+    const url = window.location.href;
+    // Android intent
+    if (/Android/.test(navigator.userAgent)) {
+      window.location.href = `intent:${url}#Intent;scheme=https;package=com.android.chrome;end`;
+    } else {
+      // iOS - copy link and instruct
+      navigator.clipboard?.writeText(url).catch(() => {});
+      alert("주소를 복사했습니다.\nSafari 또는 Chrome에서 붙여넣기 해서 열어주세요.");
+    }
+  }
 
   async function handleKakao() {
     setLoadingProvider("kakao");
@@ -45,6 +62,22 @@ function LoginContent() {
       </div>
 
       <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* WebView 경고 */}
+        {isWebView && (
+          <div style={{ padding: "16px", borderRadius: 16, background: "#FFF8E1", border: "1.5px solid #F5A623" }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: "#E65100", marginBottom: 6 }}>⚠️ 인앱 브라우저 감지</p>
+            <p style={{ fontSize: 12, color: "#795548", marginBottom: 12, lineHeight: 1.6 }}>
+              카카오톡/앱 내 브라우저에서는 Google 로그인이 차단됩니다.<br/>
+              외부 브라우저(Chrome/Safari)에서 열어주세요.
+            </p>
+            <button onClick={openInExternalBrowser} style={{
+              width: "100%", padding: "10px", borderRadius: 100, border: "none",
+              background: "#FF6B35", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+            }}>
+              Chrome/Safari에서 열기 →
+            </button>
+          </div>
+        )}
 
         {/* 카카오 로그인 */}
         <button onClick={handleKakao} disabled={!!loadingProvider} style={{
