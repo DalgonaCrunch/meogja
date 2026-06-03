@@ -3,18 +3,23 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase, Group } from "@/lib/supabase";
+import { getCurrentUser, CurrentUser } from "@/lib/auth";
 
-function CreateForm({ newName, setNewName, isPrivate, setIsPrivate, newPassword, setNewPassword, creating, onSubmit }: {
+function CreateForm({ newName, setNewName, isPrivate, setIsPrivate, newPassword, setNewPassword, requireAuth, setRequireAuth, creating, onSubmit, isLoggedIn }: {
   newName: string; setNewName: (v: string) => void;
   isPrivate: boolean; setIsPrivate: (v: boolean) => void;
   newPassword: string; setNewPassword: (v: string) => void;
+  requireAuth: boolean; setRequireAuth: (v: boolean) => void;
   creating: boolean; onSubmit: (e: React.FormEvent) => void;
+  isLoggedIn: boolean;
 }) {
   return (
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="모임 이름 (예: 점심팀, 야식팀)" required
         style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 15, color: "var(--text)", outline: "none" }}
         onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
+
+      {/* 공개/비공개 */}
       <div style={{ display: "flex", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 100, padding: 4, gap: 4, width: "fit-content" }}>
         {[false, true].map((priv) => (
           <button key={String(priv)} type="button" onClick={() => setIsPrivate(priv)} style={{
@@ -24,11 +29,26 @@ function CreateForm({ newName, setNewName, isPrivate, setIsPrivate, newPassword,
           }}>{priv ? "🔒 비공개" : "🌐 공개"}</button>
         ))}
       </div>
+
       {isPrivate && (
         <input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="비밀번호 입력" type="password" required={isPrivate}
           style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 15, color: "var(--text)", outline: "none" }}
           onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
       )}
+
+      {/* 인증 전용 (로그인 사용자만) */}
+      {isLoggedIn && (
+        <button type="button" onClick={() => setRequireAuth(!requireAuth)} style={{
+          display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 100, width: "fit-content",
+          border: `1.5px solid ${requireAuth ? "var(--green)" : "var(--border)"}`,
+          background: requireAuth ? "var(--green-soft)" : "transparent",
+          color: requireAuth ? "var(--green)" : "var(--text-muted)",
+          fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+        }}>
+          {requireAuth ? "✓" : "○"} 로그인 사용자만 참여 가능
+        </button>
+      )}
+
       <button type="submit" disabled={creating} style={{ padding: "13px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: creating ? "default" : "pointer", opacity: creating ? 0.7 : 1 }}>
         {creating ? "생성 중…" : "모임 만들기 →"}
       </button>
@@ -40,11 +60,13 @@ export default function Home() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<CurrentUser>({ type: "none" });
 
   // 모임 생성
   const [newName, setNewName] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [requireAuth, setRequireAuth] = useState(false);
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -58,7 +80,7 @@ export default function Home() {
   const [deletePassword, setDeletePassword] = useState("");
   const [deletePasswordError, setDeletePasswordError] = useState(false);
 
-  useEffect(() => { loadGroups(); }, []);
+  useEffect(() => { loadGroups(); getCurrentUser().then(setCurrentUser); }, []);
 
   async function loadGroups() {
     setLoading(true);
@@ -72,12 +94,19 @@ export default function Home() {
     e.preventDefault();
     if (!newName.trim()) return;
     setCreating(true);
+    const ownerId = currentUser.type === "auth" ? currentUser.user.id : null;
     const { data } = await getSupabase()
       .from("groups")
-      .insert({ name: newName.trim(), is_private: isPrivate, password: isPrivate ? newPassword : null })
+      .insert({ name: newName.trim(), is_private: isPrivate, password: isPrivate ? newPassword : null, owner_id: ownerId, require_auth: requireAuth })
       .select().single();
     setCreating(false);
-    if (data) router.push(`/groups/${data.id}`);
+    if (data) {
+      // 모임 생성자를 owner로 멤버십 추가
+      if (ownerId) {
+        await getSupabase().from("group_memberships").insert({ group_id: data.id, user_id: ownerId, role: "owner" });
+      }
+      router.push(`/groups/${data.id}`);
+    }
   }
 
   async function deleteGroup(group: Group) {
@@ -93,6 +122,11 @@ export default function Home() {
   }
 
   function handleEnter(group: Group) {
+    // 인증 전용 모임: 비로그인 시 로그인 페이지로
+    if (group.require_auth && currentUser.type !== "auth") {
+      router.push(`/login?next=/groups/${group.id}`);
+      return;
+    }
     if (!group.is_private) {
       router.push(`/groups/${group.id}`);
     } else {
@@ -147,14 +181,14 @@ export default function Home() {
                 <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)" }}>새 모임 만들기</p>
                 <button onClick={() => { setShowCreateForm(false); setNewName(""); setIsPrivate(false); setNewPassword(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 18 }}>✕</button>
               </div>
-              <CreateForm newName={newName} setNewName={setNewName} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} creating={creating} onSubmit={createGroup} />
+              <CreateForm newName={newName} setNewName={setNewName} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
             </div>
           )}
         </>
       ) : !loading ? (
         <div className="fade-up fade-up-1" style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
           <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 18 }}>새 모임 만들기</p>
-          <CreateForm newName={newName} setNewName={setNewName} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} creating={creating} onSubmit={createGroup} />
+          <CreateForm newName={newName} setNewName={setNewName} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
         </div>
       ) : null}
 
@@ -186,7 +220,10 @@ export default function Home() {
                     {group.is_private ? "🔒" : "🌐"}
                   </div>
                   <div>
-                    <p style={{ fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, color: "var(--text)" }}>{group.name}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <p style={{ fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, color: "var(--text)" }}>{group.name}</p>
+                      {group.require_auth && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 100, background: "var(--green-soft)", color: "var(--green)", fontWeight: 700 }}>로그인 전용</span>}
+                    </div>
                     <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
                       {group.is_private ? "비공개 모임" : "공개 모임"} · {new Date(group.created_at).toLocaleDateString("ko-KR")}
                     </p>

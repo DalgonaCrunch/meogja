@@ -19,6 +19,8 @@ export type Group = {
   name: string;
   is_private: boolean;
   password: string | null;
+  owner_id: string | null;
+  require_auth: boolean;
   created_at: string;
 };
 
@@ -26,6 +28,21 @@ export type Member = {
   id: string;
   group_id: string;
   name: string;
+  created_at: string;
+};
+
+export type GroupMembership = {
+  id: string;
+  group_id: string;
+  user_id: string | null;
+  guest_name: string | null;
+  role: "owner" | "member";
+  joined_at: string;
+};
+
+export type UserProfile = {
+  id: string;
+  display_name: string | null;
   created_at: string;
 };
 
