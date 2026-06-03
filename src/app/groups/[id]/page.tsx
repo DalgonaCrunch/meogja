@@ -8,6 +8,30 @@ import HistoryTab from "./tabs/HistoryTab";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
 
+const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  "한식":    { bg: "#FFF3E0", text: "#E65100", border: "#FF9800" },
+  "중식":    { bg: "#FCE4EC", text: "#880E4F", border: "#E91E63" },
+  "일식":    { bg: "#E8F5E9", text: "#1B5E20", border: "#4CAF50" },
+  "양식":    { bg: "#E3F2FD", text: "#0D47A1", border: "#2196F3" },
+  "분식":    { bg: "#FFF8E1", text: "#F57F17", border: "#FFC107" },
+  "동남아식":{ bg: "#E8EAF6", text: "#283593", border: "#3F51B5" },
+  "고기류":  { bg: "#FFEBEE", text: "#B71C1C", border: "#F44336" },
+  "치킨/닭": { bg: "#FFF9C4", text: "#827717", border: "#CDDC39" },
+  "해산물":  { bg: "#E0F7FA", text: "#006064", border: "#00BCD4" },
+  "카페":    { bg: "#EFEBE9", text: "#3E2723", border: "#795548" },
+  "디저트":  { bg: "#FCE4EC", text: "#880E4F", border: "#E91E63" },
+  "패스트푸드":{ bg: "#FBE9E7", text: "#BF360C", border: "#FF5722" },
+  "기타":    { bg: "#F3E5F5", text: "#4A148C", border: "#9C27B0" },
+};
+
+function getCategoryColor(category: string) {
+  const c = category.toLowerCase();
+  for (const [key, val] of Object.entries(CATEGORY_COLORS)) {
+    if (c.includes(key.toLowerCase())) return val;
+  }
+  return { bg: "#F5F5F5", text: "#616161", border: "#9E9E9E" };
+}
+
 function categoryEmoji(category: string): string {
   const c = category.toLowerCase();
   if (c.includes("한식") || c.includes("국밥") || c.includes("찌개")) return "🍲";
@@ -64,6 +88,10 @@ export default function GroupPage() {
   const [location, setLocation] = useState<{ lat: number; lng: number; label?: string; address?: string } | null>(null);
   const [radius, setRadius] = useState(1000);
   const [sortBy, setSortBy] = useState<"distance" | "rating" | "score" | "category">("distance");
+  // 카테고리 필터
+  const [filterLarge, setFilterLarge] = useState<string>("");
+  const [filterMedium, setFilterMedium] = useState<string>("");
+  const [filterItem, setFilterItem] = useState<string>("");
   const [locationMode, setLocationMode] = useState<"auto" | "manual">("auto");
   const [locationQuery, setLocationQuery] = useState("");
   const [locationResults, setLocationResults] = useState<{ name: string; address: string; lat: number; lng: number }[]>([]);
@@ -137,7 +165,19 @@ export default function GroupPage() {
     if (!navigator.geolocation) return;
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: "현재 위치" }); setLocating(false); },
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        // 좌표 → 주소 변환 (네이버 검색용)
+        try {
+          const res = await fetch(`/api/reverse-geocode?x=${lng}&y=${lat}`);
+          const data = await res.json();
+          setLocation({ lat, lng, label: data.address || "현재 위치", address: data.full });
+        } catch {
+          setLocation({ lat, lng, label: "현재 위치" });
+        }
+        setLocating(false);
+      },
       () => setLocating(false)
     );
   }
@@ -213,11 +253,20 @@ export default function GroupPage() {
     const likes = prefs?.filter((p) => p.preference_type === "like").map((p) => p.food_name) ?? [];
     const dislikes = new Set(prefs?.filter((p) => p.preference_type === "dislike").map((p) => p.food_name) ?? []);
 
-    // 검색 쿼리: 좋아하는 음식 + 기본 카테고리 (좋아하는 게 없으면)
+    // 카테고리 필터 우선 적용
     const DEFAULT_QUERIES = ["한식", "중식", "일식", "양식", "분식"];
-    const queries = likes.length > 0
-      ? [...new Set(likes)].slice(0, 6)
-      : DEFAULT_QUERIES;
+    let queries: string[];
+    if (filterItem) {
+      queries = [filterItem];
+    } else if (filterMedium) {
+      queries = [filterMedium];
+    } else if (filterLarge) {
+      queries = getMediumCategories(filterLarge).slice(0, 5);
+    } else if (likes.length > 0) {
+      queries = [...new Set(likes)].slice(0, 6);
+    } else {
+      queries = DEFAULT_QUERIES;
+    }
 
     // 병렬 검색
     const results = await Promise.all(queries.map((q) => searchNearby(q)));
@@ -344,6 +393,42 @@ export default function GroupPage() {
   const memberLikes = memberPrefs.filter((p) => p.preference_type === "like");
   const memberDislikes = memberPrefs.filter((p) => p.preference_type === "dislike");
 
+  function renderCard(r: ScoredRestaurant, i: number, borderColor: string) {
+    const catKey = r.category.split(">").pop()?.trim() || r.category;
+    const imgUrl = foodImages[catKey];
+    return (
+      <div key={`${r.title}-${i}`} style={{ background: "var(--bg-card)", borderRadius: 16, border: "1px solid var(--border)", boxShadow: "var(--shadow)", overflow: "hidden", borderLeft: `4px solid ${borderColor}` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", gap: 12 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 12, overflow: "hidden", flexShrink: 0, background: "var(--bg)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {imgUrl ? <img src={imgUrl} alt={catKey} style={{ width: "100%", height: "100%", objectFit: "cover" }} referrerPolicy="no-referrer" /> : <span style={{ fontSize: 26 }}>{categoryEmoji(r.category)}</span>}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+              <a href={r.link} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, color: "var(--text)", textDecoration: "none" }}>{r.title}</a>
+              {r.distance !== null && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--green-soft)", color: "var(--green)", fontWeight: 600, flexShrink: 0 }}>📍 {formatDistance(r.distance)}</span>}
+              {reviewAvgs[r.title] && <span style={{ fontSize: 12, color: "#F5A623", fontWeight: 700, flexShrink: 0 }}>★ {reviewAvgs[r.title].toFixed(1)}</span>}
+              {r.score > 0 && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 600, flexShrink: 0 }}>👍 선호</span>}
+              {r.matchedLikes.slice(0, 1).map((like) => <span key={like} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 500, flexShrink: 0 }}>{like}</span>)}
+            </div>
+            <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.category}</p>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{r.address}</p>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+            <button onClick={() => toggleFavorite(r)} style={{ width: 34, height: 34, borderRadius: "50%", fontSize: 16, background: favorites.has(r.title) ? "#FFF8E1" : "var(--bg)", border: `1.5px solid ${favorites.has(r.title) ? "#F5A623" : "var(--border)"}`, color: favorites.has(r.title) ? "#F5A623" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {favorites.has(r.title) ? "★" : "☆"}
+            </button>
+            <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`} target="_blank" rel="noopener noreferrer" style={{ width: 34, height: 34, borderRadius: "50%", background: "#03C75A", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }} title="네이버지도">
+              <span style={{ color: "#fff", fontWeight: 900, fontSize: 13 }}>N</span>
+            </a>
+            <a href={`https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`} target="_blank" rel="noopener noreferrer" style={{ width: 34, height: 34, borderRadius: "50%", background: "#FAE100", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }} title="카카오맵">
+              <span style={{ color: "#3A1D1D", fontWeight: 900, fontSize: 13 }}>K</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const sortedRestaurants = [...scoredRestaurants].sort((a, b) => {
     switch (sortBy) {
       case "distance":
@@ -423,6 +508,88 @@ export default function GroupPage() {
                     </button>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* 카테고리 필터 */}
+          <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: 22, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 14 }}>메뉴 종류 선택</p>
+
+            {/* 대분류 */}
+            <div style={{ marginBottom: 12 }}>
+              <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 7 }}>대분류</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <button onClick={() => { setFilterLarge(""); setFilterMedium(""); setFilterItem(""); }} style={{
+                  padding: "6px 14px", borderRadius: 100, fontSize: 12, fontWeight: 600,
+                  border: !filterLarge ? "2px solid var(--accent)" : "1.5px solid var(--border)",
+                  background: !filterLarge ? "var(--accent-soft)" : "transparent",
+                  color: !filterLarge ? "var(--accent)" : "var(--text-muted)", cursor: "pointer",
+                }}>전체</button>
+                {getAllLargeCategories().map((cat) => (
+                  <button key={cat} onClick={() => { setFilterLarge(cat === filterLarge ? "" : cat); setFilterMedium(""); setFilterItem(""); }} style={{
+                    padding: "6px 14px", borderRadius: 100, fontSize: 12, fontWeight: 600,
+                    border: filterLarge === cat ? "2px solid var(--accent)" : "1.5px solid var(--border)",
+                    background: filterLarge === cat ? "var(--accent-soft)" : "transparent",
+                    color: filterLarge === cat ? "var(--accent)" : "var(--text)", cursor: "pointer", transition: "all 0.15s",
+                  }}>{cat}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* 중분류 */}
+            {filterLarge && (
+              <div style={{ marginBottom: 12 }}>
+                <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 7 }}>중분류</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  <button onClick={() => { setFilterMedium(""); setFilterItem(""); }} style={{
+                    padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 500,
+                    border: !filterMedium ? "2px solid var(--accent)" : "1.5px solid var(--border)",
+                    background: !filterMedium ? "var(--accent-soft)" : "transparent",
+                    color: !filterMedium ? "var(--accent)" : "var(--text-muted)", cursor: "pointer",
+                  }}>전체</button>
+                  {getMediumCategories(filterLarge).map((cat) => (
+                    <button key={cat} onClick={() => { setFilterMedium(cat === filterMedium ? "" : cat); setFilterItem(""); }} style={{
+                      padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 500,
+                      border: filterMedium === cat ? "2px solid var(--accent)" : "1.5px solid var(--border)",
+                      background: filterMedium === cat ? "var(--accent-soft)" : "transparent",
+                      color: filterMedium === cat ? "var(--accent)" : "var(--text)", cursor: "pointer", transition: "all 0.15s",
+                    }}>{cat}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 소분류 */}
+            {filterMedium && (
+              <div>
+                <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 7 }}>소분류</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5, maxHeight: 100, overflowY: "auto" }}>
+                  <button onClick={() => setFilterItem("")} style={{
+                    padding: "4px 11px", borderRadius: 100, fontSize: 11, fontWeight: 500,
+                    border: !filterItem ? "2px solid var(--accent)" : "1.5px solid var(--border)",
+                    background: !filterItem ? "var(--accent-soft)" : "transparent",
+                    color: !filterItem ? "var(--accent)" : "var(--text-muted)", cursor: "pointer",
+                  }}>전체</button>
+                  {getMenuItems(filterLarge, filterMedium).map((item) => (
+                    <button key={item} onClick={() => setFilterItem(item === filterItem ? "" : item)} style={{
+                      padding: "4px 11px", borderRadius: 100, fontSize: 11, fontWeight: 500,
+                      border: filterItem === item ? "2px solid var(--accent)" : "1.5px solid var(--border)",
+                      background: filterItem === item ? "var(--accent-soft)" : "transparent",
+                      color: filterItem === item ? "var(--accent)" : "var(--text)", cursor: "pointer", transition: "all 0.1s",
+                    }}>{item}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 선택된 필터 표시 */}
+            {(filterLarge || filterMedium || filterItem) && (
+              <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>선택:</span>
+                {[filterLarge, filterMedium, filterItem].filter(Boolean).map((f, i) => (
+                  <span key={i} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600 }}>{f}</span>
+                ))}
               </div>
             )}
           </div>
@@ -582,76 +749,36 @@ export default function GroupPage() {
                   ))}
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {sortedRestaurants.map((r, i) => (
-                  <div key={i} style={{
-                    background: "var(--bg-card)", borderRadius: 16, border: "1px solid var(--border)",
-                    boxShadow: "var(--shadow)", overflow: "hidden",
-                    borderLeft: `4px solid ${r.score > 0 ? MEMBER_COLORS[i % MEMBER_COLORS.length] : "var(--border)"}`,
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", gap: 12 }}>
-                      {/* 음식 사진 */}
-                      {(() => {
-                        const catKey = r.category.split(">").pop()?.trim() || r.category;
-                        const imgUrl = foodImages[catKey];
-                        return (
-                          <div style={{ width: 56, height: 56, borderRadius: 12, overflow: "hidden", flexShrink: 0, background: "var(--bg)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            {imgUrl
-                              ? <img src={imgUrl} alt={catKey} style={{ width: "100%", height: "100%", objectFit: "cover" }} referrerPolicy="no-referrer" />
-                              : <span style={{ fontSize: 26 }}>{categoryEmoji(r.category)}</span>
-                            }
-                          </div>
-                        );
-                      })()}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                          <a href={r.link} target="_blank" rel="noopener noreferrer"
-                            style={{ fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, color: "var(--text)", textDecoration: "none" }}>
-                            {r.title}
-                          </a>
-                          {r.distance !== null && (
-                            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--green-soft)", color: "var(--green)", fontWeight: 600, flexShrink: 0 }}>
-                              📍 {formatDistance(r.distance)}
-                            </span>
-                          )}
-                          {reviewAvgs[r.title] && (
-                            <span style={{ fontSize: 12, color: "#F5A623", fontWeight: 700, flexShrink: 0 }}>
-                              ★ {reviewAvgs[r.title].toFixed(1)}
-                            </span>
-                          )}
-                          {r.score > 0 && (
-                            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 600, flexShrink: 0 }}>
-                              👍 선호
-                            </span>
-                          )}
-                          {r.matchedLikes.slice(0, 1).map((like) => (
-                            <span key={like} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 500, flexShrink: 0 }}>{like}</span>
-                          ))}
+              {sortBy === "category" ? (
+                // 카테고리별 그룹핑
+                (() => {
+                  const groups: Record<string, typeof sortedRestaurants> = {};
+                  sortedRestaurants.forEach((r) => {
+                    const key = r.category.split(">")[0]?.trim() || "기타";
+                    if (!groups[key]) groups[key] = [];
+                    groups[key].push(r);
+                  });
+                  return Object.entries(groups).map(([groupName, items]) => {
+                    const col = getCategoryColor(groupName);
+                    return (
+                      <div key={groupName} style={{ marginBottom: 16 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          <span style={{ fontSize: 18 }}>{categoryEmoji(groupName)}</span>
+                          <span style={{ fontFamily: "Fraunces, serif", fontSize: 16, fontWeight: 700, color: col.text }}>{groupName}</span>
+                          <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: col.bg, color: col.text, border: `1px solid ${col.border}`, fontWeight: 600 }}>{items.length}곳</span>
                         </div>
-                        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.category}</p>
-                        <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{r.address}</p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {items.map((r, i) => renderCard(r, i, col.border))}
+                        </div>
                       </div>
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
-                        <button onClick={() => toggleFavorite(r)} style={{ width: 34, height: 34, borderRadius: "50%", fontSize: 16, background: favorites.has(r.title) ? "#FFF8E1" : "var(--bg)", border: `1.5px solid ${favorites.has(r.title) ? "#F5A623" : "var(--border)"}`, color: favorites.has(r.title) ? "#F5A623" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          {favorites.has(r.title) ? "★" : "☆"}
-                        </button>
-                        <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`}
-                          target="_blank" rel="noopener noreferrer"
-                          style={{ width: 34, height: 34, borderRadius: "50%", background: "#03C75A", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }}
-                          title="네이버지도">
-                          <span style={{ color: "#fff", fontWeight: 900, fontSize: 13 }}>N</span>
-                        </a>
-                        <a href={`https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`}
-                          target="_blank" rel="noopener noreferrer"
-                          style={{ width: 34, height: 34, borderRadius: "50%", background: "#FAE100", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }}
-                          title="카카오맵">
-                          <span style={{ color: "#3A1D1D", fontWeight: 900, fontSize: 13 }}>K</span>
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  });
+                })()
+              ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {sortedRestaurants.map((r, i) => renderCard(r, i, r.score > 0 ? MEMBER_COLORS[i % MEMBER_COLORS.length] : "var(--border)"))}
               </div>
+              )}
             </div>
           )}
         </div>
