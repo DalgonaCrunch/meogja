@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   const params = new URLSearchParams({
     query: `${query} 맛집`,
     display: "5",
-    sort: "comment",
+    sort: x && y ? "random" : "comment",
   });
 
   if (x && y) {

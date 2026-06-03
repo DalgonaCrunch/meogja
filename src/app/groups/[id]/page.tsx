@@ -3,12 +3,20 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
-import { getRecommendations, getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems } from "@/lib/recommend";
+import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories } from "@/lib/recommend";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
 
-type Restaurant = { title: string; address: string; mapx: string; mapy: string; link: string; };
-type Recommendation = { menu: string; large: string; medium: string; score: number; };
+type ScoredRestaurant = {
+  title: string;
+  category: string;
+  address: string;
+  mapx: string;
+  mapy: string;
+  link: string;
+  score: number;
+  matchedLikes: string[];
+};
 
 export default function GroupPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,12 +28,10 @@ export default function GroupPage() {
 
   // 추천 탭
   const [selected, setSelected] = useState<string[]>([]);
-  const [preferences, setPreferences] = useState<FoodPreference[]>([]);
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [restaurants, setRestaurants] = useState<Record<string, Restaurant[]>>({});
+  const [scoredRestaurants, setScoredRestaurants] = useState<ScoredRestaurant[]>([]);
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [mapProvider, setMapProvider] = useState<"naver" | "kakao">("naver");
-  const [searchingMenu, setSearchingMenu] = useState<string | null>(null);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   // 멤버 관리 탭
@@ -47,9 +53,10 @@ export default function GroupPage() {
     loadMembers();
     loadCustomMenus();
     if (navigator.geolocation) {
+      setLocating(true);
       navigator.geolocation.getCurrentPosition(
-        (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {}
+        (pos) => { setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocating(false); },
+        () => setLocating(false)
       );
     }
   }, [id]);
@@ -75,31 +82,79 @@ export default function GroupPage() {
     setSelected((prev) => prev.includes(memberId) ? prev.filter((x) => x !== memberId) : [...prev, memberId]);
   }
 
-  async function handleRecommend() {
-    if (selected.length === 0) return;
-    setLoading(true);
-    setRecommendations([]);
-    setRestaurants({});
-    const { data: prefs } = await getSupabase().from("food_preferences").select("*").in("member_id", selected);
-    if (prefs) {
-      setPreferences(prefs);
-      setRecommendations(getRecommendations(prefs, selected, 5));
-    }
-    setLoading(false);
-  }
-
-  async function searchRestaurants(menu: string) {
-    setSearchingMenu(menu);
+  async function searchNearby(query: string): Promise<ScoredRestaurant[]> {
     const endpoint = mapProvider === "naver" ? "/api/search" : "/api/search-kakao";
-    const params = new URLSearchParams({ query: menu });
+    const params = new URLSearchParams({ query });
     if (location) {
       params.set("x", mapProvider === "naver" ? String(Math.round(location.lng * 1e7)) : String(location.lng));
       params.set("y", mapProvider === "naver" ? String(Math.round(location.lat * 1e7)) : String(location.lat));
     }
-    const res = await fetch(`${endpoint}?${params}`);
-    const data = await res.json();
-    setRestaurants((prev) => ({ ...prev, [menu]: data.items || [] }));
-    setSearchingMenu(null);
+    try {
+      const res = await fetch(`${endpoint}?${params}`);
+      const data = await res.json();
+      return (data.items || []).map((r: Record<string, string>) => ({ ...r, score: 0, matchedLikes: [] }));
+    } catch { return []; }
+  }
+
+  async function handleRecommend() {
+    if (selected.length === 0) return;
+    setLoading(true);
+    setScoredRestaurants([]);
+
+    const { data: prefs } = await getSupabase().from("food_preferences").select("*").in("member_id", selected);
+    const likes = prefs?.filter((p) => p.preference_type === "like").map((p) => p.food_name) ?? [];
+    const dislikes = new Set(prefs?.filter((p) => p.preference_type === "dislike").map((p) => p.food_name) ?? []);
+
+    // 검색 쿼리: 좋아하는 음식 + 기본 카테고리 (좋아하는 게 없으면)
+    const DEFAULT_QUERIES = ["한식", "중식", "일식", "양식", "분식"];
+    const queries = likes.length > 0
+      ? [...new Set(likes)].slice(0, 6)
+      : DEFAULT_QUERIES;
+
+    // 병렬 검색
+    const results = await Promise.all(queries.map((q) => searchNearby(q)));
+    const all = results.flat();
+
+    // 중복 제거 (title+address 기준)
+    const seen = new Set<string>();
+    const unique = all.filter((r) => {
+      const key = r.title + r.address;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // dislike 필터링 — 식당 카테고리에 못먹는 키워드 포함 시 제외
+    const filtered = unique.filter((r) => {
+      const cat = (r.category || "").toLowerCase();
+      for (const d of dislikes) {
+        if (cat.includes(d.toLowerCase())) return false;
+      }
+      return true;
+    });
+
+    // 선호도 스코어링
+    const allMedium = getAllMediumCategories();
+    const scored: ScoredRestaurant[] = filtered.map((r) => {
+      const cat = (r.category || "").toLowerCase();
+      const matchedLikes: string[] = [];
+      let score = 0;
+      for (const like of likes) {
+        if (cat.includes(like.toLowerCase()) || like.toLowerCase().includes(cat)) {
+          matchedLikes.push(like);
+          score += 2;
+        }
+      }
+      // 중분류 매칭 가산점
+      for (const medium of allMedium) {
+        if (cat.includes(medium.toLowerCase())) score += 1;
+      }
+      return { ...r, score, matchedLikes: [...new Set(matchedLikes)] };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    setScoredRestaurants(scored.slice(0, 15));
+    setLoading(false);
   }
 
   // 멤버 관리 함수들
@@ -159,9 +214,6 @@ export default function GroupPage() {
     setMemberPrefs((prev) => prev.filter((p) => p.id !== prefId));
   }
 
-  const selectedDislikes = [...new Set(
-    preferences.filter((p) => selected.includes(p.member_id) && p.preference_type === "dislike").map((p) => p.food_name)
-  )];
   const memberLikes = memberPrefs.filter((p) => p.preference_type === "like");
   const memberDislikes = memberPrefs.filter((p) => p.preference_type === "dislike");
 
@@ -232,12 +284,12 @@ export default function GroupPage() {
           {/* 액션 바 */}
           {selected.length > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <button onClick={handleRecommend} disabled={loading} style={{
+              <button onClick={handleRecommend} disabled={loading || (!location && !locating)} style={{
                 background: loading ? "var(--border)" : "var(--accent)", color: loading ? "var(--text-muted)" : "#fff",
                 border: "none", borderRadius: 100, padding: "12px 28px", fontSize: 15, fontWeight: 600,
                 cursor: loading ? "default" : "pointer", transition: "all 0.15s",
               }}>
-                {loading ? "추천 중…" : `${selected.length}명으로 추천받기 →`}
+                {loading ? "주변 식당 검색 중…" : `${selected.length}명 기준 주변 맛집 추천 →`}
               </button>
               <div style={{ display: "flex", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 100, padding: 3, gap: 2 }}>
                 {(["naver", "kakao"] as const).map((p) => (
@@ -249,60 +301,53 @@ export default function GroupPage() {
                   }}>{p === "naver" ? "네이버" : "카카오"}</button>
                 ))}
               </div>
-              {location && <span style={{ fontSize: 12, color: "var(--green)" }}>📍 현재 위치 기준</span>}
+              {locating && <span style={{ fontSize: 12, color: "var(--accent)" }}>📍 위치 확인 중…</span>}
+              {location && !locating && <span style={{ fontSize: 12, color: "var(--green)" }}>📍 현재 위치 기준</span>}
+              {!location && !locating && <span style={{ fontSize: 12, color: "var(--red)" }}>📍 위치 권한 필요</span>}
             </div>
           )}
 
-          {/* 제외 음식 */}
-          {selectedDislikes.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>🚫 제외</span>
-              {selectedDislikes.map((f) => (
-                <span key={f} style={{ padding: "3px 10px", borderRadius: 100, background: "var(--red-soft)", color: "var(--red)", fontSize: 12, fontWeight: 500 }}>{f}</span>
-              ))}
-            </div>
-          )}
-
-          {/* 추천 결과 */}
-          {recommendations.length > 0 && (
+          {/* 추천 식당 결과 */}
+          {scoredRestaurants.length > 0 && (
             <div>
-              <p style={{ fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 600, marginBottom: 14 }}>추천 메뉴</p>
+              <p style={{ fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 600, marginBottom: 14 }}>
+                주변 추천 맛집
+                <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)", marginLeft: 10 }}>{scoredRestaurants.length}곳</span>
+              </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {recommendations.map((rec, i) => (
-                  <div key={i} style={{ background: "var(--bg-card)", borderRadius: 16, border: "1px solid var(--border)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderLeft: `4px solid ${MEMBER_COLORS[i % MEMBER_COLORS.length]}` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <span style={{ fontFamily: "Fraunces, serif", fontSize: 18, fontWeight: 600 }}>{rec.menu}</span>
-                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>{rec.large}</span>
-                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 500 }}>{rec.medium}</span>
-                        {rec.score > 0 && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 600 }}>👍 {rec.score}명 선호</span>}
+                {scoredRestaurants.map((r, i) => (
+                  <div key={i} style={{
+                    background: "var(--bg-card)", borderRadius: 16, border: "1px solid var(--border)",
+                    boxShadow: "var(--shadow)", overflow: "hidden",
+                    borderLeft: `4px solid ${r.score > 0 ? MEMBER_COLORS[i % MEMBER_COLORS.length] : "var(--border)"}`,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", gap: 12 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                          <a href={r.link} target="_blank" rel="noopener noreferrer"
+                            style={{ fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, color: "var(--text)", textDecoration: "none" }}>
+                            {r.title}
+                          </a>
+                          {r.score > 0 && (
+                            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 600, flexShrink: 0 }}>
+                              👍 선호 일치
+                            </span>
+                          )}
+                          {r.matchedLikes.slice(0, 2).map((like) => (
+                            <span key={like} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 500, flexShrink: 0 }}>{like}</span>
+                          ))}
+                        </div>
+                        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.category}</p>
+                        <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{r.address}</p>
                       </div>
-                      <button onClick={() => searchRestaurants(rec.menu)} disabled={searchingMenu === rec.menu} style={{
-                        padding: "6px 14px", borderRadius: 100, fontSize: 12, fontWeight: 600,
-                        border: "1.5px solid var(--accent)", background: "transparent", color: "var(--accent)",
-                        cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
-                      }}>
-                        {searchingMenu === rec.menu ? "검색중…" : `${mapProvider === "naver" ? "N" : "K"} 맛집`}
-                      </button>
+                      <a href={mapProvider === "naver"
+                        ? `https://map.naver.com/v5/search/${encodeURIComponent(r.title + " " + r.address)}`
+                        : `https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{ padding: "7px 14px", borderRadius: 100, fontSize: 12, fontWeight: 600, background: "var(--bg)", border: "1.5px solid var(--border)", color: "var(--text-muted)", textDecoration: "none", flexShrink: 0 }}>
+                        🗺️ 지도
+                      </a>
                     </div>
-                    {restaurants[rec.menu] && (
-                      <div style={{ borderTop: "1px solid var(--border)" }}>
-                        {restaurants[rec.menu].length === 0
-                          ? <p style={{ padding: "10px 18px", fontSize: 13, color: "var(--text-muted)" }}>검색 결과 없음</p>
-                          : restaurants[rec.menu].map((r, j) => (
-                            <div key={j} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 18px", borderBottom: j < restaurants[rec.menu].length - 1 ? "1px solid var(--border)" : "none", background: j % 2 === 0 ? "transparent" : "#FAFAFA" }}>
-                              <div>
-                                <a href={r.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", textDecoration: "none" }}>{r.title}</a>
-                                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 1 }}>{r.address}</p>
-                              </div>
-                              <a href={mapProvider === "naver" ? `https://map.naver.com/v5/search/${encodeURIComponent(r.title + " " + r.address)}` : `https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)", textDecoration: "none", flexShrink: 0 }}>
-                                🗺️ 지도
-                              </a>
-                            </div>
-                          ))
-                        }
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
