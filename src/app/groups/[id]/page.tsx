@@ -8,6 +8,29 @@ import HistoryTab from "./tabs/HistoryTab";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
 
+function categoryEmoji(category: string): string {
+  const c = category.toLowerCase();
+  if (c.includes("한식") || c.includes("국밥") || c.includes("찌개")) return "🍲";
+  if (c.includes("중식") || c.includes("중국")) return "🥡";
+  if (c.includes("일식") || c.includes("초밥") || c.includes("라멘")) return "🍱";
+  if (c.includes("양식") || c.includes("파스타") || c.includes("피자") || c.includes("스테이크")) return "🍝";
+  if (c.includes("치킨") || c.includes("닭")) return "🍗";
+  if (c.includes("고기") || c.includes("삼겹") || c.includes("갈비") || c.includes("구이")) return "🥩";
+  if (c.includes("분식") || c.includes("떡볶이")) return "🌮";
+  if (c.includes("해산물") || c.includes("회") || c.includes("해물")) return "🦞";
+  if (c.includes("카페") || c.includes("커피")) return "☕";
+  if (c.includes("디저트") || c.includes("케이크") || c.includes("베이커리")) return "🧁";
+  if (c.includes("술") || c.includes("bar") || c.includes("포차")) return "🍺";
+  if (c.includes("동남아") || c.includes("태국") || c.includes("베트남")) return "🍜";
+  return "🍽️";
+}
+
+function formatDistance(m: number | null): string {
+  if (m === null) return "";
+  if (m < 1000) return `${Math.round(m)}m`;
+  return `${(m / 1000).toFixed(1)}km`;
+}
+
 type ScoredRestaurant = {
   title: string;
   category: string;
@@ -17,6 +40,7 @@ type ScoredRestaurant = {
   link: string;
   score: number;
   matchedLikes: string[];
+  distance: number | null;
 };
 
 export default function GroupPage() {
@@ -35,6 +59,7 @@ export default function GroupPage() {
   const [locating, setLocating] = useState(false);
   const [mapProvider, setMapProvider] = useState<"naver" | "kakao">("naver");
   const [location, setLocation] = useState<{ lat: number; lng: number; label?: string; address?: string } | null>(null);
+  const [radius, setRadius] = useState(1000);
   const [locationMode, setLocationMode] = useState<"auto" | "manual">("auto");
   const [locationQuery, setLocationQuery] = useState("");
   const [locationResults, setLocationResults] = useState<{ name: string; address: string; lat: number; lng: number }[]>([]);
@@ -135,7 +160,7 @@ export default function GroupPage() {
 
   async function searchNearby(query: string): Promise<ScoredRestaurant[]> {
     const endpoint = mapProvider === "naver" ? "/api/search" : "/api/search-kakao";
-    const params = new URLSearchParams({ query });
+    const params = new URLSearchParams({ query, radius: String(radius) });
     if (location) {
       params.set("x", mapProvider === "naver" ? String(Math.round(location.lng * 1e7)) : String(location.lng));
       params.set("y", mapProvider === "naver" ? String(Math.round(location.lat * 1e7)) : String(location.lat));
@@ -143,7 +168,7 @@ export default function GroupPage() {
     try {
       const res = await fetch(`${endpoint}?${params}`);
       const data = await res.json();
-      return (data.items || []).map((r: Record<string, string>) => ({ ...r, score: 0, matchedLikes: [] }));
+      return (data.items || []).map((r: Record<string, string | number | null>) => ({ ...r, score: 0, matchedLikes: [], distance: r.distance ?? null }));
     } catch { return []; }
   }
 
@@ -203,7 +228,11 @@ export default function GroupPage() {
       return { ...r, score, matchedLikes: [...new Set(matchedLikes)] };
     });
 
-    scored.sort((a, b) => b.score - a.score);
+    // 거리 있으면 거리 우선, 없으면 score 우선
+    scored.sort((a, b) => {
+      if (a.distance !== null && b.distance !== null) return a.distance - b.distance;
+      return b.score - a.score;
+    });
     const top = scored.slice(0, 15);
     setScoredRestaurants(top);
     saveSession(selected, top.slice(0, 5));
@@ -354,6 +383,24 @@ export default function GroupPage() {
               }}>🔍 직접 지정</button>
             </div>
 
+            {/* 반경 선택 */}
+            <div style={{ marginBottom: 14 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 8 }}>검색 반경</p>
+              <div style={{ display: "flex", gap: 6 }}>
+                {[300, 500, 1000, 2000, 5000].map((r) => (
+                  <button key={r} onClick={() => setRadius(r)} style={{
+                    padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 600,
+                    border: radius === r ? "2px solid var(--accent)" : "1.5px solid var(--border)",
+                    background: radius === r ? "var(--accent-soft)" : "transparent",
+                    color: radius === r ? "var(--accent)" : "var(--text-muted)",
+                    cursor: "pointer", transition: "all 0.15s",
+                  }}>
+                    {r >= 1000 ? `${r/1000}km` : `${r}m`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* 현재 위치 상태 */}
             {locationMode === "auto" && (
               <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
@@ -452,12 +499,21 @@ export default function GroupPage() {
                     borderLeft: `4px solid ${r.score > 0 ? MEMBER_COLORS[i % MEMBER_COLORS.length] : "var(--border)"}`,
                   }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", gap: 12 }}>
+                      {/* 카테고리 아이콘 */}
+                      <div style={{ width: 48, height: 48, borderRadius: 12, background: "var(--bg)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
+                        {categoryEmoji(r.category)}
+                      </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
                           <a href={r.link} target="_blank" rel="noopener noreferrer"
                             style={{ fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, color: "var(--text)", textDecoration: "none" }}>
                             {r.title}
                           </a>
+                          {r.distance !== null && (
+                            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--green-soft)", color: "var(--green)", fontWeight: 600, flexShrink: 0 }}>
+                              📍 {formatDistance(r.distance)}
+                            </span>
+                          )}
                           {r.score > 0 && (
                             <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 600, flexShrink: 0 }}>
                               👍 선호 일치
