@@ -52,6 +52,7 @@ export default function GroupPage() {
   const [tab, setTab] = useState<"recommend" | "history" | "members">("recommend");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [reviewAvgs, setReviewAvgs] = useState<Record<string, number>>({});
+  const [foodImages, setFoodImages] = useState<Record<string, string>>({});
 
   // 추천 탭
   const [selected, setSelected] = useState<string[]>([]);
@@ -255,6 +256,18 @@ export default function GroupPage() {
     setScoredRestaurants(top);
     saveSession(selected, top.slice(0, 5));
     setLoading(false);
+
+    // 카테고리별 이미지 비동기 페치 (중복 제거)
+    const uniqueCategories = [...new Set(top.map((r) => {
+      const parts = r.category.split(">");
+      return parts[parts.length - 1]?.trim() || r.category;
+    }))];
+    uniqueCategories.forEach(async (cat) => {
+      if (foodImages[cat]) return;
+      const res = await fetch(`/api/food-image?query=${encodeURIComponent(cat)}`);
+      const data = await res.json();
+      if (data.url) setFoodImages((prev) => ({ ...prev, [cat]: data.url }));
+    });
   }
 
   // 멤버 관리 함수들
@@ -517,10 +530,19 @@ export default function GroupPage() {
                     borderLeft: `4px solid ${r.score > 0 ? MEMBER_COLORS[i % MEMBER_COLORS.length] : "var(--border)"}`,
                   }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", gap: 12 }}>
-                      {/* 카테고리 아이콘 */}
-                      <div style={{ width: 48, height: 48, borderRadius: 12, background: "var(--bg)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
-                        {categoryEmoji(r.category)}
-                      </div>
+                      {/* 음식 사진 */}
+                      {(() => {
+                        const catKey = r.category.split(">").pop()?.trim() || r.category;
+                        const imgUrl = foodImages[catKey];
+                        return (
+                          <div style={{ width: 56, height: 56, borderRadius: 12, overflow: "hidden", flexShrink: 0, background: "var(--bg)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {imgUrl
+                              ? <img src={imgUrl} alt={catKey} style={{ width: "100%", height: "100%", objectFit: "cover" }} referrerPolicy="no-referrer" />
+                              : <span style={{ fontSize: 26 }}>{categoryEmoji(r.category)}</span>
+                            }
+                          </div>
+                        );
+                      })()}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
                           <a href={r.link} target="_blank" rel="noopener noreferrer"
