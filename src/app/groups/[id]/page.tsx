@@ -24,6 +24,23 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string
   "기타":    { bg: "#F3E5F5", text: "#4A148C", border: "#9C27B0" },
 };
 
+function getSizeModifier(count: number): string {
+  if (count === 1) return "혼밥";
+  if (count === 2) return "데이트";
+  if (count >= 6 && count <= 10) return "단체석";
+  if (count > 10) return "단체석 대관";
+  return "";
+}
+
+const ATMOSPHERES = [
+  { id: "", label: "🍽 전체", modifier: "" },
+  { id: "casual", label: "😊 캐주얼", modifier: "" },
+  { id: "date", label: "💑 데이트", modifier: "분위기 좋은" },
+  { id: "business", label: "👔 비즈니스", modifier: "정갈한" },
+  { id: "party", label: "🎉 회식/모임", modifier: "회식" },
+  { id: "solo", label: "🙋 혼밥", modifier: "혼밥" },
+];
+
 function getCategoryColor(category: string) {
   const c = category.toLowerCase();
   for (const [key, val] of Object.entries(CATEGORY_COLORS)) {
@@ -92,6 +109,9 @@ export default function GroupPage() {
   const [filterLarge, setFilterLarge] = useState<string>("");
   const [filterMedium, setFilterMedium] = useState<string>("");
   const [filterItem, setFilterItem] = useState<string>("");
+  // 분위기 + 배달 전용 제외
+  const [atmosphere, setAtmosphere] = useState<string>("");
+  const [excludeDelivery, setExcludeDelivery] = useState(true);
   const [locationMode, setLocationMode] = useState<"auto" | "manual">("auto");
   const [locationQuery, setLocationQuery] = useState("");
   const [locationResults, setLocationResults] = useState<{ name: string; address: string; lat: number; lng: number }[]>([]);
@@ -220,7 +240,12 @@ export default function GroupPage() {
 
   async function searchNearbyFromProvider(query: string, provider: "naver" | "kakao"): Promise<ScoredRestaurant[]> {
     const endpoint = provider === "naver" ? "/api/search" : "/api/search-kakao";
-    const params = new URLSearchParams({ query, radius: String(radius) });
+    // 인원 + 분위기 수정자 추가
+    const sizeModifier = getSizeModifier(selected.length);
+    const atmosModifier = ATMOSPHERES.find((a) => a.id === atmosphere)?.modifier || "";
+    const modifiers = [sizeModifier, atmosModifier].filter(Boolean).join(" ");
+    const fullQuery = modifiers ? `${modifiers} ${query}` : query;
+    const params = new URLSearchParams({ query: fullQuery, radius: String(radius) });
     if (location) {
       params.set("x", String(location.lng));
       params.set("y", String(location.lat));
@@ -281,11 +306,20 @@ export default function GroupPage() {
       return true;
     });
 
-    // dislike 필터링 — 식당 카테고리에 못먹는 키워드 포함 시 제외
+    // dislike 필터링 + 배달 전용 제외
     const filtered = unique.filter((r) => {
       const cat = (r.category || "").toLowerCase();
+      const title = (r.title || "").toLowerCase();
+      // 못먹는 음식 카테고리 제외
       for (const d of dislikes) {
         if (cat.includes(d.toLowerCase())) return false;
+      }
+      // 배달 전용 제외
+      if (excludeDelivery) {
+        const deliveryKeywords = ["배달", "포장전문", "배달전문", "ghost kitchen", "배민", "쿠팡이츠"];
+        for (const kw of deliveryKeywords) {
+          if (title.includes(kw) || cat.includes(kw)) return false;
+        }
       }
       return true;
     });
@@ -518,6 +552,50 @@ export default function GroupPage() {
                 })}
               </div>
             )}
+          </div>
+
+          {/* 분위기 + 인원 설정 */}
+          <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: 22, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)" }}>분위기 / 상황</p>
+              {/* 배달 전용 제외 토글 */}
+              <button onClick={() => setExcludeDelivery((v) => !v)} style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 100,
+                border: `1.5px solid ${excludeDelivery ? "var(--green)" : "var(--border)"}`,
+                background: excludeDelivery ? "var(--green-soft)" : "transparent",
+                color: excludeDelivery ? "var(--green)" : "var(--text-muted)",
+                fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+              }}>
+                {excludeDelivery ? "✓" : "○"} 배달 전용 제외
+              </button>
+            </div>
+
+            {/* 인원 안내 */}
+            {selected.length > 0 && (
+              <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                  👥 {selected.length}명
+                </span>
+                {getSizeModifier(selected.length) && (
+                  <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600 }}>
+                    {getSizeModifier(selected.length)} 적합 식당 우선
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* 분위기 선택 */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+              {ATMOSPHERES.map((a) => (
+                <button key={a.id} onClick={() => setAtmosphere(a.id === atmosphere ? "" : a.id)} style={{
+                  padding: "7px 14px", borderRadius: 100, fontSize: 13, fontWeight: 500,
+                  border: atmosphere === a.id ? "2px solid var(--accent)" : "1.5px solid var(--border)",
+                  background: atmosphere === a.id ? "var(--accent-soft)" : "transparent",
+                  color: atmosphere === a.id ? "var(--accent)" : "var(--text)",
+                  cursor: "pointer", transition: "all 0.15s",
+                }}>{a.label}</button>
+              ))}
+            </div>
           </div>
 
           {/* 카테고리 필터 */}
