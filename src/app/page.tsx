@@ -7,7 +7,7 @@ import { getCurrentUser, CurrentUser } from "@/lib/auth";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
-function GroupCard({ group, onClick, myMemberName }: { group: Group; onClick: () => void; myMemberName?: string }) {
+function GroupCard({ group, onClick, myMemberName, starred, onStar }: { group: Group; onClick: () => void; myMemberName?: string; starred?: boolean; onStar?: (e: React.MouseEvent) => void }) {
   const emoji = GROUP_EMOJIS[group.name.charCodeAt(0) % GROUP_EMOJIS.length];
   const hue = 20 + (group.name.charCodeAt(0) % 6) * 18;
   return (
@@ -39,7 +39,14 @@ function GroupCard({ group, onClick, myMemberName }: { group: Group; onClick: ()
           {group.require_auth && <span style={{ fontSize:11, padding:"2px 7px", borderRadius:"var(--r-pill)", fontWeight:600, color:"var(--primary)", background:"var(--primary-light)" }}>🔑</span>}
         </div>
       </div>
-      <span style={{ color:"var(--text-3)", fontSize:18, flexShrink:0 }}>›</span>
+      <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+        {onStar && (
+          <button onClick={onStar} style={{ background:"none", border:"none", cursor:"pointer", fontSize:20, color: starred ? "#F5A623" : "var(--text-3)", padding:"2px" }}>
+            {starred ? "★" : "☆"}
+          </button>
+        )}
+        <span style={{ color:"var(--text-3)", fontSize:18 }}>›</span>
+      </div>
     </button>
   );
 }
@@ -109,7 +116,9 @@ export default function Home() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentUser>({ type: "none" });
-  const [myMemberships, setMyMemberships] = useState<Record<string, string>>({}); // groupId → memberName
+  const [myMemberships, setMyMemberships] = useState<Record<string, string>>({});
+  const [starredGroups, setStarredGroups] = useState<Set<string>>(new Set());
+  const [allPublicGroups, setAllPublicGroups] = useState<Group[]>([]); // 공개 모임 전체
 
   // 모임 생성
   const [newName, setNewName] = useState("");
@@ -131,6 +140,9 @@ export default function Home() {
   const [deletePasswordError, setDeletePasswordError] = useState(false);
 
   useEffect(() => {
+    // 즐겨찾기 localStorage 로드
+    const saved = localStorage.getItem("meogja_starred_groups");
+    if (saved) setStarredGroups(new Set(JSON.parse(saved)));
     loadGroups();
     getCurrentUser().then(async (u) => {
       setCurrentUser(u);
@@ -154,10 +166,23 @@ export default function Home() {
 
   async function loadGroups() {
     setLoading(true);
-    const { data } = await getSupabase()
-      .from("groups").select("*").order("created_at", { ascending: false });
-    if (data) setGroups(data);
+    const [myRes, publicRes] = await Promise.all([
+      getSupabase().from("groups").select("*").order("created_at", { ascending: false }),
+      getSupabase().from("groups").select("*").eq("is_private", false).eq("require_auth", false).order("created_at", { ascending: false }).limit(20),
+    ]);
+    if (myRes.data) setGroups(myRes.data);
+    if (publicRes.data) setAllPublicGroups(publicRes.data);
     setLoading(false);
+  }
+
+  function toggleStar(groupId: string) {
+    setStarredGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      localStorage.setItem("meogja_starred_groups", JSON.stringify([...next]));
+      return next;
+    });
   }
 
   async function createGroup(e: React.FormEvent) {
@@ -230,6 +255,10 @@ export default function Home() {
 
   const publicGroups = groups.filter((g) => !g.is_private);
   const privateGroups = groups.filter((g) => g.is_private);
+  const myGroupIds = new Set(groups.map((g) => g.id));
+  const starredList = groups.filter((g) => starredGroups.has(g.id));
+  const unstarredList = groups.filter((g) => !starredGroups.has(g.id));
+  const recommendPublic = allPublicGroups.filter((g) => !myGroupIds.has(g.id)).slice(0, 5);
 
   const QUICK_CATS = [
     { emoji:"🍖", label:"고기" }, { emoji:"🍜", label:"국물" },
@@ -310,38 +339,58 @@ export default function Home() {
       <div className="fade-up fade-up-2" style={{ padding: "0 16px" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
           <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>내 모임</span>
-          <div style={{ display:"flex", gap:10 }}>
-            {groups.length > 0 && <span style={{ fontSize:12, color:"var(--primary)", fontWeight:700, cursor:"pointer" }}>전체보기 ›</span>}
-            <button className="tap" onClick={() => { if (currentUser.type === "none") { router.push("/login"); return; } setShowCreateForm(true); }} style={{ fontSize:12, color:"var(--text-2)", fontWeight:600, background:"none", border:"none", cursor:"pointer" }}>+ 새 모임</button>
-          </div>
+          <button className="tap" onClick={() => { if (currentUser.type === "none") { router.push("/login"); return; } setShowCreateForm(true); }} style={{ fontSize:12, color:"var(--text-2)", fontWeight:600, background:"none", border:"none", cursor:"pointer" }}>+ 새 모임</button>
         </div>
 
-        {loading && <p style={{ color: "var(--text-2)", textAlign: "center", padding: "30px 0", fontSize: 14 }}>불러오는 중…</p>}
+        {loading && <p style={{ color:"var(--text-2)", textAlign:"center", padding:"30px 0", fontSize:14 }}>불러오는 중…</p>}
 
         {!loading && groups.length === 0 && (
           currentUser.type === "none" ? (
-            <div style={{ textAlign: "center", padding: "32px 20px", background: "var(--surface)", borderRadius: "var(--card-radius)", border: "var(--card-border)" }}>
-              <p style={{ fontSize: 36, marginBottom: 10 }}>🍽️</p>
-              <p style={{ fontFamily: "var(--font-display)", fontSize: 18, marginBottom: 6 }}>배고파? 같이 정하자!</p>
-              <p style={{ fontSize: 14, color: "var(--text-2)", marginBottom: 20 }}>로그인하고 첫 모임을 만들어보세요</p>
-              <button className="tap" onClick={() => router.push("/login")} style={{ padding: "12px 28px", borderRadius: "var(--r-pill)", border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer" }}>
-                시작하기 →
-              </button>
+            <div style={{ textAlign:"center", padding:"32px 20px", background:"var(--surface)", borderRadius:"var(--card-radius)", border:"var(--card-border)" }}>
+              <p style={{ fontSize:36, marginBottom:10 }}>🍽️</p>
+              <p style={{ fontFamily:"var(--font-display)", fontSize:18, marginBottom:6 }}>배고파? 같이 정하자!</p>
+              <p style={{ fontSize:14, color:"var(--text-2)", marginBottom:20 }}>로그인하고 첫 모임을 만들어보세요</p>
+              <button className="tap" onClick={() => router.push("/login")} style={{ padding:"12px 28px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer" }}>시작하기 →</button>
             </div>
           ) : (
-            <div style={{ textAlign: "center", padding: "32px 20px", background: "var(--surface)", borderRadius: "var(--card-radius)", border: "2px dashed var(--border)" }}>
-              <p style={{ fontSize: 36, marginBottom: 10 }}>🍴</p>
-              <p style={{ fontFamily: "var(--font-display)", fontSize: 18, marginBottom: 16 }}>첫 모임을 만들어보세요!</p>
+            <div style={{ textAlign:"center", padding:"32px 20px", background:"var(--surface)", borderRadius:"var(--card-radius)", border:"2px dashed var(--border)" }}>
+              <p style={{ fontSize:36, marginBottom:10 }}>🍴</p>
+              <p style={{ fontFamily:"var(--font-display)", fontSize:18, marginBottom:16 }}>첫 모임을 만들어보세요!</p>
               <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
             </div>
           )
         )}
 
-        {!loading && groups.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {[...publicGroups, ...privateGroups].map((group) => (
-              <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} myMemberName={myMemberships[group.id]} />
+        {/* ⭐ 즐겨찾는 모임 */}
+        {!loading && starredList.length > 0 && (
+          <div style={{ marginBottom:16 }}>
+            <p style={{ fontFamily:"var(--font-display)", fontSize:15, color:"#C77800", marginBottom:8 }}>⭐ 즐겨찾는 모임</p>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {starredList.map((group) => (
+                <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} myMemberName={myMemberships[group.id]} starred={true} onStar={(e) => { e.stopPropagation(); toggleStar(group.id); }} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 일반 내 모임 */}
+        {!loading && unstarredList.length > 0 && (
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {unstarredList.map((group) => (
+              <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} myMemberName={myMemberships[group.id]} starred={false} onStar={(e) => { e.stopPropagation(); toggleStar(group.id); }} />
             ))}
+          </div>
+        )}
+
+        {/* 📍 공개 모임 추천 */}
+        {!loading && recommendPublic.length > 0 && (
+          <div style={{ marginTop:20 }}>
+            <p style={{ fontFamily:"var(--font-display)", fontSize:15, color:"var(--text-2)", marginBottom:8 }}>📍 이런 모임은 어때요?</p>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {recommendPublic.map((group) => (
+                <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} />
+              ))}
+            </div>
           </div>
         )}
       </div>

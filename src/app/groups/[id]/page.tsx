@@ -164,6 +164,8 @@ export default function GroupPage() {
   const menuItems = selectedLarge && selectedMedium ? getMenuItems(selectedLarge, selectedMedium) : [];
 
   useEffect(() => {
+    // 마지막 방문 모임 저장 (모임 탭 복귀용)
+    localStorage.setItem("meogja_last_group", id);
     loadGroup();
     loadMembers();
     loadCustomMenus();
