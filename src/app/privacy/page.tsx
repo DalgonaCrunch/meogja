@@ -8,7 +8,7 @@ export default function PrivacyPage() {
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, marginBottom: 12 }}>1. 수집하는 개인정보</h2>
         <p>meogja(오늘 뭐 먹지?)는 서비스 제공을 위해 아래 정보를 수집합니다.</p>
         <ul style={{ paddingLeft: 20, marginTop: 8 }}>
-          <li>소셜 로그인 시: 이름, 이메일 주소 (Google/Kakao OAuth 제공)</li>
+          <li>소셜 로그인 시: 이름, 이메일 주소 (Google/Naver/Kakao OAuth 제공)</li>
           <li>게스트 이용 시: 직접 입력한 닉네임</li>
           <li>서비스 이용 중: 음식 선호도 정보, 모임 참여 기록</li>
           <li>문의 시: 이메일 주소 (선택)</li>
@@ -35,7 +35,7 @@ export default function PrivacyPage() {
         <ul style={{ paddingLeft: 20, marginTop: 8 }}>
           <li>Supabase (데이터베이스 저장, 미국)</li>
           <li>Vercel (서비스 호스팅, 미국)</li>
-          <li>Google OAuth / Kakao OAuth (소셜 로그인)</li>
+          <li>Google OAuth / Naver OAuth / Kakao OAuth (소셜 로그인)</li>
           <li>Naver / Kakao 지역 검색 API (맛집 검색)</li>
         </ul>
       </section>
