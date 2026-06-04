@@ -36,7 +36,14 @@ export default function AuthHeader() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    // 게스트 로그인/로그아웃 즉시 반영
+    const handleGuestChange = () => getCurrentUser().then(applyUser);
+    window.addEventListener("meogja-auth-change", handleGuestChange);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("meogja-auth-change", handleGuestChange);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

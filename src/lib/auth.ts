@@ -26,10 +26,17 @@ export function getGuestUser(): GuestUser | null {
 
 export function setGuestUser(name: string) {
   localStorage.setItem(GUEST_KEY, JSON.stringify({ name }));
+  // 헤더 즉시 업데이트를 위한 커스텀 이벤트
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("meogja-auth-change"));
+  }
 }
 
 export function clearGuestUser() {
   localStorage.removeItem(GUEST_KEY);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("meogja-auth-change"));
+  }
 }
 
 export async function getCurrentUser(): Promise<CurrentUser> {
