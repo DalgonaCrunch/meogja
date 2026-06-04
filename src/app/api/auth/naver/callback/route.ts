@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const stateRaw = request.nextUrl.searchParams.get("state");
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meogja.vercel.app";
+  const appUrl = "https://meogja.vercel.app";
 
   if (!code) return NextResponse.redirect(`${appUrl}/login?error=naver_no_code`);
 

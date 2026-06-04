@@ -8,8 +8,9 @@ export async function GET(request: NextRequest) {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: process.env.NEXT_PUBLIC_NAVER_CLIENT_ID!,
-    redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL || "https://meogja.vercel.app"}/api/auth/naver/callback`,
+    redirect_uri: `https://meogja.vercel.app/api/auth/naver/callback`,
     state,
+    scope: "name email",
   });
 
   return NextResponse.redirect(`https://nid.naver.com/oauth2.0/authorize?${params}`);
