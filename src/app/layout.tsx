@@ -17,11 +17,20 @@ export const metadata: Metadata = {
     siteName: "meogja",
     type: "website",
     locale: "ko_KR",
+    images: [
+      {
+        url: "https://meogja.vercel.app/meogja-brand.jpg",
+        width: 1280,
+        height: 720,
+        alt: "오늘 뭐 먹지? meogja",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "오늘 뭐 먹지? — meogja",
     description: "모임원과 함께 취향 맞춰 주변 맛집을 추천받아요",
+    images: ["https://meogja.vercel.app/meogja-brand.jpg"],
   },
 };
 
