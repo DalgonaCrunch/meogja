@@ -709,19 +709,33 @@ export default function GroupPage() {
         }} style={{ padding: "6px 12px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>
           🔗 공유
         </button>
-        <button onClick={async () => {
-          if (group.is_private) {
-            const pw = prompt(`"${group.name}" 비공개 모임\n삭제하려면 비밀번호를 입력하세요:`);
-            if (pw === null) return;
-            if (pw !== group.password) { alert("비밀번호가 틀렸습니다."); return; }
-          } else {
-            if (!confirm(`"${group.name}" 모임을 삭제하시겠습니까?\n멤버, 선호도, 히스토리가 모두 삭제됩니다.`)) return;
-          }
-          await getSupabase().from("groups").delete().eq("id", id);
-          router.push("/");
-        }} style={{ padding: "6px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-          삭제
-        </button>
+        {/* 나가기 버튼 — 참여 중이고 모임장 아닌 경우 */}
+        {myMemberId && !isOwner && (
+          <button onClick={async () => {
+            if (!confirm("이 모임에서 나가시겠습니까?\n선호도 설정은 삭제됩니다.")) return;
+            await getSupabase().from("members").delete().eq("id", myMemberId);
+            setMyMemberId(null);
+            loadMembers();
+          }} style={{ padding: "6px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>
+            나가기
+          </button>
+        )}
+        {/* 모임 삭제 — 모임장만 */}
+        {isOwner && (
+          <button onClick={async () => {
+            if (group.is_private) {
+              const pw = prompt(`"${group.name}" 비공개 모임\n삭제하려면 비밀번호를 입력하세요:`);
+              if (pw === null) return;
+              if (pw !== group.password) { alert("비밀번호가 틀렸습니다."); return; }
+            } else {
+              if (!confirm(`"${group.name}" 모임을 삭제하시겠습니까?\n멤버, 선호도, 히스토리가 모두 삭제됩니다.`)) return;
+            }
+            await getSupabase().from("groups").delete().eq("id", id);
+            router.push("/");
+          }} style={{ padding: "6px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            삭제
+          </button>
+        )}
       </div>
 
       {/* 탭 */}

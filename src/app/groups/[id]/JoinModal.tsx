@@ -125,18 +125,24 @@ export default function JoinModal({ groupId, currentUser, onJoined, onClose }: P
         {step === "name" && (
           <form onSubmit={handleNameJoin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
-              <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
-                {currentUser.type === "auth" ? "로그인 계정으로 참여합니다" : "참여할 이름을 입력하세요"}
+              <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>이 모임에서 사용할 닉네임</p>
+              <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>
+                {currentUser.type === "auth" ? "계정과 다른 닉네임을 사용할 수 있어요" : "참여할 이름을 입력하세요"}
               </p>
               <input
                 autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="이름 입력"
+                placeholder="닉네임 입력 (예: 홍길동, 길동이)"
                 style={{ width: "100%", padding: "13px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 16, color: "var(--text)", outline: "none", textAlign: "center", fontFamily: "var(--font-display)" }}
                 onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
                 onBlur={(e) => e.target.style.borderColor = "var(--border)"}
               />
+              {currentUser.type === "auth" && currentUser.user.display_name && currentUser.user.display_name !== name && (
+                <button type="button" onClick={() => setName(currentUser.type === "auth" ? currentUser.user.display_name || "" : "")} style={{ marginTop: 6, background: "none", border: "none", color: "var(--accent)", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>
+                  계정 이름으로 되돌리기 ({currentUser.user.display_name})
+                </button>
+              )}
             </div>
             <button type="submit" disabled={joining || !name.trim()} style={{
               padding: "14px", borderRadius: 100, border: "none",
