@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import AuthHeader from "./AuthHeader";
 import BottomNav from "./BottomNav";
+import ThemeLoader from "./ThemeLoader";
 
 export const metadata: Metadata = {
   title: "오늘 뭐 먹지? — meogja",
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')` }} />
       </head>
       <body className="min-h-full flex flex-col" style={{ background: "var(--bg)" }}>
+        <ThemeLoader />
         <AuthHeader />
         <main style={{ flex: 1, maxWidth: 480, margin: "0 auto", width: "100%", padding: "0 0 8px" }}>
           {children}

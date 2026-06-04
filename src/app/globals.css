@@ -78,8 +78,23 @@ button { font-family: var(--font-body); cursor: pointer; }
 ::-webkit-scrollbar { width: 0; height: 0; }
 
 /* ── tap feedback ── */
-.tap { transition: transform .12s cubic-bezier(.4,0,.2,1); }
-.tap:active { transform: scale(.95); }
+.tap {
+  transition: transform .1s cubic-bezier(.4,0,.2,1), box-shadow .1s, background-color .1s, opacity .1s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.tap:active {
+  transform: scale(.92);
+  opacity: .85;
+}
+/* Primary button stronger feedback */
+.tap-primary {
+  transition: transform .1s cubic-bezier(.34,1.56,.64,1), box-shadow .15s;
+}
+.tap-primary:active {
+  transform: scale(.94);
+  box-shadow: none !important;
+}
 
 /* ── animations ── */
 @keyframes slideUp   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }

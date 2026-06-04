@@ -23,6 +23,8 @@ export type Group = {
   owner_guest_name: string | null;
   require_auth: boolean;
   description: string | null;
+  emoji: string | null;
+  image_url: string | null;
   created_at: string;
 };
 

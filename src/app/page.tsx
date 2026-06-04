@@ -8,7 +8,7 @@ import { getCurrentUser, CurrentUser } from "@/lib/auth";
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
 function GroupCard({ group, onClick, myMemberName, isOwner, starred, onStar }: { group: Group; onClick: () => void; myMemberName?: string; isOwner?: boolean; starred?: boolean; onStar?: (e: React.MouseEvent) => void }) {
-  const emoji = GROUP_EMOJIS[group.name.charCodeAt(0) % GROUP_EMOJIS.length];
+  const fallbackEmoji = group.emoji || GROUP_EMOJIS[group.name.charCodeAt(0) % GROUP_EMOJIS.length];
   const hue = 20 + (group.name.charCodeAt(0) % 6) * 18;
   return (
     <button onClick={onClick} className="tap"
@@ -18,9 +18,11 @@ function GroupCard({ group, onClick, myMemberName, isOwner, starred, onStar }: {
       {/* 음식 썸네일 */}
       <div style={{ width:72, height:72, borderRadius:14, flex:"none", overflow:"hidden",
         display:"grid", placeItems:"center", fontSize:36,
-        background:`linear-gradient(140deg, hsl(${hue} 82% 66%), hsl(${(hue+30)%360} 84% 54%))`,
+        background: group.image_url ? "transparent" : `linear-gradient(140deg, hsl(${hue} 82% 66%), hsl(${(hue+30)%360} 84% 54%))`,
         boxShadow:"0 3px 10px rgba(0,0,0,.12)" }}>
-        <span style={{ filter:"drop-shadow(0 2px 5px rgba(0,0,0,.25))" }}>{emoji}</span>
+        {group.image_url
+          ? <img src={group.image_url} alt={group.name} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+          : <span style={{ filter:"drop-shadow(0 2px 5px rgba(0,0,0,.25))" }}>{fallbackEmoji}</span>}
       </div>
       <div style={{ flex:1, minWidth:0 }}>
         <span style={{ fontFamily:"var(--font-display)", fontSize:16.5, color:"var(--text)", display:"block",
@@ -55,21 +57,59 @@ function GroupCard({ group, onClick, myMemberName, isOwner, starred, onStar }: {
   );
 }
 
-function CreateForm({ newName, setNewName, description, setDescription, isPrivate, setIsPrivate, newPassword, setNewPassword, requireAuth, setRequireAuth, creating, onSubmit, isLoggedIn }: {
+const GROUP_EMOJI_LIST = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰','🍖','🍛','🥩','🍝','🌯','🥙','🍞','🍔','🍤','🧆'];
+
+function CreateForm({ newName, setNewName, description, setDescription, emoji, setEmoji, imageUrl, setImageUrl, isPrivate, setIsPrivate, newPassword, setNewPassword, requireAuth, setRequireAuth, creating, onSubmit, isLoggedIn }: {
   newName: string; setNewName: (v: string) => void;
   description: string; setDescription: (v: string) => void;
+  emoji: string; setEmoji: (v: string) => void;
+  imageUrl: string; setImageUrl: (v: string) => void;
   isPrivate: boolean; setIsPrivate: (v: boolean) => void;
   newPassword: string; setNewPassword: (v: string) => void;
   requireAuth: boolean; setRequireAuth: (v: boolean) => void;
   creating: boolean; onSubmit: (e: React.FormEvent) => void;
   isLoggedIn: boolean;
 }) {
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert("2MB 이하 이미지만 가능합니다"); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => setImageUrl(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+
   return (
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* 이모지 / 사진 선택 */}
+      <div>
+        <p style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 700, marginBottom: 8 }}>모임 아이콘</p>
+        {imageUrl ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img src={imageUrl} alt="preview" style={{ width: 56, height: 56, borderRadius: 14, objectFit: "cover" }} />
+            <button type="button" onClick={() => setImageUrl("")} style={{ fontSize: 12, color: "var(--red)", background: "none", border: "none", cursor: "pointer" }}>사진 제거</button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {GROUP_EMOJI_LIST.map((e) => (
+              <button key={e} type="button" className="tap" onClick={() => setEmoji(e)} style={{
+                width: 42, height: 42, fontSize: 22, borderRadius: 12, cursor: "pointer",
+                border: emoji === e ? "2px solid var(--primary)" : "1.5px solid var(--border)",
+                background: emoji === e ? "var(--primary-light)" : "var(--bg)",
+              }}>{e}</button>
+            ))}
+            <label className="tap" style={{ width: 42, height: 42, borderRadius: 12, border: "1.5px dashed var(--border)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 18, color: "var(--text-2)" }}>
+              📷
+              <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
+            </label>
+          </div>
+        )}
+      </div>
+
       <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="모임 이름 (예: 점심팀, 야식팀)" required
         style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 15, color: "var(--text)", outline: "none" }}
         onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
-      <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="모임 설명 (선택, 예: 마케팅팀 점심 모임)"
+      <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="모임 설명 (선택)"
         style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 14, color: "var(--text)", outline: "none" }}
         onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
 
@@ -127,6 +167,8 @@ export default function Home() {
   // 모임 생성
   const [newName, setNewName] = useState("");
   const [description, setDescription] = useState("");
+  const [groupEmoji, setGroupEmoji] = useState("🍱");
+  const [groupImageUrl, setGroupImageUrl] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [requireAuth, setRequireAuth] = useState(false);
@@ -177,7 +219,7 @@ export default function Home() {
   async function loadGroups() {
     setLoading(true);
     // password 필드 제외 — 서버측 API로만 검증
-    const COLS = "id,name,description,is_private,require_auth,owner_id,owner_guest_name,created_at";
+    const COLS = "id,name,description,is_private,require_auth,owner_id,owner_guest_name,emoji,image_url,created_at";
     const [myRes, publicRes] = await Promise.all([
       getSupabase().from("groups").select(COLS).order("created_at", { ascending: false }),
       getSupabase().from("groups").select(COLS).eq("is_private", false).eq("require_auth", false).order("created_at", { ascending: false }).limit(20),
@@ -212,6 +254,8 @@ export default function Home() {
       .insert({
         name: newName.trim(),
         description: description.trim() || null,
+        emoji: groupImageUrl ? null : groupEmoji,
+        image_url: groupImageUrl || null,
         is_private: isPrivate,
         password: isPrivate ? newPassword : null,
         owner_id: ownerId,
@@ -329,7 +373,7 @@ export default function Home() {
             <span style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>새 모임 만들기</span>
             <button onClick={() => { setShowCreateForm(false); setNewName(""); setIsPrivate(false); setNewPassword(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-2)", fontSize: 18 }}>✕</button>
           </div>
-          <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
+          <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} emoji={groupEmoji} setEmoji={setGroupEmoji} imageUrl={groupImageUrl} setImageUrl={setGroupImageUrl} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
         </div>
       )}
 

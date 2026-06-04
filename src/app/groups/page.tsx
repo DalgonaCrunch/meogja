@@ -8,12 +8,12 @@ import { getCurrentUser, CurrentUser } from "@/lib/auth";
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
 function GroupItem({ group, myMemberName, onClick }: { group: Group; myMemberName?: string; onClick: () => void }) {
-  const emoji = GROUP_EMOJIS[group.name.charCodeAt(0) % GROUP_EMOJIS.length];
+  const fallbackEmoji = group.emoji || GROUP_EMOJIS[group.name.charCodeAt(0) % GROUP_EMOJIS.length];
   const hue = 20 + (group.name.charCodeAt(0) % 6) * 18;
   return (
     <button onClick={onClick} className="tap" style={{ width:"100%", textAlign:"left", display:"flex", gap:12, alignItems:"center", padding:"12px 14px", background:"var(--surface)", border:"var(--card-border)", borderRadius:16, boxShadow:"var(--card-shadow)", cursor:"pointer" }}>
-      <div style={{ width:60, height:60, borderRadius:14, flex:"none", display:"grid", placeItems:"center", fontSize:30, background:`linear-gradient(140deg, hsl(${hue} 82% 66%), hsl(${(hue+30)%360} 84% 54%))`, boxShadow:"0 3px 10px rgba(0,0,0,.1)" }}>
-        <span style={{ filter:"drop-shadow(0 2px 5px rgba(0,0,0,.25))" }}>{emoji}</span>
+      <div style={{ width:60, height:60, borderRadius:14, flex:"none", display:"grid", placeItems:"center", fontSize:30, background: group.image_url ? "transparent" : `linear-gradient(140deg, hsl(${hue} 82% 66%), hsl(${(hue+30)%360} 84% 54%))`, boxShadow:"0 3px 10px rgba(0,0,0,.1)", overflow:"hidden" }}>
+        {group.image_url ? <img src={group.image_url} alt={group.name} style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : <span style={{ filter:"drop-shadow(0 2px 5px rgba(0,0,0,.25))" }}>{fallbackEmoji}</span>}
       </div>
       <div style={{ flex:1, minWidth:0 }}>
         <span style={{ fontFamily:"var(--font-display)", fontSize:16, color:"var(--text)", display:"block", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{group.name}</span>
@@ -47,8 +47,8 @@ export default function GroupsPage() {
     setCurrentUser(user);
 
     const [allRes, pubRes] = await Promise.all([
-      getSupabase().from("groups").select("id,name,description,is_private,require_auth,owner_id,owner_guest_name,created_at").order("created_at", { ascending: false }),
-      getSupabase().from("groups").select("id,name,description,is_private,require_auth,owner_id,owner_guest_name,created_at").eq("is_private", false).eq("require_auth", false).order("created_at", { ascending: false }),
+      getSupabase().from("groups").select("id,name,description,is_private,require_auth,owner_id,owner_guest_name,emoji,image_url,created_at").order("created_at", { ascending: false }),
+      getSupabase().from("groups").select("id,name,description,is_private,require_auth,owner_id,owner_guest_name,emoji,image_url,created_at").eq("is_private", false).eq("require_auth", false).order("created_at", { ascending: false }),
     ]);
 
     let memberMap: Record<string, string> = {};

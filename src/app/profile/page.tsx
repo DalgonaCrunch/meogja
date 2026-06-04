@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getCurrentUser, signOut, CurrentUser } from "@/lib/auth";
 import { getSupabase, Group } from "@/lib/supabase";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems } from "@/lib/recommend";
+import { THEMES, ThemeId, applyTheme, getSavedTheme } from "@/lib/theme";
 
 const FEEDBACK_CATS = [
   { id: "bug", label: "🐛 버그 신고" },
@@ -64,6 +65,10 @@ export default function ProfilePage() {
   const [prefLarge, setPrefLarge] = useState("");
   const [prefMedium, setPrefMedium] = useState("");
   const [showFeedback, setShowFeedback] = useState(false);
+  const [prefSaved, setPrefSaved] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState<ThemeId>("cozy");
+
+  useEffect(() => { setCurrentTheme(getSavedTheme()); }, []);
 
   useEffect(() => {
     if (currentUser.type === "auth") {
@@ -138,6 +143,25 @@ export default function ProfilePage() {
         <button onClick={handleSignOut} style={{ padding: "8px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>
           {currentUser.type === "auth" ? "로그아웃" : "나가기"}
         </button>
+      </div>
+
+      {/* 🎨 색상 테마 */}
+      <div className="fade-up">
+        <p style={{ fontFamily: "var(--font-display)", fontSize: 17, marginBottom: 12 }}>🎨 색상 테마</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {(Object.entries(THEMES) as [ThemeId, typeof THEMES[ThemeId]][]).map(([id, t]) => (
+            <button key={id} className="tap" onClick={() => { applyTheme(id); setCurrentTheme(id); }} style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", borderRadius: "var(--r-pill)",
+              border: currentTheme === id ? `2px solid ${t.preview}` : "1.5px solid var(--border)",
+              background: currentTheme === id ? t.vars["--bg-2"] : "var(--surface)",
+              color: "var(--text)", fontSize: 13, fontWeight: currentTheme === id ? 700 : 400, cursor: "pointer",
+              transition: "all .15s",
+            }}>
+              <div style={{ width: 18, height: 18, borderRadius: "50%", background: t.preview, flexShrink: 0 }} />
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {!loading && currentUser.type === "auth" && (
@@ -273,6 +297,18 @@ export default function ProfilePage() {
                 </div>
               )}
               {myPrefs.length === 0 && <p style={{ fontSize: 13, color: "var(--text-2)" }}>아직 저장된 선호도가 없습니다</p>}
+
+              {/* 설정 완료 버튼 */}
+              {myPrefs.length > 0 && (
+                <button className="tap tap-primary" onClick={() => { setPrefSaved(true); setTimeout(() => setPrefSaved(false), 2500); }} style={{
+                  width: "100%", padding: "13px", borderRadius: "var(--r-pill)", border: "none",
+                  background: prefSaved ? "var(--green)" : "var(--primary)", color: "#fff",
+                  fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer",
+                  transition: "background .3s", boxShadow: prefSaved ? "0 6px 16px rgba(46,158,107,.3)" : "0 6px 16px rgba(255,122,69,.3)",
+                }}>
+                  {prefSaved ? "✓ 저장됐습니다!" : "설정 완료"}
+                </button>
+              )}
             </div>
           </div>
         );
