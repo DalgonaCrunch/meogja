@@ -29,7 +29,7 @@ export default function RootLayout({
         </main>
         <style>{`
           .nav-logo {
-            font-family: 'Fraunces', serif;
+            font-family: var(--font-display);
             font-weight: 600;
             font-size: 20px;
             color: var(--text);

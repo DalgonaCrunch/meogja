@@ -190,7 +190,7 @@ export default function HistoryTab({ groupId, members, mapProvider }: Props) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}
           onClick={(e) => { if (e.target === e.currentTarget) setReviewTarget(null); }}>
           <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, width: "100%", maxWidth: 400, boxShadow: "var(--shadow-lg)" }}>
-            <p style={{ fontFamily: "Fraunces, serif", fontSize: 18, fontWeight: 600, marginBottom: 4 }}>{reviewTarget.name}</p>
+            <p style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, marginBottom: 4 }}>{reviewTarget.name}</p>
             <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>{reviewTarget.address}</p>
 
             {/* 별점 */}

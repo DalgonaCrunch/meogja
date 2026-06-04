@@ -56,7 +56,7 @@ export default function ProfilePage() {
       {/* 프로필 헤더 */}
       <div className="fade-up" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 32, fontWeight: 600, marginBottom: 4 }}>
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 600, marginBottom: 4 }}>
             {displayName || "사용자"}
           </h1>
           <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
@@ -87,7 +87,7 @@ export default function ProfilePage() {
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <span style={{ fontSize: 18 }}>{g.is_private ? "🔒" : "🌐"}</span>
                       <div>
-                        <p style={{ fontFamily: "Fraunces, serif", fontSize: 15, fontWeight: 600 }}>{g.name}</p>
+                        <p style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600 }}>{g.name}</p>
                         <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{g.require_auth ? "인증 전용" : "누구나 참여"}</p>
                       </div>
                     </div>
@@ -107,7 +107,7 @@ export default function ProfilePage() {
                   <div key={g.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
                     <button onClick={() => router.push(`/groups/${g.id}`)} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
                       <span style={{ fontSize: 18 }}>{g.is_private ? "🔒" : "🌐"}</span>
-                      <p style={{ fontFamily: "Fraunces, serif", fontSize: 15, fontWeight: 600 }}>{g.name}</p>
+                      <p style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600 }}>{g.name}</p>
                     </button>
                     <button onClick={() => leaveGroup(g.id)} style={{ padding: "5px 12px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 11, cursor: "pointer" }}>
                       나가기

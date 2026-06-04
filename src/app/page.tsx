@@ -49,7 +49,7 @@ function CreateForm({ newName, setNewName, isPrivate, setIsPrivate, newPassword,
         </button>
       )}
 
-      <button type="submit" disabled={creating} style={{ padding: "13px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: creating ? "default" : "pointer", opacity: creating ? 0.7 : 1 }}>
+      <button type="submit" disabled={creating} style={{ padding: "13px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontFamily: "var(--font-display)", fontSize: 16, cursor: creating ? "default" : "pointer", opacity: creating ? 0.7 : 1, boxShadow: "0 4px 14px rgba(255,107,53,0.3)" }}>
         {creating ? "생성 중…" : "모임 만들기 →"}
       </button>
     </form>
@@ -202,8 +202,8 @@ export default function Home() {
       {/* 모임 목록 */}
       {!loading && groups.length > 0 && (
         <div className="fade-up fade-up-2">
-          <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 16 }}>
-            모임 목록
+          <p style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)", marginBottom: 14 }}>
+            우리 모임들 🍽️
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[...publicGroups, ...privateGroups].map((group, i) => (
@@ -212,9 +212,9 @@ export default function Home() {
                 className={`fade-up fade-up-${Math.min(i + 1, 5)} group-card`}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "18px 22px", borderRadius: 16, width: "100%",
-                  background: "var(--bg-card)", border: "1px solid var(--border)",
-                  boxShadow: "var(--shadow)", textAlign: "left", cursor: "pointer",
+                  padding: "16px 20px", borderRadius: 20, width: "100%",
+                  background: "var(--bg-card)", border: "1.5px solid var(--border)",
+                  boxShadow: "var(--shadow-card)", textAlign: "left", cursor: "pointer",
                   transition: "all 0.18s cubic-bezier(0.34,1.56,0.64,1)",
                 }}
                 onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-2px) scale(1.01)"; e.currentTarget.style.boxShadow = "var(--shadow-lg)"; e.currentTarget.style.borderColor = "var(--accent)"; }}
@@ -222,21 +222,27 @@ export default function Home() {
                 onMouseDown={(e) => { e.currentTarget.style.transform = "translateY(0) scale(0.98)"; }}
                 onMouseUp={(e) => { e.currentTarget.style.transform = "translateY(-2px) scale(1.01)"; }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: group.is_private ? "#FFF3E0" : "#E8F5E9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{
+                    width: 52, height: 52, borderRadius: 16,
+                    background: group.is_private ? "linear-gradient(135deg,#FFD54F,#FF8F00)" : "linear-gradient(135deg,#81C784,#388E3C)",
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24,
+                    boxShadow: group.is_private ? "0 4px 12px rgba(255,143,0,0.3)" : "0 4px 12px rgba(56,142,60,0.3)",
+                    flexShrink: 0,
+                  }}>
                     {group.is_private ? "🔒" : "🌐"}
                   </div>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <p style={{ fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 600, color: "var(--text)" }}>{group.name}</p>
-                      {group.require_auth && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 100, background: "var(--green-soft)", color: "var(--green)", fontWeight: 700 }}>로그인 전용</span>}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <p style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)", letterSpacing: "-0.3px" }}>{group.name}</p>
+                      {group.require_auth && <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 100, background: "var(--green-soft)", color: "var(--green)", fontWeight: 700 }}>로그인 전용</span>}
                     </div>
-                    <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-                      {group.is_private ? "비공개 모임" : "공개 모임"} · {new Date(group.created_at).toLocaleDateString("ko-KR")}
+                    <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>
+                      {group.is_private ? "🔐 비공개" : "🌍 공개"} · {new Date(group.created_at).toLocaleDateString("ko-KR")}
                     </p>
                   </div>
                 </div>
-                <span style={{ fontSize: 20, color: "var(--text-muted)", transition: "transform 0.18s" }}>→</span>
+                <span style={{ fontSize: 18, color: "var(--accent)", fontWeight: 700 }}>›</span>
               </button>
             ))}
           </div>
@@ -260,7 +266,7 @@ export default function Home() {
             background: "var(--bg-card)", borderRadius: 20, padding: 32,
             width: "100%", maxWidth: 380, boxShadow: "var(--shadow-lg)",
           }}>
-            <p style={{ fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 600, marginBottom: 6 }}>
+            <p style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600, marginBottom: 6 }}>
               🔒 {enterTarget.name}
             </p>
             <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 20 }}>비밀번호를 입력하세요</p>
@@ -298,7 +304,7 @@ export default function Home() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}
           onClick={(e) => { if (e.target === e.currentTarget) { setDeleteTarget(null); setDeletePassword(""); setDeletePasswordError(false); } }}>
           <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, width: "100%", maxWidth: 360, boxShadow: "var(--shadow-lg)" }}>
-            <p style={{ fontFamily: "Fraunces, serif", fontSize: 18, fontWeight: 600, marginBottom: 8 }}>모임 삭제</p>
+            <p style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, marginBottom: 8 }}>모임 삭제</p>
             <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: deleteTarget.is_private ? 14 : 20 }}>
               <strong style={{ color: "var(--text)" }}>{deleteTarget.name}</strong> 모임을 삭제하면 멤버, 선호도, 히스토리가 모두 삭제됩니다.
             </p>

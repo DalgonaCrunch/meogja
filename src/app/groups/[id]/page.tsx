@@ -1077,7 +1077,7 @@ export default function GroupPage() {
           {searchMode === "menu" && menuRecommendations.length > 0 && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-                <p style={{ fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 600 }}>
+                <p style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600 }}>
                   추천 메뉴 <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)" }}>— 먹고 싶은 메뉴를 골라보세요</span>
                 </p>
                 <button onClick={handleMenuRecommend} style={{ padding: "6px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
@@ -1132,7 +1132,7 @@ export default function GroupPage() {
           {scoredRestaurants.length > 0 && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-                <p style={{ fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 600 }}>
+                <p style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600 }}>
                   주변 추천 맛집
                   <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)", marginLeft: 10 }}>{scoredRestaurants.length}곳</span>
                 </p>
@@ -1169,7 +1169,7 @@ export default function GroupPage() {
                       <div key={groupName} style={{ marginBottom: 16 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                           <span style={{ fontSize: 18 }}>{categoryEmoji(groupName)}</span>
-                          <span style={{ fontFamily: "Fraunces, serif", fontSize: 16, fontWeight: 700, color: col.text }}>{groupName}</span>
+                          <span style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 700, color: col.text }}>{groupName}</span>
                           <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: col.bg, color: col.text, border: `1px solid ${col.border}`, fontWeight: 600 }}>{items.length}곳</span>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
