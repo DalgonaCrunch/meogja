@@ -19,9 +19,9 @@ export const metadata: Metadata = {
     locale: "ko_KR",
     images: [
       {
-        url: "https://meogja.vercel.app/meogja-brand.jpg",
-        width: 1280,
-        height: 720,
+        url: "https://meogja.vercel.app/og-image.jpg",
+        width: 1200,
+        height: 630,
         alt: "오늘 뭐 먹지? meogja",
       },
     ],
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "오늘 뭐 먹지? — meogja",
     description: "모임원과 함께 취향 맞춰 주변 맛집을 추천받아요",
-    images: ["https://meogja.vercel.app/meogja-brand.jpg"],
+    images: ["https://meogja.vercel.app/og-image.jpg"],
   },
 };
 

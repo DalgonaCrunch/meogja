@@ -218,7 +218,7 @@ export default function Home() {
       {/* ── Hero — 브랜드 이미지 기반 ── */}
       <div className="fade-up" style={{ position:"relative", overflow:"hidden" }}>
         {/* 브랜드 이미지 (하단 음식 일러스트 영역) */}
-        <img src="/meogja-brand.jpg" alt="meogja brand" style={{ width:"100%", display:"block", objectFit:"cover", maxHeight:260 }} />
+        <img src="/meogja-brand.jpg" alt="meogja brand" style={{ width:"100%", display:"block", objectFit:"cover", maxHeight:260, objectPosition:"top center" }} />
         {/* 이미지 위 오버레이 버튼 */}
         <div style={{ padding:"0 16px 16px" }}>
           <button className="tap" onClick={() => {
