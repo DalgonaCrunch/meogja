@@ -2,96 +2,96 @@
 @import url('https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
 
-/* ── Design Tokens ── */
 :root {
-  /* backgrounds */
-  --bg:   #FFF9F2;
-  --bg-2: #FFF1E2;
-  --card: #FFFFFF;
+  /* ── brand colors ── */
+  --primary:       #FF7A45;
+  --primary-light: #FFF1E8;
+  --primary-dark:  #E55E2B;
+  --accent:        #4A2C1D;
 
-  /* text */
-  --text:  #2D1B00;
-  --muted: #8B6E52;
-  --faint: #B79E84;
+  /* ── neutral ── */
+  --bg:     #FFF8F1;
+  --bg-2:   #FFF1E8;
+  --surface: #FFFFFF;
+  --text:   #2B2B2B;
+  --text-2: #7A7A7A;
+  --text-3: #ADADAD;
 
-  /* accent */
-  --accent:      #FF6B35;
-  --accent-2:    #FF8B5C;
-  --accent-soft: #FFF0EA;
-  --accent-ink:  #FFFFFF;
-
-  /* semantic */
+  /* ── semantic (legacy aliases) ── */
+  --card:       var(--surface);
+  --bg-card:    var(--surface);
+  --muted:      var(--text-2);
+  --faint:      var(--text-3);
+  --accent-ink: #FFFFFF;
+  --accent-soft: var(--primary-light);
+  --accent-2:   #FF9A6A;
   --green:      #2E9E6B;
   --green-soft: #E8F8F0;
   --red:        #E53935;
   --red-soft:   #FDECEA;
-  --gold:       #F2B705;
+  --gold:       #F5A623;
+  --border:     #F0E6DC;
+  --border-2:   #E8DACE;
 
-  /* borders */
-  --border:   #F0E4D4;
-  --border-2: #E9D8C0;
-
-  /* card geometry */
-  --card-radius:  22px;
+  /* ── geometry ── */
+  --card-radius:  16px;
   --card-border:  1px solid var(--border);
-  --card-shadow:  0 8px 22px -12px rgba(120,72,20,.28), 0 2px 6px -3px rgba(120,72,20,.12);
-  --tile-radius:  18px;
-
-  /* radius scale */
+  --card-shadow:  0 2px 12px rgba(74,44,29,.07), 0 1px 3px rgba(74,44,29,.05);
+  --card-shadow-lg: 0 8px 28px rgba(74,44,29,.12), 0 2px 8px rgba(74,44,29,.07);
+  --tile-radius:  14px;
   --r-pill: 999px;
-  --r-sm:   12px;
-  --r-md:   16px;
+  --r-sm:   10px;
+  --r-md:   14px;
+  --r-lg:   20px;
 
-  /* typography */
-  --font-display: 'Jua', system-ui, sans-serif;
-  --font-body:    'Pretendard Variable', 'Noto Sans KR', system-ui, -apple-system, sans-serif;
-
-  /* legacy aliases (for existing components) */
-  --bg-card:    var(--card);
-  --text-muted: var(--muted);
+  /* ── shadow legacy ── */
   --shadow:     var(--card-shadow);
-  --shadow-lg:  0 18px 36px -16px rgba(120,72,20,.38), 0 4px 12px -4px rgba(120,72,20,.18);
+  --shadow-lg:  var(--card-shadow-lg);
   --shadow-card: var(--card-shadow);
   --radius:     var(--card-radius);
   --radius-sm:  var(--r-sm);
+
+  /* ── typography ── */
+  --font-display: 'Jua', system-ui, sans-serif;
+  --font-body:    'Pretendard Variable', 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+
+  /* ── bottom nav height ── */
+  --nav-h: 62px;
 }
 
-/* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; }
 
 body {
   font-family: var(--font-body);
   background: var(--bg);
-  background-image:
-    radial-gradient(900px 400px at 50% -5%, rgba(239,230,218,.7) 0%, transparent 70%);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   word-break: keep-all;
   overflow-wrap: anywhere;
   min-height: 100vh;
+  padding-bottom: var(--nav-h);
 }
 
-h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 400; margin: 0; letter-spacing: -.01em; }
-button { font-family: var(--font-body); }
+h1,h2,h3,h4 { font-family: var(--font-display); font-weight: 400; margin: 0; letter-spacing: -.01em; }
+button { font-family: var(--font-body); cursor: pointer; }
 ::-webkit-scrollbar { width: 0; height: 0; }
 
-/* ── Tap feedback ── */
+/* ── tap feedback ── */
 .tap { transition: transform .12s cubic-bezier(.4,0,.2,1); }
-.tap:active { transform: scale(.96); }
+.tap:active { transform: scale(.95); }
 
-/* ── Animations ── */
+/* ── animations ── */
 @keyframes slideUp   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
 @keyframes pop       { from { opacity:0; transform:scale(.88); }       to { opacity:1; transform:none; } }
 @keyframes sheetUp   { from { transform:translateY(100%); }             to { transform:translateY(0); } }
 @keyframes fadeIn    { from { opacity:0; }                              to { opacity:1; } }
-@keyframes growBar   { from { width:0; } }
 @keyframes float     { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-8px); } }
-@keyframes bounceIn  { 0%{ transform:scale(.8); opacity:0; } 60%{ transform:scale(1.05); } 100%{ transform:scale(1); opacity:1; } }
-@keyframes spin      { to { transform:rotate(360deg); } }
-@keyframes pulse-dot { 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.5; transform:scale(.8); } }
+@keyframes bounceIn  { 0%{ transform:scale(.8);opacity:0; } 60%{ transform:scale(1.04); } 100%{ transform:scale(1);opacity:1; } }
+@keyframes spin      { to{ transform:rotate(360deg); } }
+@keyframes growBar   { from{ width:0; } }
 
-.fade-up   { animation: slideUp .42s cubic-bezier(.2,.8,.2,1) both; }
+.fade-up   { animation: slideUp .4s cubic-bezier(.2,.8,.2,1) both; }
 .fade-up-1 { animation-delay:.06s; }
 .fade-up-2 { animation-delay:.12s; }
 .fade-up-3 { animation-delay:.18s; }
@@ -99,23 +99,26 @@ button { font-family: var(--font-body); }
 .fade-up-5 { animation-delay:.30s; }
 .bounce-in { animation: bounceIn .5s cubic-bezier(.34,1.56,.64,1) both; }
 
-/* ── Nav ── */
+/* ── nav ── */
 .nav-logo {
   font-family: var(--font-display);
   font-size: 20px;
-  color: var(--accent);
+  color: var(--text);
   text-decoration: none;
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: opacity .15s;
 }
-.nav-logo:hover { opacity: .8; }
-.nav-link {
-  font-size: 14px;
-  color: var(--muted);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color .15s;
+.nav-link { font-size: 14px; color: var(--text-2); text-decoration: none; font-weight: 500; }
+.nav-link:hover { color: var(--primary); }
+
+/* ── horizontal scroll ── */
+.scroll-x {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
-.nav-link:hover { color: var(--accent); }
+.scroll-x::-webkit-scrollbar { display: none; }

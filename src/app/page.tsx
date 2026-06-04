@@ -13,32 +13,30 @@ function GroupCard({ group, onClick }: { group: Group; onClick: () => void }) {
   return (
     <button onClick={onClick} className="tap"
       style={{ width:"100%", textAlign:"left", display:"flex", gap:14, alignItems:"center",
-        padding:16, background:"var(--card)", border:"var(--card-border)",
-        borderRadius:"var(--card-radius)", boxShadow:"var(--card-shadow)", cursor:"pointer" }}>
-      <div style={{ width:58, height:58, borderRadius:"var(--tile-radius)", flex:"none", position:"relative", overflow:"hidden",
-        display:"grid", placeItems:"center", fontSize:30,
-        background:`linear-gradient(140deg, hsl(${hue} 88% 64%), hsl(${(hue+26)%360} 90% 52%))`,
-        boxShadow:"inset 0 -10px 22px rgba(0,0,0,.18), inset 0 8px 14px rgba(255,255,255,.28)" }}>
-        <div style={{ position:"absolute", inset:0, background:"radial-gradient(60% 50% at 30% 22%, rgba(255,255,255,.45), transparent)" }}/>
-        <span style={{ position:"relative", filter:"drop-shadow(0 3px 4px rgba(0,0,0,.25))" }}>{emoji}</span>
+        padding:"14px 14px", background:"var(--surface)", border:"var(--card-border)",
+        borderRadius:16, boxShadow:"var(--card-shadow)", cursor:"pointer" }}>
+      {/* 음식 썸네일 */}
+      <div style={{ width:70, height:70, borderRadius:14, flex:"none", position:"relative", overflow:"hidden",
+        display:"grid", placeItems:"center", fontSize:34,
+        background:`linear-gradient(140deg, hsl(${hue} 80% 68%), hsl(${(hue+30)%360} 82% 56%))`,
+        boxShadow:"inset 0 -8px 20px rgba(0,0,0,.15)" }}>
+        <span style={{ filter:"drop-shadow(0 2px 4px rgba(0,0,0,.2))" }}>{emoji}</span>
       </div>
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:5 }}>
-          <span style={{ fontFamily:"var(--font-display)", fontSize:18.5, color:"var(--text)", flex:1, minWidth:0,
-            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{group.name}</span>
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:6, marginBottom:4 }}>
+          <span style={{ fontFamily:"var(--font-display)", fontSize:17, color:"var(--text)", flex:1, minWidth:0,
+            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", lineHeight:1.3 }}>{group.name}</span>
           {group.is_private
-            ? <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"3px 9px", borderRadius:"var(--r-pill)", fontSize:11.5, fontWeight:700, color:"var(--muted)", background:"var(--bg-2)", flexShrink:0 }}>🔒 비공개</span>
-            : <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"3px 9px", borderRadius:"var(--r-pill)", fontSize:11.5, fontWeight:700, color:"var(--green)", background:"var(--green-soft)", flexShrink:0 }}>🌍 공개</span>}
+            ? <span style={{ fontSize:11, padding:"2px 7px", borderRadius:"var(--r-pill)", fontWeight:700, color:"var(--text-2)", background:"var(--bg-2)", flexShrink:0 }}>🔒</span>
+            : <span style={{ fontSize:11, padding:"2px 7px", borderRadius:"var(--r-pill)", fontWeight:700, color:"var(--green)", background:"var(--green-soft)", flexShrink:0 }}>공개</span>}
         </div>
-        {group.description && <p style={{ fontSize:12.5, color:"var(--muted)", marginBottom:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{group.description}</p>}
-        <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:12.5, color:"var(--muted)" }}>
-          <span>{new Date(group.created_at).toLocaleDateString("ko-KR")}</span>
+        {group.description && <p style={{ fontSize:12.5, color:"var(--text-2)", marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{group.description}</p>}
+        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+          <span style={{ fontSize:12, color:"var(--text-3)" }}>{new Date(group.created_at).toLocaleDateString("ko-KR")}</span>
+          {group.require_auth && <span style={{ fontSize:11, padding:"1px 7px", borderRadius:"var(--r-pill)", fontWeight:700, color:"var(--primary)", background:"var(--primary-light)" }}>🔑 로그인</span>}
         </div>
-        {group.require_auth && <div style={{ marginTop:6 }}>
-          <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:"var(--r-pill)", fontSize:11, fontWeight:700, color:"var(--accent)", background:"var(--accent-soft)" }}>🔑 로그인 전용</span>
-        </div>}
       </div>
-      <span style={{ color:"var(--faint)", fontSize:22, flexShrink:0 }}>›</span>
+      <span style={{ color:"var(--text-3)", fontSize:18, flexShrink:0 }}>›</span>
     </button>
   );
 }
@@ -209,98 +207,110 @@ export default function Home() {
   const publicGroups = groups.filter((g) => !g.is_private);
   const privateGroups = groups.filter((g) => g.is_private);
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
+  const QUICK_CATS = [
+    { emoji:"🍖", label:"고기" }, { emoji:"🍜", label:"국물" },
+    { emoji:"🍣", label:"일식" }, { emoji:"🍕", label:"양식" },
+    { emoji:"🍗", label:"치킨" }, { emoji:"☕", label:"카페" },
+    { emoji:"🌶️", label:"매운맛" }, { emoji:"🍰", label:"디저트" },
+  ];
 
-      {/* Hero */}
-      <div className="fade-up" style={{ padding: "4px 0 0" }}>
-        <div style={{ position: "relative", borderRadius: 24, padding: "24px 22px 28px", overflow: "hidden",
-          background: "linear-gradient(135deg, var(--accent), var(--accent-2))", color: "#fff",
-          boxShadow: "0 18px 36px -16px var(--accent)" }}>
-          <div style={{ position: "absolute", right: -10, top: -16, fontSize: 130, opacity: 0.15, transform: "rotate(-12deg)", pointerEvents: "none" }}>🍴</div>
+  return (
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+
+      {/* ── Hero Card ── */}
+      <div className="fade-up" style={{ padding: "16px 16px 0" }}>
+        <div style={{ position: "relative", borderRadius: 20, padding: "22px 20px 24px", overflow: "hidden",
+          background: "linear-gradient(135deg, #FF7A45 0%, #FF9A6A 100%)", color: "#fff",
+          boxShadow: "0 12px 28px rgba(255,122,69,.35)" }}>
+          <div style={{ position: "absolute", right: -18, top: -22, fontSize: 110, opacity: 0.12, transform: "rotate(-15deg)", pointerEvents: "none" }}>🍴</div>
+          <div style={{ position: "absolute", right: 70, bottom: -10, fontSize: 80, opacity: 0.1, pointerEvents: "none" }}>🍜</div>
           <div style={{ position: "relative" }}>
-            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(28px,7vw,38px)", lineHeight: 1.18, marginBottom: 10 }}>
+            <h1 style={{ fontSize: "clamp(22px,6vw,30px)", lineHeight: 1.3, marginBottom: 6, fontFamily: "var(--font-display)" }}>
               오늘 뭐 먹지? 🍴
             </h1>
-            <p style={{ fontSize: 14, opacity: 0.92, lineHeight: 1.6, maxWidth: 260 }}>
-              같이 먹을 사람 고르고, 취향 맞춰<br/>주변 맛집을 추천받아요
+            <p style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.6, marginBottom: 18 }}>
+              오늘 기분에 맞는 메뉴 추천,<br/>주변 맛집까지 한 번에!
             </p>
+            <button className="tap" onClick={() => {
+              if (currentUser.type === "none") { router.push("/login"); return; }
+              setShowCreateForm(true);
+            }} style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "11px 22px", borderRadius: "var(--r-pill)", border: "none",
+              background: "#fff", color: "var(--primary)",
+              fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(0,0,0,.12)",
+            }}>
+              + 모임 만들기
+            </button>
           </div>
         </div>
       </div>
 
-      {/* 모임 생성 — 모임 없으면 바로, 있으면 버튼 토글 */}
-      {!loading && groups.length > 0 ? (
-        <>
-          {!showCreateForm ? (
-            <button onClick={() => {
-              if (currentUser.type === "none") {
-                router.push("/login");
-                return;
-              }
-              setShowCreateForm(true);
-            }} className="fade-up fade-up-1" style={{
-              padding: "14px 28px", borderRadius: 100, border: "2px dashed var(--border)",
-              background: "transparent", color: "var(--text-muted)", fontSize: 14, fontWeight: 600,
-              cursor: "pointer", transition: "all 0.18s", textAlign: "center",
-            }}
-              onMouseOver={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
-              onMouseOut={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-muted)"; }}
-            >
-              + 새 모임 만들기
-            </button>
-          ) : (
-            <div className="fade-up" style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-                <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)" }}>새 모임 만들기</p>
-                <button onClick={() => { setShowCreateForm(false); setNewName(""); setIsPrivate(false); setNewPassword(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 18 }}>✕</button>
+      {/* ── 새 모임 폼 ── */}
+      {showCreateForm && (
+        <div className="fade-up" style={{ margin: "0 16px", background: "var(--surface)", borderRadius: "var(--card-radius)", padding: "22px 20px", border: "var(--card-border)", boxShadow: "var(--card-shadow)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>새 모임 만들기</span>
+            <button onClick={() => { setShowCreateForm(false); setNewName(""); setIsPrivate(false); setNewPassword(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-2)", fontSize: 18 }}>✕</button>
+          </div>
+          <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
+        </div>
+      )}
+
+      {/* ── 빠른 카테고리 ── */}
+      <div className="fade-up fade-up-1" style={{ padding: "0 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>인기 메뉴 🔥</span>
+        </div>
+        <div className="scroll-x">
+          {QUICK_CATS.map((c) => (
+            <div key={c.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, flexShrink: 0 }}>
+              <div style={{ width: 58, height: 58, borderRadius: "50%", background: "var(--surface)", border: "1.5px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, boxShadow: "var(--card-shadow)" }}>
+                {c.emoji}
               </div>
+              <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 500 }}>{c.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 내 모임 ── */}
+      <div className="fade-up fade-up-2" style={{ padding: "0 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>내 모임</span>
+          {groups.length > 0 && <button className="tap" onClick={() => { if (currentUser.type === "none") { router.push("/login"); return; } setShowCreateForm(true); }} style={{ fontSize: 13, color: "var(--primary)", fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>+ 새 모임</button>}
+        </div>
+
+        {loading && <p style={{ color: "var(--text-2)", textAlign: "center", padding: "30px 0", fontSize: 14 }}>불러오는 중…</p>}
+
+        {!loading && groups.length === 0 && (
+          currentUser.type === "none" ? (
+            <div style={{ textAlign: "center", padding: "32px 20px", background: "var(--surface)", borderRadius: "var(--card-radius)", border: "var(--card-border)" }}>
+              <p style={{ fontSize: 36, marginBottom: 10 }}>🍽️</p>
+              <p style={{ fontFamily: "var(--font-display)", fontSize: 18, marginBottom: 6 }}>배고파? 같이 정하자!</p>
+              <p style={{ fontSize: 14, color: "var(--text-2)", marginBottom: 20 }}>로그인하고 첫 모임을 만들어보세요</p>
+              <button className="tap" onClick={() => router.push("/login")} style={{ padding: "12px 28px", borderRadius: "var(--r-pill)", border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer" }}>
+                시작하기 →
+              </button>
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "32px 20px", background: "var(--surface)", borderRadius: "var(--card-radius)", border: "2px dashed var(--border)" }}>
+              <p style={{ fontSize: 36, marginBottom: 10 }}>🍴</p>
+              <p style={{ fontFamily: "var(--font-display)", fontSize: 18, marginBottom: 16 }}>첫 모임을 만들어보세요!</p>
               <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
             </div>
-          )}
-        </>
-      ) : !loading ? (
-        currentUser.type === "none" ? (
-          <div className="fade-up fade-up-1" style={{ textAlign: "center", padding: "32px 20px" }}>
-            <p style={{ fontSize: 20, marginBottom: 8 }}>🍴</p>
-            <p style={{ fontFamily: "var(--font-display)", fontSize: 20, marginBottom: 8 }}>모임을 시작해볼까요?</p>
-            <p style={{ fontSize: 14, color: "var(--muted)", marginBottom: 20 }}>로그인하거나 이름을 입력해서 첫 모임을 만들어보세요</p>
-            <button className="tap" onClick={() => router.push("/login")} style={{ padding: "12px 28px", borderRadius: "var(--r-pill)", border: "none", background: "var(--accent)", color: "#fff", fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer", boxShadow: "0 8px 18px -8px var(--accent)" }}>
-              로그인 / 게스트로 시작하기 →
-            </button>
-          </div>
-        ) : (
-          <div className="fade-up fade-up-1" style={{ background: "var(--card)", borderRadius: "var(--card-radius)", padding: 28, border: "var(--card-border)", boxShadow: "var(--card-shadow)" }}>
-            <p style={{ fontFamily: "var(--font-display)", fontSize: 18, marginBottom: 18 }}>첫 모임 만들기 🎉</p>
-            <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
-          </div>
-        )
-      ) : null}
+          )
+        )}
 
-      {/* 모임 목록 */}
-      {!loading && groups.length > 0 && (
-        <div className="fade-up fade-up-2">
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
-            <div style={{ fontFamily:"var(--font-display)", fontSize:18, color:"var(--text)" }}>내 모임 {groups.length}</div>
-            {groups.length > 0 && !showCreateForm && (
-              <button className="tap" onClick={() => setShowCreateForm(true)} style={{ display:"inline-flex", alignItems:"center", gap:4, color:"var(--accent)", fontWeight:700, fontSize:13.5, background:"none", border:"none", cursor:"pointer", padding:"4px 0" }}>
-                + 새 모임
-              </button>
-            )}
-          </div>
+        {!loading && groups.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {[...publicGroups, ...privateGroups].map((group, i) => (
+            {[...publicGroups, ...privateGroups].map((group) => (
               <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} />
             ))}
           </div>
-        </div>
-      )}
-
-      {loading && (
-        <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "40px 0", fontSize: 14 }}>
-          불러오는 중…
-        </div>
-      )}
+        )}
+      </div>
 
       {/* 비공개 모임 비밀번호 다이얼로그 */}
       {enterTarget && (
