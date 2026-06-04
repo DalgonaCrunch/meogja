@@ -144,6 +144,7 @@ export default function GroupPage() {
   const [creatingVote, setCreatingVote] = useState(false);
   const [showVotePicker, setShowVotePicker] = useState(false);
   const [voteCandidates, setVoteCandidates] = useState<Set<string>>(new Set());
+  const [randomPick, setRandomPick] = useState<string | null>(null);
   const [locationMode, setLocationMode] = useState<"auto" | "manual">("auto");
   const [locationQuery, setLocationQuery] = useState("");
   const [locationResults, setLocationResults] = useState<{ name: string; address: string; lat: number; lng: number }[]>([]);
@@ -627,13 +628,18 @@ export default function GroupPage() {
   const memberDislikes = memberPrefs.filter((p) => p.preference_type === "dislike");
 
   function renderCard(r: ScoredRestaurant, i: number, _borderColor: string) {
+    const isPicked = randomPick === r.title;
     const catKey = r.category.split(">").pop()?.trim() || r.category;
     const imgUrl = foodImages[catKey];
     const isFav = favorites.has(r.title);
     const hasScore = r.score > 0;
     const avg = reviewAvgs[r.title];
     return (
-      <div key={`${r.title}-${i}`} style={{ background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
+      <div key={`${r.title}-${i}`} style={{ background: isPicked ? "#FFF4CC" : "var(--surface)", borderRadius:16, border: isPicked ? "2.5px solid #F5A623" : "var(--card-border)", boxShadow: isPicked ? "0 8px 24px rgba(245,166,35,.25)" : "var(--card-shadow)", overflow:"hidden", transition:"all .3s", transform: isPicked ? "scale(1.01)" : "none" }}>
+        {isPicked && <div style={{ padding:"6px 14px", background:"#F5A623", display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:18 }}>🎲</span>
+          <span style={{ fontFamily:"var(--font-display)", fontSize:14, color:"#fff" }}>오늘 여기 어때요?</span>
+        </div>}
         <div style={{ display:"flex", gap:12, padding:"12px 14px" }}>
           {/* 음식 사진 */}
           <div style={{ width:80, height:80, borderRadius:14, overflow:"hidden", flexShrink:0, position:"relative",
@@ -1356,18 +1362,31 @@ export default function GroupPage() {
                   <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)", marginLeft: 8 }}>{scoredRestaurants.length}곳</span>
                 </p>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <button className="tap" onClick={() => { setScoredRestaurants([]); setVoteUrl(null); searchMode === "menu" ? handleRestaurantByMenus() : handleRecommend(); }} style={{
-                    padding: "8px 16px", borderRadius: "var(--r-pill)", fontSize: 13, fontWeight: 700,
+                  <button className="tap" onClick={() => {
+                    const list = sortedRestaurants;
+                    if (!list.length) return;
+                    const pick = list[Math.floor(Math.random() * list.length)];
+                    setRandomPick(pick.title);
+                    // 2초 후 초기화
+                    setTimeout(() => setRandomPick(null), 4000);
+                  }} style={{
+                    padding: "8px 14px", borderRadius: "var(--r-pill)", fontSize: 14, fontWeight: 700,
+                    border: "1.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: "pointer",
+                  }}>
+                    🎲
+                  </button>
+                  <button className="tap" onClick={() => { setScoredRestaurants([]); setVoteUrl(null); setRandomPick(null); searchMode === "menu" ? handleRestaurantByMenus() : handleRecommend(); }} style={{
+                    padding: "8px 14px", borderRadius: "var(--r-pill)", fontSize: 13, fontWeight: 700,
                     border: "1.5px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer",
                   }}>
-                    🔄 재검색
+                    🔄
                   </button>
                   <button className="tap" onClick={openVotePicker} disabled={creatingVote} style={{
                     padding: "8px 16px", borderRadius: "var(--r-pill)", fontSize: 13, fontWeight: 700,
                     border: "none", background: "var(--primary)", color: "#fff", cursor: "pointer",
                     boxShadow: "0 4px 12px rgba(255,122,69,.3)",
                   }}>
-                    🗳️ {creatingVote ? "생성 중…" : "투표 시작"}
+                    🗳️ {creatingVote ? "생성 중…" : "투표"}
                   </button>
                 </div>
               </div>
