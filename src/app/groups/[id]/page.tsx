@@ -678,7 +678,6 @@ export default function GroupPage() {
       {showJoinModal && (
         <JoinModal
           groupId={id}
-          currentUser={currentUser}
           onJoined={handleJoined}
           onClose={() => setShowJoinModal(false)}
         />
