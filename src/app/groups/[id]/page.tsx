@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendations } from "@/lib/recommend";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
+import JoinModal from "./JoinModal";
 import HistoryTab from "./tabs/HistoryTab";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
@@ -101,6 +102,9 @@ export default function GroupPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUser>({ type: "none" });
   const [isOwner, setIsOwner] = useState(false);
   const [myMemberId, setMyMemberId] = useState<string | null>(null);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showPrefSetup, setShowPrefSetup] = useState(false);
+  const [ownerName, setOwnerName] = useState<string | null>(null);
   const [tab, setTab] = useState<"recommend" | "history" | "members">("recommend");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [reviewAvgs, setReviewAvgs] = useState<Record<string, number>>({});
@@ -246,6 +250,16 @@ export default function GroupPage() {
     const user = await getCurrentUser();
     setCurrentUser(user);
     if (user.type === "auth") setIsOwner(data.owner_id === user.user.id);
+    // 모임장 이름 조회
+    if (data.owner_id) {
+      const { data: profile } = await getSupabase().from("user_profiles").select("display_name").eq("id", data.owner_id).single();
+      if (profile?.display_name) setOwnerName(profile.display_name);
+      else {
+        // members 테이블에서 찾기
+        const { data: ownerMember } = await getSupabase().from("members").select("name").eq("group_id", id).eq("user_id", data.owner_id).single();
+        if (ownerMember) setOwnerName(ownerMember.name);
+      }
+    }
   }
 
   async function loadMembers() {
@@ -611,17 +625,77 @@ export default function GroupPage() {
 
   if (!group) return <div style={{ textAlign: "center", padding: 60, color: "var(--text-muted)" }}>불러오는 중…</div>;
 
+  function handleJoined(memberId: string, memberName: string) {
+    setMyMemberId(memberId);
+    setShowJoinModal(false);
+    // 참여 후 선호도 설정으로 안내
+    setExpandedId(memberId);
+    setTab("members");
+    setShowPrefSetup(true);
+    loadMembers();
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
 
+      {/* Join Modal */}
+      {showJoinModal && (
+        <JoinModal
+          groupId={id}
+          currentUser={currentUser}
+          onJoined={handleJoined}
+          onClose={() => setShowJoinModal(false)}
+        />
+      )}
+
+      {/* 선호도 설정 안내 배너 */}
+      {showPrefSetup && myMemberId && (
+        <div className="bounce-in" style={{ padding: "14px 18px", borderRadius: 14, background: "var(--accent-soft)", border: "2px solid var(--accent)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <p style={{ fontFamily: "var(--font-display)", fontSize: 14, color: "var(--accent)" }}>🎉 참여 완료!</p>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>좋아하는 음식과 못먹는 음식을 아래에서 설정해보세요</p>
+          </div>
+          <button onClick={() => setShowPrefSetup(false)} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 18, cursor: "pointer" }}>✕</button>
+        </div>
+      )}
+
       {/* 헤더 */}
-      <div className="fade-up" style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <button onClick={() => router.push("/")} style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid var(--border)", background: "transparent", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>←</button>
+      <div className="fade-up" style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+        <button onClick={() => router.push("/")} style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid var(--border)", background: "transparent", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", flexShrink: 0, marginTop: 4 }}>←</button>
         <div style={{ flex: 1 }}>
-          <h1 style={{ fontFamily: "Fraunces, serif", fontSize: "clamp(24px,4vw,36px)", fontWeight: 600, lineHeight: 1.1 }}>
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(22px,4vw,34px)", fontWeight: 600, lineHeight: 1.1 }}>
             {group.is_private ? "🔒 " : "🌐 "}{group.name}
           </h1>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{members.length}명의 멤버</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{members.length}명 참여 중</span>
+            {ownerName && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 700 }}>👑 모임장: {ownerName}</span>}
+            {isOwner && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--green-soft)", color: "var(--green)", fontWeight: 700 }}>내가 모임장</span>}
+            {myMemberId && !isOwner && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600 }}>✓ 참여 중</span>}
+          </div>
+          {/* 참여하기 버튼 — 미참여자에게 표시 */}
+          {!myMemberId && !isOwner && (
+            <button onClick={() => setShowJoinModal(true)} style={{
+              marginTop: 12, padding: "10px 24px", borderRadius: 100, border: "none",
+              background: "var(--accent)", color: "#fff",
+              fontFamily: "var(--font-display)", fontSize: 15,
+              cursor: "pointer", transition: "all 0.2s",
+              boxShadow: "0 4px 14px rgba(255,107,53,0.3)",
+            }}
+              onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(255,107,53,0.4)"; }}
+              onMouseOut={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 4px 14px rgba(255,107,53,0.3)"; }}
+            >
+              🙌 이 모임 참여하기
+            </button>
+          )}
+          {myMemberId && !isOwner && (
+            <button onClick={() => { setExpandedId(myMemberId); setTab("members"); setShowPrefSetup(true); }} style={{
+              marginTop: 10, padding: "7px 16px", borderRadius: 100,
+              border: "1.5px solid var(--accent)", background: "var(--accent-soft)",
+              color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer",
+            }}>
+              ✏️ 내 선호 음식 설정하기
+            </button>
+          )}
         </div>
         {/* 공유 버튼 */}
         <button onClick={async () => {
