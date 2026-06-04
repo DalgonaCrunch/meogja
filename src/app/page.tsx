@@ -278,10 +278,14 @@ export default function Home() {
 
   const publicGroups = groups.filter((g) => !g.is_private);
   const privateGroups = groups.filter((g) => g.is_private);
-  const myGroupIds = new Set(groups.map((g) => g.id));
-  const starredList = groups.filter((g) => starredGroups.has(g.id));
-  const unstarredList = groups.filter((g) => !starredGroups.has(g.id));
-  const recommendPublic = allPublicGroups.filter((g) => !myGroupIds.has(g.id)).slice(0, 5);
+  // 실제 내 모임: 가입(myMemberships)하거나 내가 만든(owner) 모임만
+  const myGroups = groups.filter((g) => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
+  const myGroupIds = new Set(myGroups.map((g) => g.id));
+  const starredList = myGroups.filter((g) => starredGroups.has(g.id));
+  const unstarredList = myGroups.filter((g) => !starredGroups.has(g.id));
+  // 공개 추천: 내 모임 제외
+  const allGroupIds = new Set(groups.map((g) => g.id));
+  const recommendPublic = allPublicGroups.filter((g) => !allGroupIds.has(g.id)).slice(0, 5);
 
   const QUICK_CATS = [
     { emoji:"🍖", label:"고기" }, { emoji:"🍜", label:"국물" },

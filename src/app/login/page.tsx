@@ -26,19 +26,19 @@ function LoginContent() {
   function openInExternalBrowser() {
     const url = window.location.href;
     if (/Android/.test(navigator.userAgent)) {
-      // intent://host/path#Intent;scheme=https;package=chrome;end
+      // package 미지정 → Android 앱 선택 다이얼로그 (삼성/크롬/네이버 등 선택 가능)
       const urlWithoutScheme = url.replace(/^https?:\/\//, "");
-      window.location.href = `intent://${urlWithoutScheme}#Intent;scheme=https;package=com.android.chrome;action=android.intent.action.VIEW;end`;
-    } else {
-      // iOS — clipboard copy + alert
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).then(() => {
+      window.location.href = `intent://${urlWithoutScheme}#Intent;scheme=https;action=android.intent.action.VIEW;end`;
+    } else if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      // iOS — Web Share API 우선 (기본 브라우저 앱 선택 가능)
+      if (navigator.share) {
+        navigator.share({ url, title: "meogja" }).catch(() => {
+          navigator.clipboard?.writeText(url);
           alert("링크를 복사했습니다!\nSafari 주소창에 붙여넣기 해주세요.");
-        }).catch(() => {
-          alert(`아래 주소를 Safari에서 열어주세요:\n${url}`);
         });
       } else {
-        alert(`아래 주소를 Safari에서 열어주세요:\n${url}`);
+        navigator.clipboard?.writeText(url);
+        alert("링크를 복사했습니다!\n브라우저 주소창에 붙여넣기 해주세요.");
       }
     }
   }
@@ -76,13 +76,13 @@ function LoginContent() {
             <p style={{ fontSize: 14, fontWeight: 700, color: "#E65100", marginBottom: 6 }}>⚠️ 인앱 브라우저 감지</p>
             <p style={{ fontSize: 12, color: "#795548", marginBottom: 12, lineHeight: 1.6 }}>
               카카오톡/앱 내 브라우저에서는 Google 로그인이 차단됩니다.<br/>
-              외부 브라우저(Chrome/Safari)에서 열어주세요.
+              다른 브라우저 앱에서 열어주세요. (삼성 브라우저, Chrome, Safari 등)
             </p>
             <button onClick={openInExternalBrowser} style={{
               width: "100%", padding: "10px", borderRadius: 100, border: "none",
               background: "#FF6B35", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
             }}>
-              Chrome/Safari에서 열기 →
+              다른 브라우저로 열기 →
             </button>
           </div>
         )}
