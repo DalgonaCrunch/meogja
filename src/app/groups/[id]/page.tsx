@@ -881,10 +881,21 @@ export default function GroupPage() {
               <button onClick={() => setEditingName(false)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 18, cursor: "pointer" }}>✕</button>
             </div>
           ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(22px,4vw,34px)", lineHeight: 1.1 }}>
-                {group.is_private ? "🔒 " : "🌐 "}{group.name}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {/* 썸네일 (이모지 or 이미지) */}
+              {(group as { emoji?: string; image_url?: string }).image_url ? (
+                <img src={(group as { image_url?: string }).image_url} alt={group.name} style={{ width: 44, height: 44, borderRadius: 12, objectFit: "cover", flexShrink: 0, boxShadow: "var(--card-shadow)" }} />
+              ) : (group as { emoji?: string }).emoji ? (
+                <div style={{ width: 44, height: 44, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, background: "var(--bg-2)", border: "1px solid var(--border)", flexShrink: 0 }}>
+                  {(group as { emoji?: string }).emoji}
+                </div>
+              ) : (
+                <span style={{ fontSize: 22, flexShrink: 0 }}>{group.is_private ? "🔒" : "🌐"}</span>
+              )}
+              <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(20px,4vw,30px)", lineHeight: 1.1, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {group.name}
               </h1>
+              {group.is_private && <span style={{ fontSize: 14, flexShrink: 0 }}>🔒</span>}
               {(isOwner || isAdmin) && (
                 <button className="tap" onClick={() => { setEditNameValue(group.name); setEditingName(true); }} style={{ width: 30, height: 30, borderRadius: 9, border: "1px solid var(--border)", background: "var(--bg-2)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 14, flexShrink: 0 }}>✏️</button>
               )}
