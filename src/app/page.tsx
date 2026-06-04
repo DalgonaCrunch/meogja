@@ -30,6 +30,7 @@ function GroupCard({ group, onClick }: { group: Group; onClick: () => void }) {
             ? <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"3px 9px", borderRadius:"var(--r-pill)", fontSize:11.5, fontWeight:700, color:"var(--muted)", background:"var(--bg-2)", flexShrink:0 }}>🔒 비공개</span>
             : <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"3px 9px", borderRadius:"var(--r-pill)", fontSize:11.5, fontWeight:700, color:"var(--green)", background:"var(--green-soft)", flexShrink:0 }}>🌍 공개</span>}
         </div>
+        {group.description && <p style={{ fontSize:12.5, color:"var(--muted)", marginBottom:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{group.description}</p>}
         <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:12.5, color:"var(--muted)" }}>
           <span>{new Date(group.created_at).toLocaleDateString("ko-KR")}</span>
         </div>
@@ -42,8 +43,9 @@ function GroupCard({ group, onClick }: { group: Group; onClick: () => void }) {
   );
 }
 
-function CreateForm({ newName, setNewName, isPrivate, setIsPrivate, newPassword, setNewPassword, requireAuth, setRequireAuth, creating, onSubmit, isLoggedIn }: {
+function CreateForm({ newName, setNewName, description, setDescription, isPrivate, setIsPrivate, newPassword, setNewPassword, requireAuth, setRequireAuth, creating, onSubmit, isLoggedIn }: {
   newName: string; setNewName: (v: string) => void;
+  description: string; setDescription: (v: string) => void;
   isPrivate: boolean; setIsPrivate: (v: boolean) => void;
   newPassword: string; setNewPassword: (v: string) => void;
   requireAuth: boolean; setRequireAuth: (v: boolean) => void;
@@ -54,6 +56,9 @@ function CreateForm({ newName, setNewName, isPrivate, setIsPrivate, newPassword,
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="모임 이름 (예: 점심팀, 야식팀)" required
         style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 15, color: "var(--text)", outline: "none" }}
+        onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
+      <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="모임 설명 (선택, 예: 마케팅팀 점심 모임)"
+        style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 14, color: "var(--text)", outline: "none" }}
         onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
 
       {/* 공개/비공개 */}
@@ -106,6 +111,7 @@ export default function Home() {
 
   // 모임 생성
   const [newName, setNewName] = useState("");
+  const [description, setDescription] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [requireAuth, setRequireAuth] = useState(false);
@@ -146,6 +152,7 @@ export default function Home() {
       .from("groups")
       .insert({
         name: newName.trim(),
+        description: description.trim() || null,
         is_private: isPrivate,
         password: isPrivate ? newPassword : null,
         owner_id: ownerId,
@@ -248,7 +255,7 @@ export default function Home() {
                 <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)" }}>새 모임 만들기</p>
                 <button onClick={() => { setShowCreateForm(false); setNewName(""); setIsPrivate(false); setNewPassword(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 18 }}>✕</button>
               </div>
-              <CreateForm newName={newName} setNewName={setNewName} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
+              <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
             </div>
           )}
         </>
@@ -265,7 +272,7 @@ export default function Home() {
         ) : (
           <div className="fade-up fade-up-1" style={{ background: "var(--card)", borderRadius: "var(--card-radius)", padding: 28, border: "var(--card-border)", boxShadow: "var(--card-shadow)" }}>
             <p style={{ fontFamily: "var(--font-display)", fontSize: 18, marginBottom: 18 }}>첫 모임 만들기 🎉</p>
-            <CreateForm newName={newName} setNewName={setNewName} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
+            <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
           </div>
         )
       ) : null}

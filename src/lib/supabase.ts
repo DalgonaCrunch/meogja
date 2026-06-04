@@ -20,7 +20,9 @@ export type Group = {
   is_private: boolean;
   password: string | null;
   owner_id: string | null;
+  owner_guest_name: string | null;
   require_auth: boolean;
+  description: string | null;
   created_at: string;
 };
 

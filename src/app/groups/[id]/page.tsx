@@ -110,6 +110,8 @@ export default function GroupPage() {
   // 모임 이름 수정
   const [editingName, setEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [editDescValue, setEditDescValue] = useState("");
   // 즐겨찾는 지역
   const [favLocations, setFavLocations] = useState<{id:string;name:string;address:string;lat:number|null;lng:number|null}[]>([]);
   const [showAddLocation, setShowAddLocation] = useState(false);
@@ -191,6 +193,7 @@ export default function GroupPage() {
   }
 
   async function addFavLocation(name: string, address: string, lat: number | null, lng: number | null) {
+    if (favLocations.length >= 5) { alert("즐겨찾는 지역은 최대 5개까지 등록 가능합니다"); return; }
     await getSupabase().from("favorite_locations").insert({ group_id: id, name, address, lat, lng });
     loadFavLocations();
     setShowAddLocation(false);
@@ -206,6 +209,12 @@ export default function GroupPage() {
     await getSupabase().from("groups").update({ name: editNameValue.trim() }).eq("id", id);
     setGroup((prev) => prev ? { ...prev, name: editNameValue.trim() } : null);
     setEditingName(false);
+  }
+
+  async function saveGroupDesc() {
+    await getSupabase().from("groups").update({ description: editDescValue.trim() || null }).eq("id", id);
+    setGroup((prev) => prev ? { ...prev, description: editDescValue.trim() || null } : null);
+    setEditingDesc(false);
   }
 
   async function loadFavorites() {
@@ -717,6 +726,27 @@ export default function GroupPage() {
               )}
             </div>
           )}
+          {/* 설명 */}
+          {editingDesc ? (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "6px 0" }}>
+              <input autoFocus value={editDescValue} onChange={(e) => setEditDescValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") saveGroupDesc(); if (e.key === "Escape") setEditingDesc(false); }}
+                placeholder="모임 설명 입력"
+                style={{ flex: 1, border: "1.5px solid var(--accent)", borderRadius: 10, padding: "5px 11px", background: "var(--card)", fontSize: 13, color: "var(--text)", outline: "none" }} />
+              <button className="tap" onClick={saveGroupDesc} style={{ padding: "5px 12px", borderRadius: "var(--r-pill)", border: "none", background: "var(--accent)", color: "#fff", fontSize: 12, cursor: "pointer" }}>저장</button>
+              <button onClick={() => setEditingDesc(false)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}>✕</button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "4px 0" }}>
+              {group.description
+                ? <p style={{ fontSize: 13, color: "var(--muted)", flex: 1 }}>{group.description}</p>
+                : (isOwner || isAdmin) && <p style={{ fontSize: 12, color: "var(--faint)", fontStyle: "italic" }}>설명 없음</p>}
+              {(isOwner || isAdmin) && (
+                <button className="tap" onClick={() => { setEditDescValue(group.description || ""); setEditingDesc(true); }} style={{ background: "none", border: "none", color: "var(--faint)", fontSize: 12, cursor: "pointer", padding: "2px 4px" }}>✏️</button>
+              )}
+            </div>
+          )}
+
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
             <span style={{ fontSize: 12, color: "var(--muted)" }}>{members.length}명 참여 중</span>
             {ownerName && <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"#FFF4CC", color:"#9A7B00", fontSize:11, fontWeight:700 }}>👑 {ownerName}</span>}
@@ -982,9 +1012,10 @@ export default function GroupPage() {
                       )}
                     </div>
                   ))}
-                  {(isOwner || isAdmin) && !showAddLocation && (
+                  {(isOwner || isAdmin) && !showAddLocation && favLocations.length < 5 && (
                     <button className="tap" onClick={() => setShowAddLocation(true)} style={{ padding: "6px 12px", borderRadius: "var(--r-pill)", border: "1.5px dashed var(--border)", background: "transparent", color: "var(--muted)", fontSize: 12, cursor: "pointer" }}>+ 추가</button>
                   )}
+                  {favLocations.length >= 5 && <span style={{ fontSize: 11, color: "var(--faint)" }}>최대 5개</span>}
                 </div>
               </div>
             )}

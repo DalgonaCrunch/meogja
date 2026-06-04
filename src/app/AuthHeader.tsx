@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getCurrentUser, CurrentUser } from "@/lib/auth";
+import { getCurrentUser, CurrentUser, getGuestUser } from "@/lib/auth";
+import { getSupabase } from "@/lib/supabase";
 
 export default function AuthHeader() {
   const router = useRouter();
@@ -10,14 +11,33 @@ export default function AuthHeader() {
 
   const [isAdmin, setIsAdmin] = useState(false);
 
+  function applyUser(u: CurrentUser) {
+    setUser(u);
+    if (u.type === "auth") {
+      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+      setIsAdmin(!!adminEmail && u.user.email === adminEmail);
+    } else {
+      setIsAdmin(false);
+    }
+  }
+
   useEffect(() => {
-    getCurrentUser().then((u) => {
-      setUser(u);
-      if (u.type === "auth") {
-        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-        setIsAdmin(!!adminEmail && u.user.email === adminEmail);
+    getCurrentUser().then(applyUser);
+
+    // Supabase auth 상태 변경 리스너 (로그인/로그아웃 즉시 반영)
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        getCurrentUser().then(applyUser);
+      } else {
+        // 로그아웃 — 게스트 확인
+        const guest = getGuestUser();
+        if (guest) applyUser({ type: "guest", user: guest });
+        else applyUser({ type: "none" });
       }
     });
+
+    return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const displayName =
