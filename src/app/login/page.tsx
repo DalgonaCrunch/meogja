@@ -65,8 +65,8 @@ function LoginContent() {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 32 }}>
       <div style={{ textAlign: "center" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 40, fontWeight: 600, marginBottom: 8 }}>🍽 뭐먹지</h1>
-        <p style={{ color: "var(--text-muted)", fontSize: 16 }}>로그인하거나 이름만 입력해서 시작하세요</p>
+        <img src="/meogja-logo.jpg" alt="meogja" style={{ height: 60, width: "auto", objectFit: "contain", display: "block", margin: "0 auto 12px", borderRadius: 8 }} />
+        <p style={{ color: "var(--text-2)", fontSize: 15 }}>로그인하거나 이름만 입력해서 시작하세요</p>
       </div>
 
       <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12 }}>
