@@ -358,34 +358,20 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── 내 모임 ── */}
-      <div className="fade-up fade-up-2" style={{ padding: "0 16px" }}>
-        {/* 로그인하거나 모임이 있을 때만 헤더 표시 */}
-        {(currentUser.type !== "none" || groups.length > 0) && (
+      {/* ── 내 모임 — 로그인/게스트 사용자에게만 표시 ── */}
+      {!loading && currentUser.type !== "none" && (
+        <div className="fade-up fade-up-2" style={{ padding: "0 16px" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
             <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>내 모임</span>
-            <button className="tap" onClick={() => { if (currentUser.type === "none") { router.push("/login"); return; } setShowCreateForm(true); }} style={{ fontSize:12, color:"var(--text-2)", fontWeight:600, background:"none", border:"none", cursor:"pointer" }}>+ 새 모임</button>
+            <button className="tap" onClick={() => setShowCreateForm(true)} style={{ fontSize:12, color:"var(--text-2)", fontWeight:600, background:"none", border:"none", cursor:"pointer" }}>+ 새 모임</button>
           </div>
-        )}
 
-        {loading && <p style={{ color:"var(--text-2)", textAlign:"center", padding:"30px 0", fontSize:14 }}>불러오는 중…</p>}
-
-        {!loading && groups.length === 0 && (
-          currentUser.type === "none" ? (
-            <div style={{ textAlign:"center", padding:"32px 20px", background:"var(--surface)", borderRadius:"var(--card-radius)", border:"var(--card-border)" }}>
-              <p style={{ fontSize:36, marginBottom:10 }}>🍽️</p>
-              <p style={{ fontFamily:"var(--font-display)", fontSize:18, marginBottom:6 }}>배고파? 같이 정하자!</p>
-              <p style={{ fontSize:14, color:"var(--text-2)", marginBottom:20 }}>로그인하고 첫 모임을 만들어보세요</p>
-              <button className="tap" onClick={() => router.push("/login")} style={{ padding:"12px 28px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer" }}>시작하기 →</button>
+          {groups.length === 0 && (
+            <div style={{ padding:"16px 18px", borderRadius:14, background:"var(--surface)", border:"var(--card-border)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+              <p style={{ fontSize:14, color:"var(--text-2)" }}>가입한 모임이 없습니다</p>
+              <button className="tap" onClick={() => setShowCreateForm(true)} style={{ padding:"8px 16px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:13, cursor:"pointer", flexShrink:0 }}>만들기 →</button>
             </div>
-          ) : (
-            <div style={{ textAlign:"center", padding:"32px 20px", background:"var(--surface)", borderRadius:"var(--card-radius)", border:"2px dashed var(--border)" }}>
-              <p style={{ fontSize:36, marginBottom:10 }}>🍴</p>
-              <p style={{ fontFamily:"var(--font-display)", fontSize:18, marginBottom:16 }}>첫 모임을 만들어보세요!</p>
-              <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
-            </div>
-          )
-        )}
+          )}
 
         {/* ⭐ 즐겨찾는 모임 */}
         {!loading && starredList.length > 0 && (
@@ -408,18 +394,35 @@ export default function Home() {
           </div>
         )}
 
-        {/* 📍 공개 모임 추천 */}
-        {!loading && recommendPublic.length > 0 && (
-          <div style={{ marginTop:20 }}>
-            <p style={{ fontFamily:"var(--font-display)", fontSize:15, color:"var(--text-2)", marginBottom:8 }}>📍 이런 모임은 어때요?</p>
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              {recommendPublic.map((group) => (
-                <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
+      )}
+
+      {/* loading 중 표시 */}
+      {loading && <div style={{ padding:"0 16px" }}><p style={{ color:"var(--text-2)", textAlign:"center", padding:"30px 0", fontSize:14 }}>불러오는 중…</p></div>}
+
+      {/* 📍 공개 모임 추천 — 항상 표시 */}
+      {!loading && recommendPublic.length > 0 && (
+        <div className="fade-up fade-up-3" style={{ padding: "0 16px" }}>
+          <p style={{ fontFamily:"var(--font-display)", fontSize:15, color:"var(--text-2)", marginBottom:8 }}>📍 이런 모임은 어때요?</p>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {recommendPublic.map((group) => (
+              <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 비로그인 + 공개 모임 없을 때 — 시작 유도 */}
+      {!loading && currentUser.type === "none" && recommendPublic.length === 0 && (
+        <div className="fade-up fade-up-2" style={{ padding: "0 16px", textAlign:"center" }}>
+          <div style={{ padding:"32px 20px", background:"var(--surface)", borderRadius:"var(--card-radius)", border:"var(--card-border)" }}>
+            <p style={{ fontSize:36, marginBottom:10 }}>🍽️</p>
+            <p style={{ fontFamily:"var(--font-display)", fontSize:18, marginBottom:6 }}>배고파? 같이 정하자!</p>
+            <p style={{ fontSize:14, color:"var(--text-2)", marginBottom:20 }}>로그인하고 첫 모임을 만들어보세요</p>
+            <button className="tap" onClick={() => router.push("/login")} style={{ padding:"12px 28px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer" }}>시작하기 →</button>
+          </div>
+        </div>
+      )}
 
       {/* 비공개 모임 비밀번호 다이얼로그 */}
       {enterTarget && (
