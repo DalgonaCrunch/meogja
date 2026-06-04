@@ -13,63 +13,49 @@ export default function AuthHeader() {
   }, []);
 
   const displayName =
-    user.type === "auth" ? (user.user.display_name || "내 계정").split(" ")[0] :
+    user.type === "auth" ? (user.user.display_name || "나").split(" ")[0] :
     user.type === "guest" ? user.user.name : null;
 
   return (
     <header style={{
-      borderBottom: "1.5px solid var(--border)",
-      background: "rgba(255,249,242,0.95)",
-      backdropFilter: "blur(12px)",
       position: "sticky", top: 0, zIndex: 40,
+      background: "color-mix(in srgb, var(--bg) 82%, transparent)",
+      backdropFilter: "blur(14px) saturate(1.4)",
+      WebkitBackdropFilter: "blur(14px) saturate(1.4)",
+      borderBottom: "1px solid color-mix(in srgb, var(--border) 70%, transparent)",
     }}>
-      <nav style={{
-        maxWidth: 860, margin: "0 auto", padding: "0 20px",
-        height: 60, display: "flex", alignItems: "center", justifyContent: "space-between",
-      }}>
-        <a href="/" style={{
-          fontFamily: "var(--font-display)", fontSize: 22, color: "var(--text)",
-          textDecoration: "none", display: "flex", alignItems: "center", gap: 8,
-          transition: "transform 0.2s",
-        }}
-          onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.03)"}
-          onMouseOut={(e) => e.currentTarget.style.transform = ""}
-        >
-          <span style={{ fontSize: 28 }}>🍽️</span>
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 18px", height: 54, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <a href="/" style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "var(--accent)", textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}>
           오늘 뭐 먹지?
         </a>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {displayName ? (
-            <button onClick={() => router.push("/profile")} style={{
-              display: "flex", alignItems: "center", gap: 7,
-              padding: "7px 16px", borderRadius: 100,
-              border: "1.5px solid var(--border)", background: "var(--bg-card)",
-              color: "var(--text)", fontSize: 13, fontWeight: 600, cursor: "pointer",
-              transition: "all 0.2s", boxShadow: "var(--shadow-card)",
-            }}
-              onMouseOver={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseOut={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = ""; }}
-            >
-              <span style={{ fontSize: 16 }}>{user.type === "auth" ? "😊" : "🙋"}</span>
+            <button className="tap" onClick={() => router.push("/profile")} style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "6px 6px 6px 14px", borderRadius: "var(--r-pill)",
+              border: "1.5px solid var(--border-2)", background: "var(--card)",
+              color: "var(--text)", fontSize: 13.5, fontWeight: 600, cursor: "pointer",
+              boxShadow: "0 2px 8px -4px rgba(120,72,20,.18)",
+            }}>
               {displayName}
+              <div style={{ width: 30, height: 30, borderRadius: "50%", background: user.type === "auth" ? "var(--accent)" : "var(--green)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>
+                {displayName[0]}
+              </div>
             </button>
           ) : (
-            <button onClick={() => router.push("/login")} style={{
-              padding: "8px 20px", borderRadius: 100, border: "none",
-              background: "var(--accent)", color: "#fff",
+            <button className="tap" onClick={() => router.push("/login")} style={{
+              padding: "9px 18px", borderRadius: "var(--r-pill)", border: "none",
+              background: "var(--accent)", color: "var(--accent-ink)",
               fontFamily: "var(--font-display)", fontSize: 14,
-              cursor: "pointer", transition: "all 0.2s",
-              boxShadow: "0 4px 14px rgba(255,107,53,0.3)",
-            }}
-              onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(255,107,53,0.4)"; }}
-              onMouseOut={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 4px 14px rgba(255,107,53,0.3)"; }}
-            >
-              로그인 🔑
+              cursor: "pointer",
+              boxShadow: "0 8px 18px -8px var(--accent)",
+            }}>
+              로그인
             </button>
           )}
         </div>
-      </nav>
+      </div>
     </header>
   );
 }

@@ -1,135 +1,121 @@
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
 
+/* ── Design Tokens ── */
 :root {
-  --bg: #FFF9F2;
-  --bg-card: #FFFFFF;
-  --bg-card2: #FFFBF5;
-  --text: #2D1B00;
-  --text-muted: #8B6E52;
-  --accent: #FF6B35;
-  --accent-hover: #E55A26;
+  /* backgrounds */
+  --bg:   #FFF9F2;
+  --bg-2: #FFF1E2;
+  --card: #FFFFFF;
+
+  /* text */
+  --text:  #2D1B00;
+  --muted: #8B6E52;
+  --faint: #B79E84;
+
+  /* accent */
+  --accent:      #FF6B35;
+  --accent-2:    #FF8B5C;
   --accent-soft: #FFF0EA;
-  --accent2: #FF9F68;
-  --green: #2E9E6B;
+  --accent-ink:  #FFFFFF;
+
+  /* semantic */
+  --green:      #2E9E6B;
   --green-soft: #E8F8F0;
-  --red: #E53935;
-  --red-soft: #FDECEA;
-  --border: #F0E4D4;
-  --shadow: 0 4px 16px rgba(255,107,53,0.08);
-  --shadow-lg: 0 12px 40px rgba(255,107,53,0.15);
-  --shadow-card: 0 2px 12px rgba(45,27,0,0.07);
-  --radius: 20px;
-  --radius-sm: 12px;
-  --font-display: 'Jua', sans-serif;
-  --font-body: 'Noto Sans KR', sans-serif;
+  --red:        #E53935;
+  --red-soft:   #FDECEA;
+  --gold:       #F2B705;
+
+  /* borders */
+  --border:   #F0E4D4;
+  --border-2: #E9D8C0;
+
+  /* card geometry */
+  --card-radius:  22px;
+  --card-border:  1px solid var(--border);
+  --card-shadow:  0 8px 22px -12px rgba(120,72,20,.28), 0 2px 6px -3px rgba(120,72,20,.12);
+  --tile-radius:  18px;
+
+  /* radius scale */
+  --r-pill: 999px;
+  --r-sm:   12px;
+  --r-md:   16px;
+
+  /* typography */
+  --font-display: 'Jua', system-ui, sans-serif;
+  --font-body:    'Pretendard Variable', 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+
+  /* legacy aliases (for existing components) */
+  --bg-card:    var(--card);
+  --text-muted: var(--muted);
+  --shadow:     var(--card-shadow);
+  --shadow-lg:  0 18px 36px -16px rgba(120,72,20,.38), 0 4px 12px -4px rgba(120,72,20,.18);
+  --shadow-card: var(--card-shadow);
+  --radius:     var(--card-radius);
+  --radius-sm:  var(--r-sm);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; }
 
 body {
+  font-family: var(--font-body);
   background: var(--bg);
   background-image:
-    radial-gradient(circle at 20% 10%, rgba(255,159,104,0.08) 0%, transparent 50%),
-    radial-gradient(circle at 80% 90%, rgba(255,107,53,0.06) 0%, transparent 50%);
+    radial-gradient(900px 400px at 50% -5%, rgba(239,230,218,.7) 0%, transparent 70%);
   color: var(--text);
-  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   min-height: 100vh;
 }
 
-h1, h2, h3 { font-family: var(--font-display); }
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 400; margin: 0; letter-spacing: -.01em; }
+button { font-family: var(--font-body); }
+::-webkit-scrollbar { width: 0; height: 0; }
 
-/* Animations */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes bounceIn {
-  0% { transform: scale(0.8); opacity: 0; }
-  60% { transform: scale(1.05); }
-  100% { transform: scale(1); opacity: 1; }
-}
-@keyframes wiggle {
-  0%, 100% { transform: rotate(-2deg); }
-  50% { transform: rotate(2deg); }
-}
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
-}
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.8); }
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+/* ── Tap feedback ── */
+.tap { transition: transform .12s cubic-bezier(.4,0,.2,1); }
+.tap:active { transform: scale(.96); }
 
-.fade-up { animation: fadeUp 0.45s cubic-bezier(0.34,1.56,0.64,1) both; }
-.fade-up-1 { animation-delay: 0.06s; }
-.fade-up-2 { animation-delay: 0.12s; }
-.fade-up-3 { animation-delay: 0.18s; }
-.fade-up-4 { animation-delay: 0.24s; }
-.fade-up-5 { animation-delay: 0.30s; }
+/* ── Animations ── */
+@keyframes slideUp   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+@keyframes pop       { from { opacity:0; transform:scale(.88); }       to { opacity:1; transform:none; } }
+@keyframes sheetUp   { from { transform:translateY(100%); }             to { transform:translateY(0); } }
+@keyframes fadeIn    { from { opacity:0; }                              to { opacity:1; } }
+@keyframes growBar   { from { width:0; } }
+@keyframes float     { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-8px); } }
+@keyframes bounceIn  { 0%{ transform:scale(.8); opacity:0; } 60%{ transform:scale(1.05); } 100%{ transform:scale(1); opacity:1; } }
+@keyframes spin      { to { transform:rotate(360deg); } }
+@keyframes pulse-dot { 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.5; transform:scale(.8); } }
 
-.bounce-in { animation: bounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+.fade-up   { animation: slideUp .42s cubic-bezier(.2,.8,.2,1) both; }
+.fade-up-1 { animation-delay:.06s; }
+.fade-up-2 { animation-delay:.12s; }
+.fade-up-3 { animation-delay:.18s; }
+.fade-up-4 { animation-delay:.24s; }
+.fade-up-5 { animation-delay:.30s; }
+.bounce-in { animation: bounceIn .5s cubic-bezier(.34,1.56,.64,1) both; }
 
-/* Nav */
+/* ── Nav ── */
 .nav-logo {
   font-family: var(--font-display);
-  font-size: 22px;
-  color: var(--text);
+  font-size: 20px;
+  color: var(--accent);
   text-decoration: none;
   display: flex;
   align-items: center;
   gap: 8px;
-  letter-spacing: -0.5px;
+  transition: opacity .15s;
 }
-.nav-logo:hover { color: var(--accent); }
+.nav-logo:hover { opacity: .8; }
 .nav-link {
   font-size: 14px;
-  color: var(--text-muted);
+  color: var(--muted);
   text-decoration: none;
   font-weight: 500;
-  transition: color 0.15s;
+  transition: color .15s;
 }
 .nav-link:hover { color: var(--accent); }
-
-/* Cards */
-.card {
-  background: var(--bg-card);
-  border-radius: var(--radius);
-  border: 1.5px solid var(--border);
-  box-shadow: var(--shadow-card);
-  padding: 24px;
-}
-
-/* Buttons */
-.btn-primary {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 100px;
-  padding: 12px 28px;
-  font-family: var(--font-display);
-  font-size: 16px;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
-  box-shadow: 0 4px 14px rgba(255,107,53,0.3);
-}
-.btn-primary:hover {
-  background: var(--accent-hover);
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 20px rgba(255,107,53,0.4);
-}
-.btn-primary:active { transform: scale(0.97); }
-
-/* Decorative food emojis */
-.food-deco {
-  position: absolute;
-  font-size: 32px;
-  opacity: 0.12;
-  pointer-events: none;
-  animation: float 4s ease-in-out infinite;
-}

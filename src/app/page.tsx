@@ -5,6 +5,43 @@ import { useRouter } from "next/navigation";
 import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
 
+const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
+
+function GroupCard({ group, onClick }: { group: Group; onClick: () => void }) {
+  const emoji = GROUP_EMOJIS[group.name.charCodeAt(0) % GROUP_EMOJIS.length];
+  const hue = 20 + (group.name.charCodeAt(0) % 6) * 18;
+  return (
+    <button onClick={onClick} className="tap"
+      style={{ width:"100%", textAlign:"left", display:"flex", gap:14, alignItems:"center",
+        padding:16, background:"var(--card)", border:"var(--card-border)",
+        borderRadius:"var(--card-radius)", boxShadow:"var(--card-shadow)", cursor:"pointer" }}>
+      <div style={{ width:58, height:58, borderRadius:"var(--tile-radius)", flex:"none", position:"relative", overflow:"hidden",
+        display:"grid", placeItems:"center", fontSize:30,
+        background:`linear-gradient(140deg, hsl(${hue} 88% 64%), hsl(${(hue+26)%360} 90% 52%))`,
+        boxShadow:"inset 0 -10px 22px rgba(0,0,0,.18), inset 0 8px 14px rgba(255,255,255,.28)" }}>
+        <div style={{ position:"absolute", inset:0, background:"radial-gradient(60% 50% at 30% 22%, rgba(255,255,255,.45), transparent)" }}/>
+        <span style={{ position:"relative", filter:"drop-shadow(0 3px 4px rgba(0,0,0,.25))" }}>{emoji}</span>
+      </div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:5 }}>
+          <span style={{ fontFamily:"var(--font-display)", fontSize:18.5, color:"var(--text)", flex:1, minWidth:0,
+            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{group.name}</span>
+          {group.is_private
+            ? <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"3px 9px", borderRadius:"var(--r-pill)", fontSize:11.5, fontWeight:700, color:"var(--muted)", background:"var(--bg-2)", flexShrink:0 }}>🔒 비공개</span>
+            : <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"3px 9px", borderRadius:"var(--r-pill)", fontSize:11.5, fontWeight:700, color:"var(--green)", background:"var(--green-soft)", flexShrink:0 }}>🌍 공개</span>}
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:12.5, color:"var(--muted)" }}>
+          <span>{new Date(group.created_at).toLocaleDateString("ko-KR")}</span>
+        </div>
+        {group.require_auth && <div style={{ marginTop:6 }}>
+          <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:"var(--r-pill)", fontSize:11, fontWeight:700, color:"var(--accent)", background:"var(--accent-soft)" }}>🔑 로그인 전용</span>
+        </div>}
+      </div>
+      <span style={{ color:"var(--faint)", fontSize:22, flexShrink:0 }}>›</span>
+    </button>
+  );
+}
+
 function CreateForm({ newName, setNewName, isPrivate, setIsPrivate, newPassword, setNewPassword, requireAuth, setRequireAuth, creating, onSubmit, isLoggedIn }: {
   newName: string; setNewName: (v: string) => void;
   isPrivate: boolean; setIsPrivate: (v: boolean) => void;
@@ -153,19 +190,20 @@ export default function Home() {
     <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
 
       {/* Hero */}
-      <div className="fade-up" style={{ textAlign: "center", padding: "20px 0 8px" }}>
-        <div style={{ position: "relative", display: "inline-block" }}>
-          <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(40px,8vw,68px)", lineHeight: 1.1, marginBottom: 12, color: "var(--text)", letterSpacing: "-1px" }}>
-            오늘 뭐 먹지? 🍴
-          </h1>
-          {/* Decorative food emojis */}
-          <span style={{ position: "absolute", top: -10, left: -30, fontSize: 28, opacity: 0.15, animation: "float 3.5s ease-in-out infinite", pointerEvents: "none" }}>🍜</span>
-          <span style={{ position: "absolute", top: 0, right: -30, fontSize: 24, opacity: 0.15, animation: "float 4s ease-in-out 0.5s infinite", pointerEvents: "none" }}>🍱</span>
-          <span style={{ position: "absolute", bottom: -5, left: -20, fontSize: 20, opacity: 0.12, animation: "float 5s ease-in-out 1s infinite", pointerEvents: "none" }}>🥩</span>
+      <div className="fade-up" style={{ padding: "4px 0 0" }}>
+        <div style={{ position: "relative", borderRadius: 24, padding: "24px 22px 28px", overflow: "hidden",
+          background: "linear-gradient(135deg, var(--accent), var(--accent-2))", color: "#fff",
+          boxShadow: "0 18px 36px -16px var(--accent)" }}>
+          <div style={{ position: "absolute", right: -10, top: -16, fontSize: 130, opacity: 0.15, transform: "rotate(-12deg)", pointerEvents: "none" }}>🍴</div>
+          <div style={{ position: "relative" }}>
+            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(28px,7vw,38px)", lineHeight: 1.18, marginBottom: 10 }}>
+              오늘 뭐 먹지? 🍴
+            </h1>
+            <p style={{ fontSize: 14, opacity: 0.92, lineHeight: 1.6, maxWidth: 260 }}>
+              같이 먹을 사람 고르고, 취향 맞춰<br/>주변 맛집을 추천받아요
+            </p>
+          </div>
         </div>
-        <p style={{ color: "var(--text-muted)", fontSize: 16, fontWeight: 400 }}>
-          모임을 만들고 모두가 만족하는 메뉴를 찾아보세요 ✨
-        </p>
       </div>
 
       {/* 모임 생성 — 모임 없으면 바로, 있으면 버튼 토글 */}
@@ -202,48 +240,17 @@ export default function Home() {
       {/* 모임 목록 */}
       {!loading && groups.length > 0 && (
         <div className="fade-up fade-up-2">
-          <p style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)", marginBottom: 14 }}>
-            우리 모임들 🍽️
-          </p>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+            <div style={{ fontFamily:"var(--font-display)", fontSize:18, color:"var(--text)" }}>내 모임 {groups.length}</div>
+            {groups.length > 0 && !showCreateForm && (
+              <button className="tap" onClick={() => setShowCreateForm(true)} style={{ display:"inline-flex", alignItems:"center", gap:4, color:"var(--accent)", fontWeight:700, fontSize:13.5, background:"none", border:"none", cursor:"pointer", padding:"4px 0" }}>
+                + 새 모임
+              </button>
+            )}
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[...publicGroups, ...privateGroups].map((group, i) => (
-              <button key={group.id}
-                onClick={() => handleEnter(group)}
-                className={`fade-up fade-up-${Math.min(i + 1, 5)} group-card`}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "16px 20px", borderRadius: 20, width: "100%",
-                  background: "var(--bg-card)", border: "1.5px solid var(--border)",
-                  boxShadow: "var(--shadow-card)", textAlign: "left", cursor: "pointer",
-                  transition: "all 0.18s cubic-bezier(0.34,1.56,0.64,1)",
-                }}
-                onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-2px) scale(1.01)"; e.currentTarget.style.boxShadow = "var(--shadow-lg)"; e.currentTarget.style.borderColor = "var(--accent)"; }}
-                onMouseOut={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "var(--shadow)"; e.currentTarget.style.borderColor = "var(--border)"; }}
-                onMouseDown={(e) => { e.currentTarget.style.transform = "translateY(0) scale(0.98)"; }}
-                onMouseUp={(e) => { e.currentTarget.style.transform = "translateY(-2px) scale(1.01)"; }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{
-                    width: 52, height: 52, borderRadius: 16,
-                    background: group.is_private ? "linear-gradient(135deg,#FFD54F,#FF8F00)" : "linear-gradient(135deg,#81C784,#388E3C)",
-                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24,
-                    boxShadow: group.is_private ? "0 4px 12px rgba(255,143,0,0.3)" : "0 4px 12px rgba(56,142,60,0.3)",
-                    flexShrink: 0,
-                  }}>
-                    {group.is_private ? "🔒" : "🌐"}
-                  </div>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <p style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)", letterSpacing: "-0.3px" }}>{group.name}</p>
-                      {group.require_auth && <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 100, background: "var(--green-soft)", color: "var(--green)", fontWeight: 700 }}>로그인 전용</span>}
-                    </div>
-                    <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>
-                      {group.is_private ? "🔐 비공개" : "🌍 공개"} · {new Date(group.created_at).toLocaleDateString("ko-KR")}
-                    </p>
-                  </div>
-                </div>
-                <span style={{ fontSize: 18, color: "var(--accent)", fontWeight: 700 }}>›</span>
-              </button>
+              <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} />
             ))}
           </div>
         </div>
