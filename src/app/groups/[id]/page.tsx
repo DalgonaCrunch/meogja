@@ -358,8 +358,8 @@ export default function GroupPage() {
     if (location) {
       params.set("x", String(location.lng));
       params.set("y", String(location.lat));
-      // 네이버는 지역명을 쿼리에 포함하는 방식
-      if (provider === "naver" && location.label) {
+      // 네이버/카카오 모두 지역명 label 전달 (좌표 없을 때 fallback 검색)
+      if (location.label) {
         params.set("location", location.label);
       }
     }

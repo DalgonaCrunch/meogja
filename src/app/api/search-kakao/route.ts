@@ -5,14 +5,18 @@ export async function GET(request: NextRequest) {
   const x = request.nextUrl.searchParams.get("x");
   const y = request.nextUrl.searchParams.get("y");
   const radius = request.nextUrl.searchParams.get("radius") || "1000";
+  const location = request.nextUrl.searchParams.get("location"); // 지역명 (네이버 방식 fallback)
 
   if (!query) return NextResponse.json({ error: "query required" }, { status: 400 });
 
   const restKey = process.env.KAKAO_REST_KEY;
   if (!restKey) return NextResponse.json({ error: "Kakao API credentials not configured" }, { status: 500 });
 
+  // 좌표 있으면 근거리 검색, 없으면 지역명 쿼리 포함
+  const searchQuery = (!x || !y) && location ? `${location} ${query} 맛집` : `${query} 맛집`;
+
   const params = new URLSearchParams({
-    query: `${query}`,
+    query: searchQuery,
     size: "5",
     sort: x && y ? "distance" : "accuracy",
   });
@@ -20,7 +24,7 @@ export async function GET(request: NextRequest) {
   if (x && y) {
     params.set("x", x);
     params.set("y", y);
-    params.set("radius", radius); // 카카오는 radius 직접 지원 (미터 단위)
+    params.set("radius", radius);
   }
 
   const res = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?${params}`, {
