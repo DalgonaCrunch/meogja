@@ -4,6 +4,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentUser, signOut, CurrentUser } from "@/lib/auth";
 import { getSupabase, Group } from "@/lib/supabase";
+import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems } from "@/lib/recommend";
 
 const FEEDBACK_CATS = [
   { id: "bug", label: "🐛 버그 신고" },
@@ -60,6 +61,9 @@ export default function ProfilePage() {
   const [myPrefs, setMyPrefs] = useState<{id:string;food_name:string;preference_type:string}[]>([]);
   const [prefInput, setPrefInput] = useState("");
   const [prefType, setPrefType] = useState<"like"|"dislike">("like");
+  const [prefLarge, setPrefLarge] = useState("");
+  const [prefMedium, setPrefMedium] = useState("");
+  const [showFeedback, setShowFeedback] = useState(false);
 
   useEffect(() => {
     if (currentUser.type === "auth") {
@@ -69,13 +73,27 @@ export default function ProfilePage() {
     }
   }, [currentUser]);
 
-  async function addMyPref() {
-    if (!prefInput.trim() || currentUser.type !== "auth") return;
-    const existing = myPrefs.find((p) => p.food_name === prefInput.trim() && p.preference_type === prefType);
-    if (existing) return;
-    const { data } = await getSupabase().from("user_food_preferences").insert({ user_id: currentUser.user.id, food_name: prefInput.trim(), preference_type: prefType }).select().single();
-    if (data) setMyPrefs((prev) => [...prev, data]);
-    setPrefInput("");
+  async function addMyPref(foodName?: string) {
+    const name = (foodName || prefInput).trim();
+    if (!name || currentUser.type !== "auth") return;
+    const existing = myPrefs.find((p) => p.food_name === name && p.preference_type === prefType);
+    if (existing) {
+      await removeMyPref(existing.id);
+      return;
+    }
+    // 반대 타입 있으면 먼저 제거
+    const opposite = myPrefs.find((p) => p.food_name === name && p.preference_type !== prefType);
+    if (opposite) await removeMyPref(opposite.id);
+    // 카테고리면 하위 항목 반대타입 제거
+    const subItems = getCategorySubItems(name);
+    if (subItems.length > 0) {
+      const oppType = prefType === "like" ? "dislike" : "like";
+      const toRemove = myPrefs.filter((p) => (p.food_name === name || subItems.includes(p.food_name)) && p.preference_type === oppType);
+      for (const r of toRemove) await removeMyPref(r.id);
+    }
+    const { data } = await getSupabase().from("user_food_preferences").insert({ user_id: currentUser.user.id, food_name: name, preference_type: prefType }).select().single();
+    if (data) setMyPrefs((prev) => prev.filter((p) => !(p.food_name === name && p.preference_type !== prefType) && !(subItems.includes(p.food_name) && p.preference_type !== prefType)).concat(data));
+    if (!foodName) setPrefInput("");
   }
 
   async function removeMyPref(id: string) {
@@ -175,60 +193,98 @@ export default function ProfilePage() {
       )}
 
       {/* 내 기본 선호도 — 로그인 사용자만 */}
-      {currentUser.type === "auth" && (
-        <div className="fade-up">
-          <p style={{ fontFamily: "var(--font-display)", fontSize: 17, marginBottom: 14 }}>🍴 내 기본 선호도</p>
-          <div style={{ background: "var(--surface)", borderRadius: 16, padding: "18px 16px", border: "var(--card-border)", boxShadow: "var(--card-shadow)", display: "flex", flexDirection: "column", gap: 14 }}>
-            <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.6 }}>모임 참여 시 여기 저장된 선호도를 불러올 수 있습니다.</p>
-            {/* 추가 폼 */}
-            <div>
-              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+      {currentUser.type === "auth" && (() => {
+        const largeCats = getAllLargeCategories();
+        const medCats = prefLarge ? getMediumCategories(prefLarge) : [];
+        const menuItems = prefLarge && prefMedium ? getMenuItems(prefLarge, prefMedium) : [];
+        return (
+          <div className="fade-up">
+            <p style={{ fontFamily: "var(--font-display)", fontSize: 17, marginBottom: 14 }}>🍴 내 기본 선호도</p>
+            <div style={{ background: "var(--surface)", borderRadius: 16, padding: "18px 16px", border: "var(--card-border)", boxShadow: "var(--card-shadow)", display: "flex", flexDirection: "column", gap: 14 }}>
+              <p style={{ fontSize: 13, color: "var(--text-2)" }}>모임 참여 시 불러올 수 있는 내 기본 선호도입니다.</p>
+              {/* 좋아함/못먹음 토글 */}
+              <div style={{ display: "flex", background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r-pill)", padding: 3, gap: 3, width: "fit-content" }}>
                 {(["like","dislike"] as const).map((t) => (
-                  <button key={t} className="tap" type="button" onClick={() => setPrefType(t)} style={{
-                    padding: "6px 16px", borderRadius: "var(--r-pill)", border: "none", fontSize: 13, fontWeight: 600,
-                    background: prefType === t ? (t === "like" ? "var(--green)" : "var(--red)") : "var(--bg-2)",
-                    color: prefType === t ? "#fff" : "var(--text-2)", cursor: "pointer", transition: "all .15s",
-                  }}>{t === "like" ? "👍 좋아함" : "🚫 못먹음"}</button>
+                  <button key={t} className="tap" onClick={() => setPrefType(t)} style={{ padding: "6px 18px", borderRadius: "var(--r-pill)", border: "none", fontSize: 13, fontWeight: 600, background: prefType === t ? (t === "like" ? "var(--green)" : "var(--red)") : "transparent", color: prefType === t ? "#fff" : "var(--text-2)", cursor: "pointer", transition: "all .15s" }}>{t === "like" ? "👍 좋아함" : "🚫 못먹음"}</button>
                 ))}
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input value={prefInput} onChange={(e) => setPrefInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addMyPref(); } }} placeholder="음식명 입력 (예: 김치찌개, 회)"
-                  style={{ flex: 1, padding: "10px 14px", borderRadius: "var(--r-pill)", border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 13, outline: "none" }}
-                  onFocus={(e) => e.target.style.borderColor = "var(--primary)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
-                <button className="tap" onClick={addMyPref} style={{ padding: "10px 18px", borderRadius: "var(--r-pill)", border: "none", background: "var(--primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>추가</button>
+              {/* 대분류 */}
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 7 }}>대분류</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {largeCats.map((c) => (
+                    <button key={c} className="tap" onClick={() => { setPrefLarge(c === prefLarge ? "" : c); setPrefMedium(""); }} style={{ padding: "5px 13px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 500, border: prefLarge === c ? "2px solid var(--primary)" : "1.5px solid var(--border)", background: prefLarge === c ? "var(--primary-light)" : "transparent", color: prefLarge === c ? "var(--primary)" : "var(--text)", cursor: "pointer" }}>{c}</button>
+                  ))}
+                </div>
               </div>
+              {/* 중분류 */}
+              {prefLarge && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 7 }}>중분류</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {medCats.map((c) => (
+                      <button key={c} className="tap" onClick={() => setPrefMedium(c === prefMedium ? "" : c)} style={{ padding: "5px 13px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 500, border: prefMedium === c ? "2px solid var(--primary)" : "1.5px solid var(--border)", background: prefMedium === c ? "var(--primary-light)" : "transparent", color: prefMedium === c ? "var(--primary)" : "var(--text)", cursor: "pointer" }}>{c}</button>
+                    ))}
+                    <button className="tap" onClick={() => addMyPref(prefLarge)} style={{ padding: "5px 13px", borderRadius: "var(--r-pill)", fontSize: 12, border: "1.5px dashed var(--border)", background: "transparent", color: "var(--text-2)", cursor: "pointer" }}>+ {prefLarge} 전체</button>
+                  </div>
+                </div>
+              )}
+              {/* 소분류 */}
+              {prefMedium && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 7 }}>메뉴</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, maxHeight: 130, overflowY: "auto" }}>
+                    {menuItems.map((item) => {
+                      const liked = myPrefs.find((p) => p.food_name === item && p.preference_type === "like");
+                      const disliked = myPrefs.find((p) => p.food_name === item && p.preference_type === "dislike");
+                      return (
+                        <button key={item} className="tap" onClick={() => addMyPref(item)} style={{ padding: "4px 11px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 500, border: liked ? "1.5px solid var(--green)" : disliked ? "1.5px solid var(--red)" : "1.5px solid var(--border)", background: liked ? "var(--green-soft)" : disliked ? "var(--red-soft)" : "transparent", color: liked ? "var(--green)" : disliked ? "var(--red)" : "var(--text)", cursor: "pointer" }}>{item}</button>
+                      );
+                    })}
+                    <button className="tap" onClick={() => addMyPref(prefMedium)} style={{ padding: "4px 11px", borderRadius: "var(--r-pill)", fontSize: 12, border: "1.5px dashed var(--border)", background: "transparent", color: "var(--text-2)", cursor: "pointer" }}>+ {prefMedium} 전체</button>
+                  </div>
+                </div>
+              )}
+              {/* 직접 입력 */}
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 7 }}>직접 입력</p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input value={prefInput} onChange={(e) => setPrefInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addMyPref(); } }} placeholder="음식명 입력" style={{ flex: 1, padding: "9px 14px", borderRadius: "var(--r-pill)", border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 13, outline: "none" }} onFocus={(e) => e.target.style.borderColor = "var(--primary)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
+                  <button className="tap" onClick={() => addMyPref()} style={{ padding: "9px 16px", borderRadius: "var(--r-pill)", border: "none", background: "var(--primary)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>등록</button>
+                </div>
+              </div>
+              {/* 등록된 선호도 */}
+              {myPrefs.filter((p) => p.preference_type === "dislike").length > 0 && (
+                <div><p style={{ fontSize: 12, fontWeight: 700, color: "var(--red)", marginBottom: 6 }}>🚫 못먹는 음식</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                    {myPrefs.filter((p) => p.preference_type === "dislike").map((p) => (
+                      <button key={p.id} onClick={() => removeMyPref(p.id)} style={{ padding: "3px 10px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 600, background: "var(--red-soft)", border: "1px solid var(--red)", color: "var(--red)", cursor: "pointer" }}>{p.food_name} ✕</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {myPrefs.filter((p) => p.preference_type === "like").length > 0 && (
+                <div><p style={{ fontSize: 12, fontWeight: 700, color: "var(--green)", marginBottom: 6 }}>❤️ 좋아하는 음식</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                    {myPrefs.filter((p) => p.preference_type === "like").map((p) => (
+                      <button key={p.id} onClick={() => removeMyPref(p.id)} style={{ padding: "3px 10px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 600, background: "var(--green-soft)", border: "1px solid var(--green)", color: "var(--green)", cursor: "pointer" }}>{p.food_name} ✕</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {myPrefs.length === 0 && <p style={{ fontSize: 13, color: "var(--text-2)" }}>아직 저장된 선호도가 없습니다</p>}
             </div>
-            {/* 못먹는 음식 */}
-            {myPrefs.filter((p) => p.preference_type === "dislike").length > 0 && (
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: "var(--red)", marginBottom: 8 }}>🚫 못먹는 음식</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {myPrefs.filter((p) => p.preference_type === "dislike").map((p) => (
-                    <button key={p.id} onClick={() => removeMyPref(p.id)} style={{ padding: "4px 12px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 600, background: "var(--red-soft)", border: "1px solid var(--red)", color: "var(--red)", cursor: "pointer" }}>{p.food_name} ✕</button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* 좋아하는 음식 */}
-            {myPrefs.filter((p) => p.preference_type === "like").length > 0 && (
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: "var(--green)", marginBottom: 8 }}>❤️ 좋아하는 음식</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {myPrefs.filter((p) => p.preference_type === "like").map((p) => (
-                    <button key={p.id} onClick={() => removeMyPref(p.id)} style={{ padding: "4px 12px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 600, background: "var(--green-soft)", border: "1px solid var(--green)", color: "var(--green)", cursor: "pointer" }}>{p.food_name} ✕</button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {myPrefs.length === 0 && <p style={{ fontSize: 13, color: "var(--text-2)" }}>아직 저장된 선호도가 없습니다</p>}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
-      {/* 문의/피드백 */}
+      {/* 문의/피드백 — 접기/열기 */}
       <div className="fade-up" style={{ marginTop: 8 }}>
-        <p style={{ fontFamily: "var(--font-display)", fontSize: 17, marginBottom: 14 }}>💬 문의 / 피드백</p>
-        {fbSent ? (
+        <button className="tap" onClick={() => setShowFeedback((v) => !v)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: showFeedback ? 14 : 0 }}>
+          <p style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>💬 문의 / 피드백</p>
+          <span style={{ fontSize: 20, color: "var(--text-2)", transition: "transform .2s", transform: showFeedback ? "rotate(180deg)" : "" }}>⌄</span>
+        </button>
+        {showFeedback && <div>{fbSent ? (
           <div className="bounce-in" style={{ padding: "20px", borderRadius: 16, background: "var(--green-soft)", border: "1.5px solid var(--green)", textAlign: "center" }}>
             <p style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--green)", marginBottom: 6 }}>✓ 전달됐습니다!</p>
             <p style={{ fontSize: 13, color: "var(--text-2)" }}>소중한 의견 감사합니다 🙏</p>
@@ -266,7 +322,7 @@ export default function ProfilePage() {
               {fbSending ? "전송 중…" : "보내기 →"}
             </button>
           </form>
-        )}
+        )}</div>}
       </div>
     </div>
   );
