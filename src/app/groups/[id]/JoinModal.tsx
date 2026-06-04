@@ -16,6 +16,7 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
   const [name, setName] = useState("");
   const [joining, setJoining] = useState(false);
   const [authLoading, setAuthLoading] = useState<string | null>(null);
+  const [nameError, setNameError] = useState("");
 
   useEffect(() => {
     // 모달 마운트 시 현재 유저 fresh 로드
@@ -35,22 +36,48 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
 
   async function doJoin(joinName: string, userId: string | null, guestName: string | null) {
     setJoining(true);
-    const { data, error } = await getSupabase().from("members").upsert(
-      { name: joinName, group_id: groupId, user_id: userId, guest_name: guestName },
-      { onConflict: "group_id,name", ignoreDuplicates: false }
-    ).select().single();
 
-    if (error || !data) {
-      const { data: existing } = await getSupabase().from("members")
-        .select("*").eq("group_id", groupId).eq("name", joinName).single();
-      if (existing) {
-        await getSupabase().from("members").update({ user_id: userId, guest_name: guestName }).eq("id", existing.id);
+    // 1. 같은 이름 멤버가 이미 있는지 먼저 확인
+    const { data: existing } = await getSupabase().from("members")
+      .select("*").eq("group_id", groupId).eq("name", joinName).single();
+
+    if (existing) {
+      // 내 계정이 이미 이 멤버 → 그냥 입장
+      if (userId && existing.user_id === userId) {
+        setJoining(false);
+        onJoined(existing.id, joinName);
+        return;
+      }
+      // 계정 멤버 자리를 게스트가 탈취 시도 → 차단
+      if (!userId && existing.user_id !== null) {
+        setJoining(false);
+        setNameError("이미 로그인 계정이 사용 중인 닉네임입니다. 다른 이름을 사용해주세요.");
+        return;
+      }
+      // 다른 게스트가 이미 사용 중 → 차단
+      if (!userId && existing.guest_name && existing.guest_name !== guestName) {
+        setJoining(false);
+        setNameError("이미 다른 참여자가 사용 중인 닉네임입니다. 다른 이름을 사용해주세요.");
+        return;
+      }
+      // 내 게스트 이름이 이미 있음 → 입장
+      if (!userId && existing.guest_name === guestName) {
         setJoining(false);
         onJoined(existing.id, joinName);
         return;
       }
     }
+
+    // 2. 새 멤버 생성
+    const { data, error } = await getSupabase().from("members")
+      .insert({ name: joinName, group_id: groupId, user_id: userId, guest_name: guestName })
+      .select().single();
+
     setJoining(false);
+    if (error) {
+      setNameError("참여 중 오류가 발생했습니다. 다시 시도해주세요.");
+      return;
+    }
     if (data) onJoined(data.id, joinName);
   }
 
@@ -135,10 +162,11 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
               <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
                 {user.type === "auth" ? "계정과 다른 닉네임을 사용할 수 있어요" : "참여할 이름을 입력하세요"}
               </p>
+              {nameError && <p style={{ fontSize:12, color:"var(--red)", marginBottom:8, padding:"8px 12px", borderRadius:10, background:"var(--red-soft)" }}>{nameError}</p>}
               <input
                 autoFocus
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => { setName(e.target.value); setNameError(""); }}
                 placeholder="닉네임 입력"
                 style={{ width: "100%", padding: "14px 18px", borderRadius: "var(--r-pill)", border: "2px solid var(--border-2)", background: "var(--card)", fontSize: 16, color: "var(--text)", outline: "none", textAlign: "center", fontFamily: "var(--font-display)" }}
                 onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
