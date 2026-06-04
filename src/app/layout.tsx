@@ -4,10 +4,24 @@ import AuthHeader from "./AuthHeader";
 
 export const metadata: Metadata = {
   title: "오늘 뭐 먹지? 🍴",
-  description: "모임별 선호도 기반 식사메뉴 추천 + 주변 맛집 검색",
+  description: "모임원과 함께 취향 맞춰 주변 맛집을 추천받아요",
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "뭐먹지" },
   themeColor: "#FF6B35",
+  metadataBase: new URL("https://meogja.vercel.app"),
+  openGraph: {
+    title: "오늘 뭐 먹지? 🍴",
+    description: "모임원과 함께 취향 맞춰 주변 맛집을 추천받아요",
+    url: "https://meogja.vercel.app",
+    siteName: "오늘 뭐 먹지?",
+    type: "website",
+    locale: "ko_KR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "오늘 뭐 먹지? 🍴",
+    description: "모임원과 함께 취향 맞춰 주변 맛집을 추천받아요",
+  },
 };
 
 export default function RootLayout({
