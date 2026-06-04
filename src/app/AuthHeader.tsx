@@ -8,8 +8,16 @@ export default function AuthHeader() {
   const router = useRouter();
   const [user, setUser] = useState<CurrentUser>({ type: "none" });
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
   useEffect(() => {
-    getCurrentUser().then(setUser);
+    getCurrentUser().then((u) => {
+      setUser(u);
+      if (u.type === "auth") {
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+        setIsAdmin(!!adminEmail && u.user.email === adminEmail);
+      }
+    });
   }, []);
 
   const displayName =
@@ -30,6 +38,11 @@ export default function AuthHeader() {
         </a>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {isAdmin && (
+            <button className="tap" onClick={() => router.push("/admin")} style={{ padding: "6px 12px", borderRadius: "var(--r-pill)", border: "1px solid var(--border)", background: "#F3E5F5", color: "#6A1B9A", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              🛡️ 관리
+            </button>
+          )}
           {displayName ? (
             <button className="tap" onClick={() => router.push("/profile")} style={{
               display: "flex", alignItems: "center", gap: 8,
