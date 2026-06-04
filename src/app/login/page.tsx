@@ -93,10 +93,13 @@ function LoginContent() {
         {/* <button onClick={handleKakao} ...>카카오로 로그인</button> */}
 
         {/* 네이버 로그인 */}
-        <button onClick={() => {
+        <button onClick={(e) => {
+          const btn = e.currentTarget;
+          btn.innerHTML = '<span style="display:flex;align-items:center;gap:8px;justify-content:center">⏳ 네이버 연결 중…</span>';
+          btn.style.opacity = "0.8";
           sessionStorage.setItem("meogja_pending_join", "");
           const nextParam = encodeURIComponent(next);
-          window.location.href = `/api/auth/naver?next=${nextParam}`;
+          setTimeout(() => { window.location.href = `/api/auth/naver?next=${nextParam}`; }, 100);
         }} style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
           padding: "14px 24px", borderRadius: 100,
