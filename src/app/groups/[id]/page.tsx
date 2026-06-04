@@ -628,18 +628,14 @@ export default function GroupPage() {
   const memberDislikes = memberPrefs.filter((p) => p.preference_type === "dislike");
 
   function renderCard(r: ScoredRestaurant, i: number, _borderColor: string) {
-    const isPicked = randomPick === r.title;
+    const isPicked = false; // 팝업으로 표시하므로 인라인 강조 제거
     const catKey = r.category.split(">").pop()?.trim() || r.category;
     const imgUrl = foodImages[catKey];
     const isFav = favorites.has(r.title);
     const hasScore = r.score > 0;
     const avg = reviewAvgs[r.title];
     return (
-      <div key={`${r.title}-${i}`} style={{ background: isPicked ? "#FFF4CC" : "var(--surface)", borderRadius:16, border: isPicked ? "2.5px solid #F5A623" : "var(--card-border)", boxShadow: isPicked ? "0 8px 24px rgba(245,166,35,.25)" : "var(--card-shadow)", overflow:"hidden", transition:"all .3s", transform: isPicked ? "scale(1.01)" : "none" }}>
-        {isPicked && <div style={{ padding:"6px 14px", background:"#F5A623", display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:18 }}>🎲</span>
-          <span style={{ fontFamily:"var(--font-display)", fontSize:14, color:"#fff" }}>오늘 여기 어때요?</span>
-        </div>}
+      <div key={`${r.title}-${i}`} style={{ background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
         <div style={{ display:"flex", gap:12, padding:"12px 14px" }}>
           {/* 음식 사진 */}
           <div style={{ width:80, height:80, borderRadius:14, overflow:"hidden", flexShrink:0, position:"relative",
@@ -718,6 +714,66 @@ export default function GroupPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+
+      {/* 🎲 랜덤선택 팝업 */}
+      {randomPick && (() => {
+        const r = scoredRestaurants.find((x) => x.title === randomPick);
+        if (!r) return null;
+        const catKey = r.category.split(">").pop()?.trim() || r.category;
+        const imgUrl = foodImages[catKey];
+        const avg = reviewAvgs[r.title];
+        const isFav = favorites.has(r.title);
+        return (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:70, padding:20 }}
+            onClick={() => setRandomPick(null)}>
+            <div onClick={(e) => e.stopPropagation()} className="bounce-in" style={{ background:"var(--surface)", borderRadius:24, overflow:"hidden", width:"100%", maxWidth:380, boxShadow:"0 24px 60px rgba(0,0,0,.35)" }}>
+              {/* 팝업 헤더 */}
+              <div style={{ padding:"14px 18px", background:"linear-gradient(135deg, #F5A623, #FF7A45)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:24 }}>🎲</span>
+                  <span style={{ fontFamily:"var(--font-display)", fontSize:17, color:"#fff" }}>오늘 여기 어때요?</span>
+                </div>
+                <button onClick={() => setRandomPick(null)} style={{ background:"rgba(255,255,255,.25)", border:"none", borderRadius:"50%", width:30, height:30, cursor:"pointer", color:"#fff", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+              </div>
+              {/* 식당 정보 */}
+              <div style={{ padding:"18px 18px 22px" }}>
+                <div style={{ display:"flex", gap:14, marginBottom:16 }}>
+                  {/* 음식 사진 */}
+                  <div style={{ width:80, height:80, borderRadius:16, overflow:"hidden", flexShrink:0, background:"var(--bg-2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    {imgUrl ? <img src={imgUrl} alt={catKey} style={{ width:"100%", height:"100%", objectFit:"cover" }} referrerPolicy="no-referrer" /> : <span style={{ fontSize:36 }}>{categoryEmoji(r.category)}</span>}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`} target="_blank" rel="noopener noreferrer" style={{ fontFamily:"var(--font-display)", fontSize:20, color:"var(--text)", textDecoration:"none", display:"block", marginBottom:6 }}>{r.title}</a>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                      {avg && <span style={{ fontSize:13, color:"#E67700", fontWeight:700 }}>★ {avg.toFixed(1)}</span>}
+                      {r.distance !== null && <span style={{ fontSize:12, color:"var(--green)", fontWeight:600 }}>📍 {formatDistance(r.distance)}</span>}
+                    </div>
+                    <p style={{ fontSize:12.5, color:"var(--text-2)", marginTop:5 }}>{r.category.split(">").pop()?.trim()}</p>
+                    <p style={{ fontSize:12, color:"var(--text-2)", marginTop:3 }}>{r.address}</p>
+                  </div>
+                </div>
+                {/* 액션 버튼들 */}
+                <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+                  <button className="tap" onClick={() => toggleFavorite(r)} style={{ flex:1, padding:"10px", borderRadius:12, border:`1.5px solid ${isFav ? "#F5A623" : "var(--border)"}`, background: isFav ? "#FFF4CC" : "var(--bg-2)", color: isFav ? "#C77800" : "var(--text-2)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
+                    {isFav ? "★ 즐겨찾기" : "☆ 즐겨찾기"}
+                  </button>
+                  <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`} target="_blank" rel="noopener noreferrer" style={{ flex:1, padding:"10px", borderRadius:12, background:"#03C75A", color:"#fff", fontSize:13, fontWeight:800, textDecoration:"none", textAlign:"center" }}>N 지도</a>
+                  <a href={`https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`} target="_blank" rel="noopener noreferrer" style={{ flex:1, padding:"10px", borderRadius:12, background:"#FAE100", color:"#3A1D1D", fontSize:13, fontWeight:800, textDecoration:"none", textAlign:"center" }}>K 지도</a>
+                </div>
+                <button className="tap" onClick={() => {
+                  const list = sortedRestaurants;
+                  if (!list.length) return;
+                  let next;
+                  do { next = list[Math.floor(Math.random() * list.length)]; } while (next.title === randomPick && list.length > 1);
+                  setRandomPick(next.title);
+                }} style={{ width:"100%", padding:"12px", borderRadius:12, border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer", boxShadow:"0 6px 16px rgba(255,122,69,.3)" }}>
+                  🎲 다른 곳 보기
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 투표 후보 선택 모달 */}
       {showVotePicker && (
@@ -1367,13 +1423,12 @@ export default function GroupPage() {
                     if (!list.length) return;
                     const pick = list[Math.floor(Math.random() * list.length)];
                     setRandomPick(pick.title);
-                    // 2초 후 초기화
-                    setTimeout(() => setRandomPick(null), 4000);
                   }} style={{
-                    padding: "8px 14px", borderRadius: "var(--r-pill)", fontSize: 14, fontWeight: 700,
+                    padding: "8px 16px", borderRadius: "var(--r-pill)", fontSize: 13, fontWeight: 700,
                     border: "1.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: 5,
                   }}>
-                    🎲
+                    🎲 랜덤선택
                   </button>
                   <button className="tap" onClick={() => { setScoredRestaurants([]); setVoteUrl(null); setRandomPick(null); searchMode === "menu" ? handleRestaurantByMenus() : handleRecommend(); }} style={{
                     padding: "8px 14px", borderRadius: "var(--r-pill)", fontSize: 13, fontWeight: 700,
