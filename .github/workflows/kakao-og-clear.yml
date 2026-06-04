@@ -1,0 +1,15 @@
+name: Kakao OG Cache Clear
+
+on:
+  deployment_status:
+
+jobs:
+  clear-og-cache:
+    if: github.event.deployment_status.state == 'success' && github.event.deployment_status.environment == 'Production'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clear Kakao OG cache
+        run: |
+          # 메인 페이지
+          curl -s "https://developers.kakao.com/tool/clear/og?url=https://meogja.vercel.app" || true
+          echo "Main page OG cache clear requested"
