@@ -172,6 +172,12 @@ export default function GroupPage() {
     loadFavLocations();
     requestAutoLocation();
     getCurrentUser().then(setCurrentUser);
+    // 홈 빠른 카테고리에서 선택된 항목 적용
+    const quickCat = localStorage.getItem("meogja_quick_cat");
+    if (quickCat) {
+      setFilterMedium(quickCat);
+      localStorage.removeItem("meogja_quick_cat");
+    }
   }, [id]);
 
   async function loadReviewAvgs() {

@@ -7,7 +7,7 @@ import { getCurrentUser, CurrentUser } from "@/lib/auth";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
-function GroupCard({ group, onClick }: { group: Group; onClick: () => void }) {
+function GroupCard({ group, onClick, myMemberName }: { group: Group; onClick: () => void; myMemberName?: string }) {
   const emoji = GROUP_EMOJIS[group.name.charCodeAt(0) % GROUP_EMOJIS.length];
   const hue = 20 + (group.name.charCodeAt(0) % 6) * 18;
   return (
@@ -27,10 +27,15 @@ function GroupCard({ group, onClick }: { group: Group; onClick: () => void }) {
           whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom:3 }}>{group.name}</span>
         {group.description && <p style={{ fontSize:12.5, color:"var(--text-2)", marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{group.description}</p>}
         <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-          <span style={{ fontSize:12, color:"var(--text-3)", display:"flex", alignItems:"center", gap:3 }}>
-            📍 {new Date(group.created_at).toLocaleDateString("ko-KR")}
+          {myMemberName && (
+            <span style={{ fontSize:11, padding:"2px 8px", borderRadius:"var(--r-pill)", fontWeight:700, color:"var(--primary)", background:"var(--primary-light)" }}>
+              나: {myMemberName}
+            </span>
+          )}
+          <span style={{ fontSize:12, color:"var(--text-3)" }}>
+            {new Date(group.created_at).toLocaleDateString("ko-KR")}
           </span>
-          {group.is_private && <span style={{ fontSize:11, padding:"2px 7px", borderRadius:"var(--r-pill)", fontWeight:600, color:"var(--text-2)", background:"var(--bg-2)" }}>🔒 비공개</span>}
+          {group.is_private && <span style={{ fontSize:11, padding:"2px 7px", borderRadius:"var(--r-pill)", fontWeight:600, color:"var(--text-2)", background:"var(--bg-2)" }}>🔒</span>}
           {group.require_auth && <span style={{ fontSize:11, padding:"2px 7px", borderRadius:"var(--r-pill)", fontWeight:600, color:"var(--primary)", background:"var(--primary-light)" }}>🔑</span>}
         </div>
       </div>
@@ -104,6 +109,7 @@ export default function Home() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentUser>({ type: "none" });
+  const [myMemberships, setMyMemberships] = useState<Record<string, string>>({}); // groupId → memberName
 
   // 모임 생성
   const [newName, setNewName] = useState("");
@@ -124,7 +130,27 @@ export default function Home() {
   const [deletePassword, setDeletePassword] = useState("");
   const [deletePasswordError, setDeletePasswordError] = useState(false);
 
-  useEffect(() => { loadGroups(); getCurrentUser().then(setCurrentUser); }, []);
+  useEffect(() => {
+    loadGroups();
+    getCurrentUser().then(async (u) => {
+      setCurrentUser(u);
+      if (u.type === "auth") {
+        const { data } = await getSupabase().from("members").select("group_id, name").eq("user_id", u.user.id);
+        if (data) {
+          const map: Record<string, string> = {};
+          data.forEach((m) => { map[m.group_id] = m.name; });
+          setMyMemberships(map);
+        }
+      } else if (u.type === "guest") {
+        const { data } = await getSupabase().from("members").select("group_id, name").eq("guest_name", u.user.name);
+        if (data) {
+          const map: Record<string, string> = {};
+          data.forEach((m) => { map[m.group_id] = m.name; });
+          setMyMemberships(map);
+        }
+      }
+    });
+  }, []);
 
   async function loadGroups() {
     setLoading(true);
@@ -255,7 +281,17 @@ export default function Home() {
         </div>
         <div className="scroll-x" style={{ paddingBottom:6 }}>
           {QUICK_CATS.map((c) => (
-            <div key={c.label} className="tap" style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, flexShrink:0, cursor:"pointer" }}>
+            <div key={c.label} className="tap" onClick={() => {
+              localStorage.setItem("meogja_quick_cat", c.label);
+              // 모임이 있으면 첫 번째 모임으로 이동, 없으면 모임 만들기
+              if (groups.length > 0) {
+                const first = [...publicGroups, ...privateGroups][0];
+                if (first) handleEnter(first);
+              } else {
+                if (currentUser.type === "none") { router.push("/login"); return; }
+                setShowCreateForm(true);
+              }
+            }} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, flexShrink:0, cursor:"pointer" }}>
               <div style={{
                 width:62, height:62, borderRadius:"50%", overflow:"hidden",
                 background:`linear-gradient(140deg, hsl(${20+(QUICK_CATS.findIndex(q=>q.label===c.label)*30)%360} 80% 70%), hsl(${(50+QUICK_CATS.findIndex(q=>q.label===c.label)*30)%360} 82% 58%))`,
@@ -304,7 +340,7 @@ export default function Home() {
         {!loading && groups.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[...publicGroups, ...privateGroups].map((group) => (
-              <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} />
+              <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} myMemberName={myMemberships[group.id]} />
             ))}
           </div>
         )}
