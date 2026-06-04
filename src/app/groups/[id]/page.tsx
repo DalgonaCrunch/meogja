@@ -1270,28 +1270,39 @@ export default function GroupPage() {
 
           {scoredRestaurants.length > 0 && (
             <div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-                <p style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600 }}>
+              {/* 헤더 라인: 제목 + 재검색 + 투표 */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 10 }}>
+                <p style={{ fontFamily: "var(--font-display)", fontSize: 20 }}>
                   주변 추천 맛집
-                  <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)", marginLeft: 10 }}>{scoredRestaurants.length}곳</span>
+                  <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)", marginLeft: 8 }}>{scoredRestaurants.length}곳</span>
                 </p>
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  <button onClick={() => { setScoredRestaurants([]); setVoteUrl(null); searchMode === "menu" ? handleRestaurantByMenus() : handleRecommend(); }} style={{ padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 600, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer" }}>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <button className="tap" onClick={() => { setScoredRestaurants([]); setVoteUrl(null); searchMode === "menu" ? handleRestaurantByMenus() : handleRecommend(); }} style={{
+                    padding: "8px 16px", borderRadius: "var(--r-pill)", fontSize: 13, fontWeight: 700,
+                    border: "1.5px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer",
+                  }}>
                     🔄 재검색
                   </button>
-                  <button onClick={startVote} disabled={creatingVote} style={{ padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 600, border: "1.5px solid var(--accent)", background: "var(--accent-soft)", color: "var(--accent)", cursor: "pointer" }}>
-                    🗳️ {creatingVote ? "링크 생성 중…" : "투표 시작"}
+                  <button className="tap" onClick={startVote} disabled={creatingVote} style={{
+                    padding: "8px 16px", borderRadius: "var(--r-pill)", fontSize: 13, fontWeight: 700,
+                    border: "none", background: "var(--primary)", color: "#fff", cursor: "pointer",
+                    boxShadow: "0 4px 12px rgba(255,122,69,.3)",
+                  }}>
+                    🗳️ {creatingVote ? "생성 중…" : "투표 시작"}
                   </button>
-                  {([["distance","📍 거리순"],["score","👍 선호순"],["rating","⭐ 모임별점"],["category","🏷 카테고리"]] as const).map(([s, label]) => (
-                    <button key={s} onClick={() => setSortBy(s)} style={{
-                      padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 600,
-                      border: sortBy === s ? "2px solid var(--accent)" : "1.5px solid var(--border)",
-                      background: sortBy === s ? "var(--accent-soft)" : "transparent",
-                      color: sortBy === s ? "var(--accent)" : "var(--text-muted)",
-                      cursor: "pointer", transition: "all 0.15s",
-                    }}>{label}</button>
-                  ))}
                 </div>
+              </div>
+              {/* 정렬 버튼 — 별도 줄 */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+                {([["distance","📍 거리순"],["score","👍 선호순"],["rating","⭐ 별점"],["category","🏷 카테고리"]] as const).map(([s, label]) => (
+                  <button key={s} className="tap" onClick={() => setSortBy(s)} style={{
+                    padding: "5px 12px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 600,
+                    border: sortBy === s ? "2px solid var(--primary)" : "1.5px solid var(--border)",
+                    background: sortBy === s ? "var(--primary-light)" : "transparent",
+                    color: sortBy === s ? "var(--primary)" : "var(--text-2)",
+                    cursor: "pointer", transition: "all 0.15s",
+                  }}>{label}</button>
+                ))}
               </div>
               {sortBy === "category" ? (
                 // 카테고리별 그룹핑
