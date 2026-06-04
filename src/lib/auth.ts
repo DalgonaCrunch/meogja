@@ -44,9 +44,14 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   if (user) {
     const { data: profile } = await getSupabase()
       .from("user_profiles").select("*").eq("id", user.id).single();
+    const metaName =
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.user_metadata?.preferred_username;
+    const displayName = profile?.display_name || metaName || user.email?.split("@")[0] || "";
     return {
       type: "auth",
-      user: { id: user.id, email: user.email, display_name: profile?.display_name || user.email?.split("@")[0] }
+      user: { id: user.id, email: user.email, display_name: displayName }
     };
   }
   const guest = getGuestUser();

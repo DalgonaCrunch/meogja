@@ -777,17 +777,24 @@ export default function GroupPage() {
             </button>
           )}
         </div>
-        {/* 공유 버튼 */}
-        <button onClick={async () => {
+        {/* 멤버 초대 버튼 — 누구나 */}
+        <button className="tap" onClick={async () => {
           const url = window.location.href;
           if (navigator.share) {
-            navigator.share({ title: group.name, text: `"${group.name}" 모임에 참여하세요!`, url });
+            navigator.share({ title: `${group.name} 모임 초대`, text: `"${group.name}" 모임에 참여하세요! 🍽️`, url });
           } else {
             await navigator.clipboard.writeText(url);
-            alert("링크가 복사되었습니다!");
+            alert("초대 링크가 복사되었습니다!");
           }
-        }} style={{ padding: "6px 12px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>
-          🔗 공유
+        }} style={{ padding: "7px 16px", borderRadius: "var(--r-pill)", border: "none", background: "var(--primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+          + 초대
+        </button>
+        {/* 링크 복사 */}
+        <button onClick={async () => {
+          await navigator.clipboard.writeText(window.location.href).catch(() => {});
+          alert("링크 복사됨!");
+        }} style={{ padding: "6px 10px", borderRadius: "var(--r-pill)", border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, cursor: "pointer" }}>
+          🔗
         </button>
         {/* 나가기 버튼 — 참여 중이고 모임장 아닌 경우 */}
         {myMemberId && !isOwner && (
@@ -1366,8 +1373,19 @@ export default function GroupPage() {
                   <div style={{ display: "flex", gap: 6 }}>
                     {/* 선호도 편집: 모임장 or 본인 멤버만 */}
                     {(isOwner || m.id === myMemberId) && (
-                      <button onClick={() => toggleExpand(m.id)} style={{ padding: "5px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, border: "1.5px solid var(--border)", background: isExpanded ? "var(--text)" : "transparent", color: isExpanded ? "#fff" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s" }}>
+                      <button onClick={() => toggleExpand(m.id)} style={{ padding: "5px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, border: "1.5px solid var(--border)", background: isExpanded ? "var(--primary)" : "transparent", color: isExpanded ? "#fff" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s" }}>
                         {isExpanded ? "접기" : "선호도"}
+                      </button>
+                    )}
+                    {/* 닉네임 변경: 본인 멤버 */}
+                    {m.id === myMemberId && (
+                      <button onClick={async () => {
+                        const newName = prompt("새 닉네임을 입력하세요:", m.name);
+                        if (!newName?.trim() || newName.trim() === m.name) return;
+                        await getSupabase().from("members").update({ name: newName.trim() }).eq("id", m.id);
+                        loadMembers();
+                      }} style={{ padding: "5px 12px", borderRadius: 100, fontSize: 12, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer" }}>
+                        ✏️ 닉네임
                       </button>
                     )}
                     {/* 삭제: 모임장 또는 어드민 */}
