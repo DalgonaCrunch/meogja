@@ -6,6 +6,7 @@ import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendations } from "@/lib/recommend";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import JoinModal from "./JoinModal";
+import AddFavLocationForm from "./AddFavLocationForm";
 import HistoryTab from "./tabs/HistoryTab";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
@@ -105,6 +106,13 @@ export default function GroupPage() {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showPrefSetup, setShowPrefSetup] = useState(false);
   const [ownerName, setOwnerName] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  // 모임 이름 수정
+  const [editingName, setEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState("");
+  // 즐겨찾는 지역
+  const [favLocations, setFavLocations] = useState<{id:string;name:string;address:string;lat:number|null;lng:number|null}[]>([]);
+  const [showAddLocation, setShowAddLocation] = useState(false);
   const [tab, setTab] = useState<"recommend" | "history" | "members">("recommend");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [reviewAvgs, setReviewAvgs] = useState<Record<string, number>>({});
@@ -157,6 +165,7 @@ export default function GroupPage() {
     loadCustomMenus();
     loadFavorites();
     loadReviewAvgs();
+    loadFavLocations();
     requestAutoLocation();
     getCurrentUser().then(setCurrentUser);
   }, [id]);
@@ -174,6 +183,29 @@ export default function GroupPage() {
       avgs[name] = ratings.reduce((s, r) => s + r, 0) / ratings.length;
     });
     setReviewAvgs(avgs);
+  }
+
+  async function loadFavLocations() {
+    const { data } = await getSupabase().from("favorite_locations").select("*").eq("group_id", id).order("created_at");
+    if (data) setFavLocations(data);
+  }
+
+  async function addFavLocation(name: string, address: string, lat: number | null, lng: number | null) {
+    await getSupabase().from("favorite_locations").insert({ group_id: id, name, address, lat, lng });
+    loadFavLocations();
+    setShowAddLocation(false);
+  }
+
+  async function removeFavLocation(locId: string) {
+    await getSupabase().from("favorite_locations").delete().eq("id", locId);
+    setFavLocations((prev) => prev.filter((l) => l.id !== locId));
+  }
+
+  async function saveGroupName() {
+    if (!editNameValue.trim() || editNameValue === group?.name) { setEditingName(false); return; }
+    await getSupabase().from("groups").update({ name: editNameValue.trim() }).eq("id", id);
+    setGroup((prev) => prev ? { ...prev, name: editNameValue.trim() } : null);
+    setEditingName(false);
   }
 
   async function loadFavorites() {
@@ -249,7 +281,11 @@ export default function GroupPage() {
     setGroup(data);
     const user = await getCurrentUser();
     setCurrentUser(user);
-    if (user.type === "auth") setIsOwner(data.owner_id === user.user.id);
+    if (user.type === "auth") {
+      setIsOwner(data.owner_id === user.user.id);
+      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+      setIsAdmin(!!adminEmail && user.user.email === adminEmail);
+    }
     // 모임장 이름 조회
     if (data.owner_id) {
       const { data: profile } = await getSupabase().from("user_profiles").select("display_name").eq("id", data.owner_id).single();
@@ -661,29 +697,42 @@ export default function GroupPage() {
 
       {/* 헤더 */}
       <div className="fade-up" style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-        <button onClick={() => router.push("/")} style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid var(--border)", background: "transparent", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", flexShrink: 0, marginTop: 4 }}>←</button>
+        <button className="tap" onClick={() => router.push("/")} style={{ width: 38, height: 38, borderRadius: 12, border: "1px solid var(--border)", background: "var(--card)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text)", flexShrink: 0, marginTop: 2 }}>←</button>
         <div style={{ flex: 1 }}>
-          <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(22px,4vw,34px)", fontWeight: 600, lineHeight: 1.1 }}>
-            {group.is_private ? "🔒 " : "🌐 "}{group.name}
-          </h1>
+          {/* 모임명 (수정 가능) */}
+          {editingName ? (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+              <input autoFocus value={editNameValue} onChange={(e) => setEditNameValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") saveGroupName(); if (e.key === "Escape") setEditingName(false); }}
+                style={{ fontFamily: "var(--font-display)", fontSize: "clamp(20px,4vw,30px)", border: "2px solid var(--accent)", borderRadius: 12, padding: "4px 12px", background: "var(--card)", color: "var(--text)", outline: "none", flex: 1 }} />
+              <button className="tap" onClick={saveGroupName} style={{ padding: "6px 14px", borderRadius: "var(--r-pill)", border: "none", background: "var(--accent)", color: "#fff", fontFamily: "var(--font-display)", fontSize: 14, cursor: "pointer" }}>저장</button>
+              <button onClick={() => setEditingName(false)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 18, cursor: "pointer" }}>✕</button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(22px,4vw,34px)", lineHeight: 1.1 }}>
+                {group.is_private ? "🔒 " : "🌐 "}{group.name}
+              </h1>
+              {(isOwner || isAdmin) && (
+                <button className="tap" onClick={() => { setEditNameValue(group.name); setEditingName(true); }} style={{ width: 30, height: 30, borderRadius: 9, border: "1px solid var(--border)", background: "var(--bg-2)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 14, flexShrink: 0 }}>✏️</button>
+              )}
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{members.length}명 참여 중</span>
-            {ownerName && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 700 }}>👑 모임장: {ownerName}</span>}
-            {isOwner && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--green-soft)", color: "var(--green)", fontWeight: 700 }}>내가 모임장</span>}
-            {myMemberId && !isOwner && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600 }}>✓ 참여 중</span>}
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>{members.length}명 참여 중</span>
+            {ownerName && <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"#FFF4CC", color:"#9A7B00", fontSize:11, fontWeight:700 }}>👑 {ownerName}</span>}
+            {isOwner && <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"var(--green-soft)", color:"var(--green)", fontSize:11, fontWeight:700 }}>모임장</span>}
+            {isAdmin && !isOwner && <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"#F3E5F5", color:"#6A1B9A", fontSize:11, fontWeight:700 }}>🛡️ 관리자</span>}
+            {myMemberId && !isOwner && <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"var(--accent-soft)", color:"var(--accent)", fontSize:11, fontWeight:600 }}>✓ 참여 중</span>}
           </div>
           {/* 참여하기 버튼 — 미참여자에게 표시 */}
           {!myMemberId && !isOwner && (
-            <button onClick={() => setShowJoinModal(true)} style={{
-              marginTop: 12, padding: "10px 24px", borderRadius: 100, border: "none",
-              background: "var(--accent)", color: "#fff",
-              fontFamily: "var(--font-display)", fontSize: 15,
-              cursor: "pointer", transition: "all 0.2s",
-              boxShadow: "0 4px 14px rgba(255,107,53,0.3)",
-            }}
-              onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(255,107,53,0.4)"; }}
-              onMouseOut={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 4px 14px rgba(255,107,53,0.3)"; }}
-            >
+            <button className="tap" onClick={() => setShowJoinModal(true)} style={{
+              marginTop: 12, padding: "10px 24px", borderRadius: "var(--r-pill)", border: "none",
+              background: "var(--accent)", color: "var(--accent-ink)",
+              fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer",
+              boxShadow: "0 8px 18px -8px var(--accent)",
+            }}>
               🙌 이 모임 참여하기
             </button>
           )}
@@ -720,8 +769,8 @@ export default function GroupPage() {
             나가기
           </button>
         )}
-        {/* 모임 삭제 — 모임장만 */}
-        {isOwner && (
+        {/* 모임 삭제 — 모임장 또는 어드민 */}
+        {(isOwner || isAdmin) && (
           <button onClick={async () => {
             if (group.is_private) {
               const pw = prompt(`"${group.name}" 비공개 모임\n삭제하려면 비밀번호를 입력하세요:`);
@@ -914,7 +963,40 @@ export default function GroupPage() {
 
           {/* 위치 설정 */}
           <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: 22, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 14 }}>검색 위치</p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)" }}>검색 위치</p>
+            </div>
+
+            {/* 즐겨찾는 지역 */}
+            {favLocations.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: 11, color: "var(--muted)", marginBottom: 7 }}>📍 즐겨찾는 지역</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {favLocations.map((loc) => (
+                    <div key={loc.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <button className="tap" onClick={() => { setLocation({ lat: loc.lat || 0, lng: loc.lng || 0, label: loc.name, address: loc.address }); setLocationMode("manual"); }}
+                        style={{ padding: "6px 12px", borderRadius: "var(--r-pill)", border: location?.label === loc.name ? "2px solid var(--accent)" : "1.5px solid var(--border)", background: location?.label === loc.name ? "var(--accent-soft)" : "var(--card)", color: location?.label === loc.name ? "var(--accent)" : "var(--text)", fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all .15s" }}>
+                        {loc.name}
+                      </button>
+                      {(isOwner || isAdmin) && (
+                        <button onClick={() => removeFavLocation(loc.id)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 12, cursor: "pointer", padding: "2px" }}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                  {(isOwner || isAdmin) && !showAddLocation && (
+                    <button className="tap" onClick={() => setShowAddLocation(true)} style={{ padding: "6px 12px", borderRadius: "var(--r-pill)", border: "1.5px dashed var(--border)", background: "transparent", color: "var(--muted)", fontSize: 12, cursor: "pointer" }}>+ 추가</button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 즐겨찾는 지역 추가 폼 */}
+            {(isOwner || isAdmin) && showAddLocation && (
+              <AddFavLocationForm groupId={id} onAdd={addFavLocation} onCancel={() => setShowAddLocation(false)} />
+            )}
+            {(isOwner || isAdmin) && favLocations.length === 0 && !showAddLocation && (
+              <button className="tap" onClick={() => setShowAddLocation(true)} style={{ marginBottom: 12, padding: "7px 14px", borderRadius: "var(--r-pill)", border: "1.5px dashed var(--border)", background: "transparent", color: "var(--muted)", fontSize: 12, cursor: "pointer" }}>📍 즐겨찾는 지역 추가</button>
+            )}
 
             {/* 현재 위치 / 직접 지정 토글 */}
             <div style={{ display: "flex", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 100, padding: 3, gap: 3, marginBottom: 14, width: "fit-content" }}>
@@ -1252,8 +1334,8 @@ export default function GroupPage() {
                         {isExpanded ? "접기" : "선호도"}
                       </button>
                     )}
-                    {/* 삭제: 모임장만 */}
-                    {isOwner && (
+                    {/* 삭제: 모임장 또는 어드민 */}
+                    {(isOwner || isAdmin) && (
                       <button onClick={() => deleteMember(m.id)} style={{ padding: "5px 12px", borderRadius: 100, fontSize: 12, border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", cursor: "pointer" }}>삭제</button>
                     )}
                   </div>
