@@ -216,7 +216,8 @@ export default function GroupPage() {
 
   async function saveGroupName() {
     if (!editNameValue.trim() || editNameValue === group?.name) { setEditingName(false); return; }
-    await getSupabase().from("groups").update({ name: editNameValue.trim() }).eq("id", id);
+    const { error } = await getSupabase().from("groups").update({ name: editNameValue.trim() }).eq("id", id);
+    if (error) { alert("이름 변경에 실패했습니다."); return; }
     setGroup((prev) => prev ? { ...prev, name: editNameValue.trim() } : null);
     setEditingName(false);
   }
@@ -277,10 +278,12 @@ export default function GroupPage() {
   async function searchLocation() {
     if (!locationQuery.trim()) return;
     setSearchingLocation(true);
-    const res = await fetch(`/api/geocode?query=${encodeURIComponent(locationQuery)}`);
-    const data = await res.json();
-    setLocationResults(data.places || []);
-    setSearchingLocation(false);
+    try {
+      const res = await fetch(`/api/geocode?query=${encodeURIComponent(locationQuery)}`);
+      const data = await res.json();
+      setLocationResults(data.places || []);
+    } catch { setLocationResults([]); }
+    finally { setSearchingLocation(false); }
   }
 
   function selectLocation(place: { name: string; address: string; lat: number; lng: number }) {
@@ -304,6 +307,9 @@ export default function GroupPage() {
       setIsOwner(data.owner_id === user.user.id);
       const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
       setIsAdmin(!!adminEmail && user.user.email === adminEmail);
+    } else if (user.type === "guest") {
+      // 게스트가 만든 모임 오너 체크
+      setIsOwner(data.owner_guest_name === user.user.name);
     }
     // 모임장 이름 조회
     if (data.owner_id) {
@@ -382,6 +388,7 @@ export default function GroupPage() {
     if (voteCandidates.size === 0) return;
     setCreatingVote(true);
     setShowVotePicker(false);
+    try {
     const selected = scoredRestaurants.filter((r) => voteCandidates.has(r.title))
       .map((r) => ({ title: r.title, address: r.address, category: r.category }));
     const creatorName = currentUser.type === "auth" ? currentUser.user.display_name : currentUser.type === "guest" ? currentUser.user.name : "모임장";
@@ -394,9 +401,10 @@ export default function GroupPage() {
     if (data) {
       const url = `${window.location.origin}/vote/${data.id}`;
       setVoteUrl(url);
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(url).catch(() => {});
     }
-    setCreatingVote(false);
+    } catch (e) { console.error("vote error", e); }
+    finally { setCreatingVote(false); }
   }
 
   async function handleMenuRecommend() {

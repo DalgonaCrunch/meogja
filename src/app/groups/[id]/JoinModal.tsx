@@ -73,6 +73,14 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
       .insert({ name: joinName, group_id: groupId, user_id: userId, guest_name: guestName })
       .select().single();
 
+    // 3. group_memberships에도 기록 (프로필 페이지에서 참여 모임 표시용)
+    if (userId && data) {
+      await getSupabase().from("group_memberships").upsert(
+        { group_id: groupId, user_id: userId, role: "member" },
+        { onConflict: "group_id,user_id", ignoreDuplicates: true }
+      );
+    }
+
     setJoining(false);
     if (error) {
       setNameError("참여 중 오류가 발생했습니다. 다시 시도해주세요.");

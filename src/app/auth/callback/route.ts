@@ -4,7 +4,9 @@ import { createClient } from "@supabase/supabase-js";
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") || "/";
+  // next 파라미터 검증 — 상대 경로만 허용 (오픈 리다이렉트 방지)
+  const rawNext = url.searchParams.get("next") || "/";
+  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
 
   if (code) {
     const supabase = createClient(
