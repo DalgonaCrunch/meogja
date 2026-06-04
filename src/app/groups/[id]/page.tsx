@@ -142,6 +142,8 @@ export default function GroupPage() {
   const [selectedMenus, setSelectedMenus] = useState<string[]>([]);
   const [voteUrl, setVoteUrl] = useState<string | null>(null);
   const [creatingVote, setCreatingVote] = useState(false);
+  const [showVotePicker, setShowVotePicker] = useState(false);
+  const [voteCandidates, setVoteCandidates] = useState<Set<string>>(new Set());
   const [locationMode, setLocationMode] = useState<"auto" | "manual">("auto");
   const [locationQuery, setLocationQuery] = useState("");
   const [locationResults, setLocationResults] = useState<{ name: string; address: string; lat: number; lng: number }[]>([]);
@@ -361,15 +363,24 @@ export default function GroupPage() {
     return results.flat();
   }
 
-  async function startVote() {
+  function openVotePicker() {
     if (scoredRestaurants.length === 0) return;
+    // 기본으로 상위 5개 선택
+    setVoteCandidates(new Set(scoredRestaurants.slice(0, 5).map((r) => r.title)));
+    setShowVotePicker(true);
+  }
+
+  async function startVote() {
+    if (voteCandidates.size === 0) return;
     setCreatingVote(true);
-    const top5 = scoredRestaurants.slice(0, 5).map((r) => ({ title: r.title, address: r.address, category: r.category }));
+    setShowVotePicker(false);
+    const selected = scoredRestaurants.filter((r) => voteCandidates.has(r.title))
+      .map((r) => ({ title: r.title, address: r.address, category: r.category }));
     const creatorName = currentUser.type === "auth" ? currentUser.user.display_name : currentUser.type === "guest" ? currentUser.user.name : "모임장";
     const { data } = await getSupabase().from("group_votes").insert({
       group_id: id,
       title: "오늘의 식당 투표",
-      restaurants: top5,
+      restaurants: selected,
       created_by: creatorName,
     }).select().single();
     if (data) {
@@ -684,6 +695,57 @@ export default function GroupPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+
+      {/* 투표 후보 선택 모달 */}
+      {showVotePicker && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:60 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowVotePicker(false); }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background:"var(--surface)", borderRadius:"24px 24px 0 0", padding:"16px 20px 40px", width:"100%", maxWidth:480, maxHeight:"80vh", overflowY:"auto", boxShadow:"0 -20px 50px rgba(0,0,0,.3)", animation:"sheetUp .3s both" }}>
+            <div style={{ width:40, height:5, borderRadius:99, background:"var(--border)", margin:"0 auto 20px" }} />
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+              <h3 style={{ fontSize:20 }}>투표 후보 선택</h3>
+              <button onClick={() => setShowVotePicker(false)} style={{ background:"none", border:"none", color:"var(--text-2)", fontSize:18, cursor:"pointer" }}>✕</button>
+            </div>
+            <p style={{ fontSize:13, color:"var(--text-2)", marginBottom:14 }}>투표에 올릴 식당을 선택하세요 ({voteCandidates.size}개 선택됨)</p>
+            <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
+              {scoredRestaurants.map((r) => {
+                const checked = voteCandidates.has(r.title);
+                return (
+                  <button key={r.title} className="tap" onClick={() => {
+                    setVoteCandidates((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(r.title)) next.delete(r.title);
+                      else next.add(r.title);
+                      return next;
+                    });
+                  }} style={{
+                    display:"flex", alignItems:"center", gap:12, padding:"12px 14px", textAlign:"left",
+                    borderRadius:14, border: checked ? "2px solid var(--primary)" : "1.5px solid var(--border)",
+                    background: checked ? "var(--primary-light)" : "var(--surface)", cursor:"pointer",
+                  }}>
+                    <div style={{ width:22, height:22, borderRadius:6, border: checked ? "none" : "2px solid var(--border)", background: checked ? "var(--primary)" : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      {checked && <span style={{ color:"#fff", fontSize:13 }}>✓</span>}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ fontFamily:"var(--font-display)", fontSize:15, color: checked ? "var(--primary)" : "var(--text)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{r.title}</p>
+                      <p style={{ fontSize:12, color:"var(--text-2)", marginTop:2 }}>{r.category.split(">").pop()?.trim()} {r.distance !== null ? `· 📍${formatDistance(r.distance)}` : ""}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <button className="tap" onClick={startVote} disabled={voteCandidates.size === 0} style={{
+              width:"100%", padding:"14px", borderRadius:"var(--r-pill)", border:"none",
+              background: voteCandidates.size === 0 ? "var(--border)" : "var(--primary)",
+              color: voteCandidates.size === 0 ? "var(--text-2)" : "#fff",
+              fontFamily:"var(--font-display)", fontSize:16, cursor: voteCandidates.size === 0 ? "default" : "pointer",
+              boxShadow: voteCandidates.size > 0 ? "0 6px 16px rgba(255,122,69,.3)" : "none",
+            }}>
+              {voteCandidates.size > 0 ? `${voteCandidates.size}개로 투표 링크 만들기 →` : "후보를 선택해주세요"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Join Modal */}
       {showJoinModal && (
@@ -1283,7 +1345,7 @@ export default function GroupPage() {
                   }}>
                     🔄 재검색
                   </button>
-                  <button className="tap" onClick={startVote} disabled={creatingVote} style={{
+                  <button className="tap" onClick={openVotePicker} disabled={creatingVote} style={{
                     padding: "8px 16px", borderRadius: "var(--r-pill)", fontSize: 13, fontWeight: 700,
                     border: "none", background: "var(--primary)", color: "#fff", cursor: "pointer",
                     boxShadow: "0 4px 12px rgba(255,122,69,.3)",
