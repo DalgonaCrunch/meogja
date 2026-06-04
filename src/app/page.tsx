@@ -67,7 +67,12 @@ function CreateForm({ newName, setNewName, isPrivate, setIsPrivate, newPassword,
         ))}
       </div>
 
-      {isPrivate && (
+      {isPrivate && !isLoggedIn && (
+        <div style={{ padding: "12px 16px", borderRadius: 12, background: "#FFF4CC", border: "1.5px solid #F2B705", fontSize: 13, color: "#7A5A00" }}>
+          🔒 비공개 모임은 로그인한 사용자만 만들 수 있습니다
+        </div>
+      )}
+      {isPrivate && isLoggedIn && (
         <input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="비밀번호 입력" type="password" required={isPrivate}
           style={{ padding: "12px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 15, color: "var(--text)", outline: "none" }}
           onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
@@ -86,7 +91,7 @@ function CreateForm({ newName, setNewName, isPrivate, setIsPrivate, newPassword,
         </button>
       )}
 
-      <button type="submit" disabled={creating} style={{ padding: "13px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontFamily: "var(--font-display)", fontSize: 16, cursor: creating ? "default" : "pointer", opacity: creating ? 0.7 : 1, boxShadow: "0 4px 14px rgba(255,107,53,0.3)" }}>
+      <button type="submit" disabled={creating || (isPrivate && !isLoggedIn)} style={{ padding: "13px", borderRadius: 100, border: "none", background: (isPrivate && !isLoggedIn) ? "var(--border)" : "var(--accent)", color: (isPrivate && !isLoggedIn) ? "var(--muted)" : "#fff", fontFamily: "var(--font-display)", fontSize: 16, cursor: (creating || (isPrivate && !isLoggedIn)) ? "default" : "pointer", boxShadow: (isPrivate && !isLoggedIn) ? "none" : "0 4px 14px rgba(255,107,53,0.3)" }}>
         {creating ? "생성 중…" : "모임 만들기 →"}
       </button>
     </form>
@@ -130,15 +135,26 @@ export default function Home() {
   async function createGroup(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim()) return;
+    // 비공개 모임은 로그인 필수
+    if (isPrivate && currentUser.type !== "auth") return;
+    // 비로그인은 생성 불가
+    if (currentUser.type === "none") { router.push("/login"); return; }
     setCreating(true);
     const ownerId = currentUser.type === "auth" ? currentUser.user.id : null;
+    const ownerGuestName = currentUser.type === "guest" ? currentUser.user.name : null;
     const { data } = await getSupabase()
       .from("groups")
-      .insert({ name: newName.trim(), is_private: isPrivate, password: isPrivate ? newPassword : null, owner_id: ownerId, require_auth: requireAuth })
+      .insert({
+        name: newName.trim(),
+        is_private: isPrivate,
+        password: isPrivate ? newPassword : null,
+        owner_id: ownerId,
+        owner_guest_name: ownerGuestName,
+        require_auth: requireAuth,
+      })
       .select().single();
     setCreating(false);
     if (data) {
-      // 모임 생성자를 owner로 멤버십 추가
       if (ownerId) {
         await getSupabase().from("group_memberships").insert({ group_id: data.id, user_id: ownerId, role: "owner" });
       }
@@ -210,7 +226,13 @@ export default function Home() {
       {!loading && groups.length > 0 ? (
         <>
           {!showCreateForm ? (
-            <button onClick={() => setShowCreateForm(true)} className="fade-up fade-up-1" style={{
+            <button onClick={() => {
+              if (currentUser.type === "none") {
+                router.push("/login");
+                return;
+              }
+              setShowCreateForm(true);
+            }} className="fade-up fade-up-1" style={{
               padding: "14px 28px", borderRadius: 100, border: "2px dashed var(--border)",
               background: "transparent", color: "var(--text-muted)", fontSize: 14, fontWeight: 600,
               cursor: "pointer", transition: "all 0.18s", textAlign: "center",
@@ -231,10 +253,21 @@ export default function Home() {
           )}
         </>
       ) : !loading ? (
-        <div className="fade-up fade-up-1" style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
-          <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 18 }}>새 모임 만들기</p>
-          <CreateForm newName={newName} setNewName={setNewName} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
-        </div>
+        currentUser.type === "none" ? (
+          <div className="fade-up fade-up-1" style={{ textAlign: "center", padding: "32px 20px" }}>
+            <p style={{ fontSize: 20, marginBottom: 8 }}>🍴</p>
+            <p style={{ fontFamily: "var(--font-display)", fontSize: 20, marginBottom: 8 }}>모임을 시작해볼까요?</p>
+            <p style={{ fontSize: 14, color: "var(--muted)", marginBottom: 20 }}>로그인하거나 이름을 입력해서 첫 모임을 만들어보세요</p>
+            <button className="tap" onClick={() => router.push("/login")} style={{ padding: "12px 28px", borderRadius: "var(--r-pill)", border: "none", background: "var(--accent)", color: "#fff", fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer", boxShadow: "0 8px 18px -8px var(--accent)" }}>
+              로그인 / 게스트로 시작하기 →
+            </button>
+          </div>
+        ) : (
+          <div className="fade-up fade-up-1" style={{ background: "var(--card)", borderRadius: "var(--card-radius)", padding: 28, border: "var(--card-border)", boxShadow: "var(--card-shadow)" }}>
+            <p style={{ fontFamily: "var(--font-display)", fontSize: 18, marginBottom: 18 }}>첫 모임 만들기 🎉</p>
+            <CreateForm newName={newName} setNewName={setNewName} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
+          </div>
+        )
       ) : null}
 
       {/* 모임 목록 */}
