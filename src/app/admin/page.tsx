@@ -6,6 +6,7 @@ import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
 
 type Feedback = { id: string; category: string; content: string; email: string | null; guest_name: string | null; status: string; created_at: string; };
+type GuestAccount = { id: string; name: string; password: string | null; created_at: string; };
 
 export default function AdminPage() {
   const router = useRouter();
@@ -14,8 +15,10 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState("");
-  const [adminTab, setAdminTab] = useState<"groups" | "feedbacks">("groups");
+  const [adminTab, setAdminTab] = useState<"groups" | "feedbacks" | "guests">("groups");
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [guestAccounts, setGuestAccounts] = useState<GuestAccount[]>([]);
+  const [guestSearch, setGuestSearch] = useState("");
 
   useEffect(() => {
     checkAdmin();
@@ -30,6 +33,7 @@ export default function AdminPage() {
     }
     loadGroups();
     loadFeedbacks();
+    loadGuestAccounts();
   }
 
   async function loadFeedbacks() {
@@ -40,6 +44,16 @@ export default function AdminPage() {
   async function markRead(id: string) {
     await getSupabase().from("feedbacks").update({ status: "read" }).eq("id", id);
     setFeedbacks((prev) => prev.map((f) => f.id === id ? { ...f, status: "read" } : f));
+  }
+
+  async function loadGuestAccounts() {
+    const { data } = await getSupabase().from("guest_accounts").select("*").order("created_at", { ascending: false });
+    if (data) setGuestAccounts(data);
+  }
+
+  async function deleteGuestAccount(id: string) {
+    await getSupabase().from("guest_accounts").delete().eq("id", id);
+    setGuestAccounts((prev) => prev.filter((g) => g.id !== id));
   }
 
   async function markResolved(id: string) {
@@ -105,7 +119,7 @@ export default function AdminPage() {
 
       {/* 탭 */}
       <div style={{ display: "flex", borderBottom: "1.5px solid var(--border)" }}>
-        {([["groups","📋 모임 관리"],["feedbacks","💬 문의/피드백"]] as const).map(([t, label]) => (
+        {([["groups","📋 모임"],["feedbacks","💬 문의"],["guests","👤 게스트"]] as const).map(([t, label]) => (
           <button key={t} className="tap" onClick={() => setAdminTab(t)} style={{
             flex: 1, padding: "11px", border: "none", fontSize: 14, fontWeight: 700, background: "transparent", cursor: "pointer",
             color: adminTab === t ? "var(--primary)" : "var(--text-2)",
@@ -138,6 +152,28 @@ export default function AdminPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 게스트 계정 목록 */}
+      {adminTab === "guests" && (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <input value={guestSearch} onChange={(e) => setGuestSearch(e.target.value)} placeholder="닉네임 검색"
+            style={{ padding:"10px 16px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--card)", fontSize:14, outline:"none" }} />
+          <p style={{ fontSize:13, color:"var(--muted)" }}>총 {guestAccounts.length}개</p>
+          {guestAccounts
+            .filter((g) => !guestSearch || g.name.toLowerCase().includes(guestSearch.toLowerCase()))
+            .map((g) => (
+              <div key={g.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 16px", borderRadius:14, background:"var(--card)", border:"var(--card-border)", boxShadow:"var(--card-shadow)" }}>
+                <div>
+                  <span style={{ fontFamily:"var(--font-display)", fontSize:15 }}>{g.name}</span>
+                  <span style={{ marginLeft:8, fontSize:12, color:"var(--muted)" }}>{g.password ? "🔐 비밀번호 있음" : "비밀번호 없음"}</span>
+                  <p style={{ fontSize:11, color:"var(--muted)", marginTop:2 }}>{new Date(g.created_at).toLocaleString("ko-KR")}</p>
+                </div>
+                <button className="tap" onClick={() => deleteGuestAccount(g.id)} style={{ padding:"5px 12px", borderRadius:10, border:"none", background:"var(--red-soft)", color:"var(--red)", fontSize:12, fontWeight:700, cursor:"pointer" }}>삭제</button>
+              </div>
+            ))}
+          {guestAccounts.length === 0 && <p style={{ color:"var(--muted)", textAlign:"center", padding:30 }}>게스트 계정 없음</p>}
         </div>
       )}
 

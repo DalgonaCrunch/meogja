@@ -12,6 +12,7 @@ function LoginContent() {
   const [showGuest, setShowGuest] = useState(false);
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
   const [isWebView, setIsWebView] = useState(false);
+  const [stayLoggedIn, setStayLoggedIn] = useState(true);
 
   useEffect(() => {
     getCurrentUser().then((u) => {
@@ -59,6 +60,7 @@ function LoginContent() {
     e.preventDefault();
     if (!guestName.trim()) return;
     setGuestUser(guestName.trim());
+    if (!stayLoggedIn) sessionStorage.setItem("meogja_session_only", "1");
     router.replace(next);
   }
 
@@ -109,6 +111,12 @@ function LoginContent() {
           </svg>
           {loadingProvider === "google" ? "연결 중…" : "Google로 로그인"}
         </button>
+
+        {/* 로그인 상태 유지 */}
+        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: "var(--text-2)" }}>
+          <input type="checkbox" checked={stayLoggedIn} onChange={(e) => setStayLoggedIn(e.target.checked)} style={{ width: 16, height: 16, accentColor: "var(--primary)", cursor: "pointer" }} />
+          로그인 상태 유지
+        </label>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1, height: 1, background: "var(--border)" }} />

@@ -18,6 +18,10 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [nameError, setNameError] = useState("");
   const [isWebView, setIsWebView] = useState(false);
+  const [guestPassword, setGuestPassword] = useState("");
+  const [newGuestPassword, setNewGuestPassword] = useState("");
+  const [requiresPassword, setRequiresPassword] = useState(false); // 기존 계정에 비밀번호 있음
+  const [showSetPassword, setShowSetPassword] = useState(false); // 새 게스트 비밀번호 설정
 
   useEffect(() => {
     const ua = navigator.userAgent;
@@ -96,13 +100,27 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
     e.preventDefault();
     if (!name.trim()) return;
     const userId = user.type === "auth" ? user.user.id : null;
-    let guestName: string | null = null;
+
     if (user.type === "none") {
+      // 게스트: guest_accounts 확인
+      const { data: acct } = await getSupabase().from("guest_accounts").select("password").eq("name", name.trim()).single();
+      if (acct) {
+        if (acct.password) {
+          // 비밀번호 있는 기존 계정
+          if (!requiresPassword) { setRequiresPassword(true); return; }
+          if (guestPassword !== acct.password) { setNameError("비밀번호가 틀렸습니다."); return; }
+        }
+      } else {
+        // 새 계정 생성
+        const pw = newGuestPassword.trim() || null;
+        await getSupabase().from("guest_accounts").insert({ name: name.trim(), password: pw });
+      }
       setGuestUser(name.trim());
-      guestName = name.trim();
-    } else if (user.type === "guest") {
-      guestName = user.user.name;
+      await doJoin(name.trim(), null, name.trim());
+      return;
     }
+
+    const guestName = user.type === "guest" ? user.user.name : null;
     await doJoin(name.trim(), userId, guestName);
   }
 
@@ -211,6 +229,35 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
                 </button>
               )}
             </div>
+
+            {/* 게스트 비밀번호 입력 (기존 계정) */}
+            {user.type === "none" && requiresPassword && (
+              <div>
+                <p style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 6 }}>🔐 이 닉네임은 비밀번호가 설정돼 있어요</p>
+                <input type="password" value={guestPassword} onChange={(e) => { setGuestPassword(e.target.value.slice(0,16)); setNameError(""); }} placeholder="비밀번호 입력"
+                  style={{ width:"100%", padding:"12px 16px", borderRadius:"var(--r-pill)", border:"2px solid var(--border-2)", background:"var(--card)", fontSize:15, outline:"none", textAlign:"center" }}
+                  onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border-2)"} />
+              </div>
+            )}
+
+            {/* 게스트 비밀번호 설정 (새 계정) */}
+            {user.type === "none" && !requiresPassword && (
+              <div>
+                {!showSetPassword ? (
+                  <button type="button" onClick={() => setShowSetPassword(true)} style={{ background:"none", border:"none", color:"var(--accent)", fontSize:12, cursor:"pointer", textDecoration:"underline" }}>
+                    🔐 이 닉네임에 비밀번호 설정하기 (선택)
+                  </button>
+                ) : (
+                  <div>
+                    <p style={{ fontSize:12, color:"var(--text-2)", marginBottom:6 }}>비밀번호 설정 (최대 16자, 선택)</p>
+                    <input type="password" value={newGuestPassword} onChange={(e) => setNewGuestPassword(e.target.value.slice(0,16))} placeholder="비밀번호 입력 (없으면 빈칸)"
+                      style={{ width:"100%", padding:"12px 16px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--card)", fontSize:14, outline:"none", textAlign:"center" }} />
+                    <p style={{ fontSize:11, color:"var(--text-3)", marginTop:4 }}>{newGuestPassword.length}/16자</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <button type="submit" disabled={joining || !name.trim()} style={{
               padding: "15px", borderRadius: "var(--r-pill)", border: "none",
               background: (!name.trim() || joining) ? "var(--border)" : "var(--accent)",
