@@ -56,8 +56,10 @@ export default function AuthHeader() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 18px", height: 52 }}>
         {/* 로고 */}
         <button className="tap" onClick={() => router.push("/")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "var(--text)" }}>meogja</span>
-          <span style={{ fontSize: 16 }}>🐱</span>
+          {/* meogja 로고 텍스트 */}
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--text)", letterSpacing: "-0.5px" }}>me</span>
+          <span style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🐱</span>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--text)", letterSpacing: "-0.5px" }}>gja</span>
         </button>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
