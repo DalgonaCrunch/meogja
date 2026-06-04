@@ -25,13 +25,21 @@ function LoginContent() {
 
   function openInExternalBrowser() {
     const url = window.location.href;
-    // Android intent
     if (/Android/.test(navigator.userAgent)) {
-      window.location.href = `intent:${url}#Intent;scheme=https;package=com.android.chrome;end`;
+      // intent://host/path#Intent;scheme=https;package=chrome;end
+      const urlWithoutScheme = url.replace(/^https?:\/\//, "");
+      window.location.href = `intent://${urlWithoutScheme}#Intent;scheme=https;package=com.android.chrome;action=android.intent.action.VIEW;end`;
     } else {
-      // iOS - copy link and instruct
-      navigator.clipboard?.writeText(url).catch(() => {});
-      alert("주소를 복사했습니다.\nSafari 또는 Chrome에서 붙여넣기 해서 열어주세요.");
+      // iOS — clipboard copy + alert
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+          alert("링크를 복사했습니다!\nSafari 주소창에 붙여넣기 해주세요.");
+        }).catch(() => {
+          alert(`아래 주소를 Safari에서 열어주세요:\n${url}`);
+        });
+      } else {
+        alert(`아래 주소를 Safari에서 열어주세요:\n${url}`);
+      }
     }
   }
 
