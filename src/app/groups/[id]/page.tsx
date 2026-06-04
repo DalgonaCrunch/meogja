@@ -1670,6 +1670,37 @@ export default function GroupPage() {
                     {memberLikes.length === 0 && memberDislikes.length === 0 && (
                       <p style={{ fontSize: 13, color: "var(--text-muted)" }}>아직 등록된 선호도가 없습니다</p>
                     )}
+                    {/* 내 기본값 불러오기 / 저장 — 로그인 사용자 + 본인 멤버만 */}
+                    {currentUser.type === "auth" && m.id === myMemberId && (
+                      <div style={{ display:"flex", gap:8, marginTop:12 }}>
+                        <button className="tap" onClick={async () => {
+                          const { data } = await getSupabase().from("user_food_preferences").select("*").eq("user_id", currentUser.user.id);
+                          if (!data || data.length === 0) { alert("저장된 기본값이 없습니다. 먼저 선호도를 설정한 뒤 저장해주세요."); return; }
+                          // 현재 멤버의 기존 선호도 삭제 후 기본값 적용
+                          const ids = memberPrefs.map((p) => p.id);
+                          if (ids.length > 0) await getSupabase().from("food_preferences").delete().in("id", ids);
+                          await getSupabase().from("food_preferences").insert(
+                            data.map((p) => ({ member_id: expandedId, food_name: p.food_name, preference_type: p.preference_type }))
+                          );
+                          await loadMemberPrefs(expandedId!);
+                          alert("기본값을 불러왔습니다!");
+                        }} style={{ flex:1, padding:"9px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text-2)", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                          📥 기본값 불러오기
+                        </button>
+                        <button className="tap" onClick={async () => {
+                          if (memberLikes.length === 0 && memberDislikes.length === 0) { alert("저장할 선호도가 없습니다."); return; }
+                          // 기존 기본값 삭제 후 현재 값으로 대체
+                          await getSupabase().from("user_food_preferences").delete().eq("user_id", currentUser.user.id);
+                          await getSupabase().from("user_food_preferences").insert([
+                            ...memberLikes.map((p) => ({ user_id: currentUser.user.id, food_name: p.food_name, preference_type: "like" as const })),
+                            ...memberDislikes.map((p) => ({ user_id: currentUser.user.id, food_name: p.food_name, preference_type: "dislike" as const })),
+                          ]);
+                          alert("내 기본값에 저장됐습니다! 다른 모임에서도 불러올 수 있어요.");
+                        }} style={{ flex:1, padding:"9px", borderRadius:"var(--r-pill)", border:"none", background:"var(--green-soft)", color:"var(--green)", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                          💾 기본값에 저장
+                        </button>
+                      </div>
+                    )}
                     {/* 설정 완료 버튼 */}
                     {(memberLikes.length > 0 || memberDislikes.length > 0) && (
                       <button className="tap" onClick={() => { setExpandedId(null); setTab("recommend"); }} style={{

@@ -57,6 +57,32 @@ export default function ProfilePage() {
   }
 
   const displayName = currentUser.type === "auth" ? currentUser.user.display_name : currentUser.type === "guest" ? currentUser.user.name : "";
+  const [myPrefs, setMyPrefs] = useState<{id:string;food_name:string;preference_type:string}[]>([]);
+  const [prefInput, setPrefInput] = useState("");
+  const [prefType, setPrefType] = useState<"like"|"dislike">("like");
+
+  useEffect(() => {
+    if (currentUser.type === "auth") {
+      getSupabase().from("user_food_preferences").select("*").eq("user_id", currentUser.user.id).order("preference_type").then(({ data }) => {
+        if (data) setMyPrefs(data);
+      });
+    }
+  }, [currentUser]);
+
+  async function addMyPref() {
+    if (!prefInput.trim() || currentUser.type !== "auth") return;
+    const existing = myPrefs.find((p) => p.food_name === prefInput.trim() && p.preference_type === prefType);
+    if (existing) return;
+    const { data } = await getSupabase().from("user_food_preferences").insert({ user_id: currentUser.user.id, food_name: prefInput.trim(), preference_type: prefType }).select().single();
+    if (data) setMyPrefs((prev) => [...prev, data]);
+    setPrefInput("");
+  }
+
+  async function removeMyPref(id: string) {
+    await getSupabase().from("user_food_preferences").delete().eq("id", id);
+    setMyPrefs((prev) => prev.filter((p) => p.id !== id));
+  }
+
   const [fbCat, setFbCat] = useState("general");
   const [fbContent, setFbContent] = useState("");
   const [fbEmail, setFbEmail] = useState("");
@@ -146,6 +172,57 @@ export default function ProfilePage() {
             </div>
           )}
         </>
+      )}
+
+      {/* 내 기본 선호도 — 로그인 사용자만 */}
+      {currentUser.type === "auth" && (
+        <div className="fade-up">
+          <p style={{ fontFamily: "var(--font-display)", fontSize: 17, marginBottom: 14 }}>🍴 내 기본 선호도</p>
+          <div style={{ background: "var(--surface)", borderRadius: 16, padding: "18px 16px", border: "var(--card-border)", boxShadow: "var(--card-shadow)", display: "flex", flexDirection: "column", gap: 14 }}>
+            <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.6 }}>모임 참여 시 여기 저장된 선호도를 불러올 수 있습니다.</p>
+            {/* 추가 폼 */}
+            <div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                {(["like","dislike"] as const).map((t) => (
+                  <button key={t} className="tap" type="button" onClick={() => setPrefType(t)} style={{
+                    padding: "6px 16px", borderRadius: "var(--r-pill)", border: "none", fontSize: 13, fontWeight: 600,
+                    background: prefType === t ? (t === "like" ? "var(--green)" : "var(--red)") : "var(--bg-2)",
+                    color: prefType === t ? "#fff" : "var(--text-2)", cursor: "pointer", transition: "all .15s",
+                  }}>{t === "like" ? "👍 좋아함" : "🚫 못먹음"}</button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={prefInput} onChange={(e) => setPrefInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addMyPref(); } }} placeholder="음식명 입력 (예: 김치찌개, 회)"
+                  style={{ flex: 1, padding: "10px 14px", borderRadius: "var(--r-pill)", border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 13, outline: "none" }}
+                  onFocus={(e) => e.target.style.borderColor = "var(--primary)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
+                <button className="tap" onClick={addMyPref} style={{ padding: "10px 18px", borderRadius: "var(--r-pill)", border: "none", background: "var(--primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>추가</button>
+              </div>
+            </div>
+            {/* 못먹는 음식 */}
+            {myPrefs.filter((p) => p.preference_type === "dislike").length > 0 && (
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 700, color: "var(--red)", marginBottom: 8 }}>🚫 못먹는 음식</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {myPrefs.filter((p) => p.preference_type === "dislike").map((p) => (
+                    <button key={p.id} onClick={() => removeMyPref(p.id)} style={{ padding: "4px 12px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 600, background: "var(--red-soft)", border: "1px solid var(--red)", color: "var(--red)", cursor: "pointer" }}>{p.food_name} ✕</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* 좋아하는 음식 */}
+            {myPrefs.filter((p) => p.preference_type === "like").length > 0 && (
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 700, color: "var(--green)", marginBottom: 8 }}>❤️ 좋아하는 음식</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {myPrefs.filter((p) => p.preference_type === "like").map((p) => (
+                    <button key={p.id} onClick={() => removeMyPref(p.id)} style={{ padding: "4px 12px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 600, background: "var(--green-soft)", border: "1px solid var(--green)", color: "var(--green)", cursor: "pointer" }}>{p.food_name} ✕</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {myPrefs.length === 0 && <p style={{ fontSize: 13, color: "var(--text-2)" }}>아직 저장된 선호도가 없습니다</p>}
+          </div>
+        </div>
       )}
 
       {/* 문의/피드백 */}
