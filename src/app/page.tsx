@@ -337,10 +337,13 @@ export default function Home() {
 
       {/* ── 내 모임 ── */}
       <div className="fade-up fade-up-2" style={{ padding: "0 16px" }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-          <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>내 모임</span>
-          <button className="tap" onClick={() => { if (currentUser.type === "none") { router.push("/login"); return; } setShowCreateForm(true); }} style={{ fontSize:12, color:"var(--text-2)", fontWeight:600, background:"none", border:"none", cursor:"pointer" }}>+ 새 모임</button>
-        </div>
+        {/* 로그인하거나 모임이 있을 때만 헤더 표시 */}
+        {(currentUser.type !== "none" || groups.length > 0) && (
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+            <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>내 모임</span>
+            <button className="tap" onClick={() => { if (currentUser.type === "none") { router.push("/login"); return; } setShowCreateForm(true); }} style={{ fontSize:12, color:"var(--text-2)", fontWeight:600, background:"none", border:"none", cursor:"pointer" }}>+ 새 모임</button>
+          </div>
+        )}
 
         {loading && <p style={{ color:"var(--text-2)", textAlign:"center", padding:"30px 0", fontSize:14 }}>불러오는 중…</p>}
 
