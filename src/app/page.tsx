@@ -285,7 +285,11 @@ export default function Home() {
   const unstarredList = myGroups.filter((g) => !starredGroups.has(g.id));
   // 공개 추천: 내 모임 제외
   const allGroupIds = new Set(groups.map((g) => g.id));
-  const recommendPublic = allPublicGroups.filter((g) => !allGroupIds.has(g.id)).slice(0, 5);
+  // 공개 추천: 내 모임 제외 + 랜덤 5개
+  const recommendPublic = allPublicGroups
+    .filter((g) => !allGroupIds.has(g.id))
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 5);
 
   const QUICK_CATS = [
     { emoji:"🍖", label:"고기" }, { emoji:"🍜", label:"국물" },

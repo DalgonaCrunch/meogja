@@ -11,8 +11,11 @@ export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const active = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const active = (href: string) => {
+    if (href === "/") return pathname === "/";
+    if (href === "/groups") return pathname === "/groups" || pathname.startsWith("/groups/");
+    return pathname.startsWith(href);
+  };
 
   return (
     <nav style={{
