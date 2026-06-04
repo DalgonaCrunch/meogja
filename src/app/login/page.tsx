@@ -163,6 +163,9 @@ function LoginContent() {
       <p style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", maxWidth: 300 }}>
         로그인 없이 이용 시 공개 모임만 참여 가능합니다
       </p>
+      <p style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center" }}>
+        로그인 시 <a href="/privacy" style={{ color: "var(--primary)", textDecoration: "underline" }}>개인정보처리방침</a>에 동의하는 것으로 간주합니다
+      </p>
     </div>
   );
 }
