@@ -246,7 +246,8 @@ export default function GroupPage() {
 
   async function saveSession(participants: string[], picks: ScoredRestaurant[]) {
     if (picks.length === 0) return;
-    const participantNames = members.filter((m) => selected.includes(m.id)).map((m) => m.name);
+    // participants 파라미터 사용 (state 의존 버그 수정)
+    const participantNames = members.filter((m) => participants.includes(m.id)).map((m) => m.name);
     const { data: session } = await getSupabase().from("sessions").insert({ group_id: id, participant_names: participantNames }).select().single();
     if (!session) return;
     await getSupabase().from("session_picks").insert(

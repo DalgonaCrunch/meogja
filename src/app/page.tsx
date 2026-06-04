@@ -7,7 +7,7 @@ import { getCurrentUser, CurrentUser } from "@/lib/auth";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
-function GroupCard({ group, onClick, myMemberName, starred, onStar }: { group: Group; onClick: () => void; myMemberName?: string; starred?: boolean; onStar?: (e: React.MouseEvent) => void }) {
+function GroupCard({ group, onClick, myMemberName, isOwner, starred, onStar }: { group: Group; onClick: () => void; myMemberName?: string; isOwner?: boolean; starred?: boolean; onStar?: (e: React.MouseEvent) => void }) {
   const emoji = GROUP_EMOJIS[group.name.charCodeAt(0) % GROUP_EMOJIS.length];
   const hue = 20 + (group.name.charCodeAt(0) % 6) * 18;
   return (
@@ -27,7 +27,11 @@ function GroupCard({ group, onClick, myMemberName, starred, onStar }: { group: G
           whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom:3 }}>{group.name}</span>
         {group.description && <p style={{ fontSize:12.5, color:"var(--text-2)", marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{group.description}</p>}
         <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-          {myMemberName && (
+          {isOwner ? (
+            <span style={{ fontSize:11, padding:"2px 8px", borderRadius:"var(--r-pill)", fontWeight:700, color:"#C77800", background:"#FFF4CC" }}>
+              👑 모임장
+            </span>
+          ) : myMemberName && (
             <span style={{ fontSize:11, padding:"2px 8px", borderRadius:"var(--r-pill)", fontWeight:700, color:"var(--primary)", background:"var(--primary-light)" }}>
               나: {myMemberName}
             </span>
@@ -140,7 +144,6 @@ export default function Home() {
   const [deletePasswordError, setDeletePasswordError] = useState(false);
 
   useEffect(() => {
-    // 즐겨찾기 localStorage 로드
     const saved = localStorage.getItem("meogja_starred_groups");
     if (saved) setStarredGroups(new Set(JSON.parse(saved)));
     loadGroups();
@@ -164,11 +167,20 @@ export default function Home() {
     });
   }, []);
 
+  // 모임장 여부 확인
+  function isGroupOwner(group: Group, user: typeof currentUser) {
+    if (user.type === "auth") return group.owner_id === user.user.id;
+    if (user.type === "guest") return group.owner_guest_name === user.user.name;
+    return false;
+  }
+
   async function loadGroups() {
     setLoading(true);
+    // password 필드 제외 — 서버측 API로만 검증
+    const COLS = "id,name,description,is_private,require_auth,owner_id,owner_guest_name,created_at";
     const [myRes, publicRes] = await Promise.all([
-      getSupabase().from("groups").select("*").order("created_at", { ascending: false }),
-      getSupabase().from("groups").select("*").eq("is_private", false).eq("require_auth", false).order("created_at", { ascending: false }).limit(20),
+      getSupabase().from("groups").select(COLS).order("created_at", { ascending: false }),
+      getSupabase().from("groups").select(COLS).eq("is_private", false).eq("require_auth", false).order("created_at", { ascending: false }).limit(20),
     ]);
     if (myRes.data) setGroups(myRes.data);
     if (publicRes.data) setAllPublicGroups(publicRes.data);
@@ -217,9 +229,14 @@ export default function Home() {
   }
 
   async function deleteGroup(group: Group) {
-    if (group.is_private && deletePassword !== group.password) {
-      setDeletePasswordError(true);
-      return;
+    if (group.is_private) {
+      const res = await fetch("/api/groups/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupId: group.id, password: deletePassword }),
+      });
+      const { valid } = await res.json();
+      if (!valid) { setDeletePasswordError(true); return; }
     }
     await getSupabase().from("groups").delete().eq("id", group.id);
     setDeleteTarget(null);
@@ -244,9 +261,15 @@ export default function Home() {
     }
   }
 
-  function verifyPassword() {
+  async function verifyPassword() {
     if (!enterTarget) return;
-    if (enterPassword === enterTarget.password) {
+    const res = await fetch("/api/groups/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupId: enterTarget.id, password: enterPassword }),
+    });
+    const { valid } = await res.json();
+    if (valid) {
       router.push(`/groups/${enterTarget.id}`);
     } else {
       setPasswordError(true);
@@ -370,7 +393,7 @@ export default function Home() {
             <p style={{ fontFamily:"var(--font-display)", fontSize:15, color:"#C77800", marginBottom:8 }}>⭐ 즐겨찾는 모임</p>
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
               {starredList.map((group) => (
-                <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} myMemberName={myMemberships[group.id]} starred={true} onStar={(e) => { e.stopPropagation(); toggleStar(group.id); }} />
+                <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} myMemberName={myMemberships[group.id]} isOwner={isGroupOwner(group, currentUser)} starred={true} onStar={(e) => { e.stopPropagation(); toggleStar(group.id); }} />
               ))}
             </div>
           </div>
@@ -380,7 +403,7 @@ export default function Home() {
         {!loading && unstarredList.length > 0 && (
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {unstarredList.map((group) => (
-              <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} myMemberName={myMemberships[group.id]} starred={false} onStar={(e) => { e.stopPropagation(); toggleStar(group.id); }} />
+              <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} myMemberName={myMemberships[group.id]} isOwner={isGroupOwner(group, currentUser)} starred={false} onStar={(e) => { e.stopPropagation(); toggleStar(group.id); }} />
             ))}
           </div>
         )}

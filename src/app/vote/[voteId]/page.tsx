@@ -17,6 +17,16 @@ export default function VotePage() {
   const [myVote, setMyVote] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
+  // 브라우저 세션별 고유 ID — 동명 사용자 덮어쓰기 방지
+  const [voterSessionId] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const key = `meogja_voter_${voteId}`;
+    const existing = sessionStorage.getItem(key);
+    if (existing) return existing;
+    const newId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+    sessionStorage.setItem(key, newId);
+    return newId;
+  });
 
   useEffect(() => {
     loadVote();
@@ -38,9 +48,11 @@ export default function VotePage() {
 
   async function submitVote() {
     if (!myVote || !voterName.trim()) return;
+    // voter_name + session_id 조합으로 중복 방지
+    const uniqueName = `${voterName.trim()}__${voterSessionId.slice(0,8)}`;
     await getSupabase().from("vote_responses").upsert({
       vote_id: voteId,
-      voter_name: voterName.trim(),
+      voter_name: uniqueName,
       chosen_restaurant: myVote,
     }, { onConflict: "vote_id,voter_name" });
     setSubmitted(true);
@@ -51,6 +63,8 @@ export default function VotePage() {
     acc[r.chosen_restaurant] = (acc[r.chosen_restaurant] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+  // voter_name에서 session suffix 제거 (표시용)
+  const displayName = (name: string) => name.replace(/__[a-z0-9]{8}$/, "");
 
   const maxVotes = Math.max(...Object.values(tally), 0);
 

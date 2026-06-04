@@ -18,7 +18,7 @@ export type Group = {
   id: string;
   name: string;
   is_private: boolean;
-  password: string | null;
+  password?: string | null; // 클라이언트에서는 노출 안 함
   owner_id: string | null;
   owner_guest_name: string | null;
   require_auth: boolean;
