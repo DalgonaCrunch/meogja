@@ -598,51 +598,53 @@ export default function GroupPage() {
   const memberLikes = memberPrefs.filter((p) => p.preference_type === "like");
   const memberDislikes = memberPrefs.filter((p) => p.preference_type === "dislike");
 
-  function renderCard(r: ScoredRestaurant, i: number, borderColor: string) {
+  function renderCard(r: ScoredRestaurant, i: number, _borderColor: string) {
     const catKey = r.category.split(">").pop()?.trim() || r.category;
     const imgUrl = foodImages[catKey];
+    const isFav = favorites.has(r.title);
+    const hasScore = r.score > 0;
+    const avg = reviewAvgs[r.title];
     return (
-      <div key={`${r.title}-${i}`} style={{ background: "var(--bg-card)", borderRadius: 16, border: "1px solid var(--border)", boxShadow: "var(--shadow)", overflow: "hidden", borderLeft: `4px solid ${borderColor}` }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", gap: 12 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 12, overflow: "hidden", flexShrink: 0, background: "var(--bg)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {imgUrl ? <img src={imgUrl} alt={catKey} style={{ width: "100%", height: "100%", objectFit: "cover" }} referrerPolicy="no-referrer" /> : <span style={{ fontSize: 26 }}>{categoryEmoji(r.category)}</span>}
+      <div key={`${r.title}-${i}`} style={{ background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
+        <div style={{ display:"flex", gap:12, padding:"12px 14px" }}>
+          {/* 음식 사진 */}
+          <div style={{ width:80, height:80, borderRadius:14, overflow:"hidden", flexShrink:0, position:"relative",
+            background:"var(--bg-2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            {imgUrl
+              ? <img src={imgUrl} alt={catKey} style={{ width:"100%", height:"100%", objectFit:"cover" }} referrerPolicy="no-referrer" />
+              : <span style={{ fontSize:34 }}>{categoryEmoji(r.category)}</span>}
+            {hasScore && <div style={{ position:"absolute", top:5, left:5, padding:"2px 6px", borderRadius:6, background:"var(--primary)", color:"#fff", fontSize:10, fontWeight:800 }}>BEST</div>}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-              {/* 이름 클릭 → 네이버 지도 검색 */}
-              <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: "var(--text)", textDecoration: "none" }}
-                onMouseOver={(e) => e.currentTarget.style.color = "var(--accent)"}
-                onMouseOut={(e) => e.currentTarget.style.color = "var(--text)"}
-              >{r.title}</a>
-              {r.distance !== null && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--green-soft)", color: "var(--green)", fontWeight: 600, flexShrink: 0 }}>📍 {formatDistance(r.distance)}</span>}
-              {reviewAvgs[r.title] && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "#FFF8E1", color: "#C77800", fontWeight: 700, flexShrink: 0 }}>⭐ 모임 {reviewAvgs[r.title].toFixed(1)}</span>}
-              {r.score > 0 && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, flexShrink: 0 }}>👍 선호</span>}
-              {r.matchedLikes.slice(0, 1).map((like) => <span key={like} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 500, flexShrink: 0 }}>{like}</span>)}
+          {/* 정보 */}
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:4 }}>
+              <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`} target="_blank" rel="noopener noreferrer"
+                style={{ fontFamily:"var(--font-display)", fontSize:16, color:"var(--text)", textDecoration:"none", lineHeight:1.3 }}>
+                {r.title}
+              </a>
+              <button className="tap" onClick={() => toggleFavorite(r)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:20, color: isFav ? "var(--primary)" : "var(--text-3)", marginTop:-2, flexShrink:0 }}>
+                {isFav ? "♥" : "♡"}
+              </button>
             </div>
-            <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.category}</p>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
-              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.address}</p>
-              {/* 홈페이지 링크: 유효한 http URL일 때만 표시 */}
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5, flexWrap:"wrap" }}>
+              {avg && <span style={{ fontSize:12.5, color:"#E67700", fontWeight:700 }}>★ {avg.toFixed(1)}</span>}
+              {r.distance !== null && <span style={{ fontSize:12, color:"var(--text-2)" }}>📍 {formatDistance(r.distance)}</span>}
+              <span style={{ fontSize:12, color:"var(--text-3)" }}>·</span>
+              <span style={{ fontSize:12, color:"var(--text-2)" }}>{r.category.split(">").slice(-1)[0]?.trim() || r.category}</span>
+            </div>
+            {hasScore && (
+              <div style={{ fontSize:11.5, color:"var(--primary)", fontWeight:600, marginBottom:6 }}>💛 모임 선호도 높음</div>
+            )}
+            <div style={{ display:"flex", gap:6 }}>
+              <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`} target="_blank" rel="noopener noreferrer"
+                style={{ padding:"5px 12px", borderRadius:8, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>N 지도</a>
+              <a href={`https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`} target="_blank" rel="noopener noreferrer"
+                style={{ padding:"5px 12px", borderRadius:8, background:"#FAE100", color:"#3A1D1D", fontSize:12, fontWeight:700, textDecoration:"none" }}>K 지도</a>
               {r.link && r.link.startsWith("http") && (
-                <a href={r.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "var(--text-muted)", textDecoration: "none", display: "flex", alignItems: "center", gap: 3, padding: "1px 6px", border: "1px solid var(--border)", borderRadius: 6, whiteSpace: "nowrap" }}
-                  onMouseOver={(e) => { e.currentTarget.style.color = "var(--accent)"; e.currentTarget.style.borderColor = "var(--accent)"; }}
-                  onMouseOut={(e) => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.borderColor = "var(--border)"; }}
-                >
-                  🌐 홈페이지
-                </a>
+                <a href={r.link} target="_blank" rel="noopener noreferrer"
+                  style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", border:"1px solid var(--border)", color:"var(--text-2)", fontSize:12, fontWeight:500, textDecoration:"none" }}>🌐</a>
               )}
             </div>
-          </div>
-          <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
-            <button onClick={() => toggleFavorite(r)} style={{ width: 34, height: 34, borderRadius: "50%", fontSize: 16, background: favorites.has(r.title) ? "#FFF8E1" : "var(--bg)", border: `1.5px solid ${favorites.has(r.title) ? "#F5A623" : "var(--border)"}`, color: favorites.has(r.title) ? "#F5A623" : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {favorites.has(r.title) ? "★" : "☆"}
-            </button>
-            <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`} target="_blank" rel="noopener noreferrer" style={{ width: 34, height: 34, borderRadius: "50%", background: "#03C75A", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }} title="네이버지도">
-              <span style={{ color: "#fff", fontWeight: 900, fontSize: 13 }}>N</span>
-            </a>
-            <a href={`https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`} target="_blank" rel="noopener noreferrer" style={{ width: 34, height: 34, borderRadius: "50%", background: "#FAE100", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }} title="카카오맵">
-              <span style={{ color: "#3A1D1D", fontWeight: 900, fontSize: 13 }}>K</span>
-            </a>
           </div>
         </div>
       </div>
@@ -817,13 +819,14 @@ export default function GroupPage() {
       </div>
 
       {/* 탭 */}
-      <div className="fade-up fade-up-1" style={{ display: "flex", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 100, padding: 4, gap: 4, width: "fit-content" }}>
-        {([["recommend", "🍽 추천"], ["history", "📋 기록"], ["members", "👥 멤버"]] as const).map(([t, label]) => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            padding: "8px 22px", borderRadius: 100, border: "none", fontSize: 14, fontWeight: 600,
-            background: tab === t ? "var(--text)" : "transparent",
-            color: tab === t ? "#fff" : "var(--text-muted)",
-            cursor: "pointer", transition: "all 0.15s",
+      <div className="fade-up fade-up-1" style={{ display:"flex", borderBottom:"1.5px solid var(--border)", marginBottom:0 }}>
+        {([["recommend","추천"],["history","기록"],["members","멤버"]] as const).map(([t, label]) => (
+          <button key={t} className="tap" onClick={() => setTab(t)} style={{
+            flex:1, padding:"12px 0", border:"none", fontSize:14, fontWeight:700,
+            background:"transparent", cursor:"pointer", transition:"all .15s",
+            color: tab === t ? "var(--primary)" : "var(--text-2)",
+            borderBottom: tab === t ? "2.5px solid var(--primary)" : "2.5px solid transparent",
+            marginBottom:-1.5,
           }}>{label}</button>
         ))}
       </div>
@@ -894,15 +897,16 @@ export default function GroupPage() {
               </div>
             )}
 
-            {/* 분위기 선택 */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-              {ATMOSPHERES.map((a) => (
-                <button key={a.id} onClick={() => setAtmosphere(a.id === atmosphere ? "" : a.id)} style={{
-                  padding: "7px 14px", borderRadius: 100, fontSize: 13, fontWeight: 500,
-                  border: atmosphere === a.id ? "2px solid var(--accent)" : "1.5px solid var(--border)",
-                  background: atmosphere === a.id ? "var(--accent-soft)" : "transparent",
-                  color: atmosphere === a.id ? "var(--accent)" : "var(--text)",
-                  cursor: "pointer", transition: "all 0.15s",
+            {/* 분위기 선택 — 목업 스타일 */}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+              {ATMOSPHERES.filter(a => a.id !== "").map((a) => (
+                <button key={a.id} className="tap" onClick={() => setAtmosphere(a.id === atmosphere ? "" : a.id)} style={{
+                  padding: "8px 16px", borderRadius: "var(--r-pill)", fontSize: 13.5, fontWeight: 600,
+                  border: atmosphere === a.id ? "none" : "1.5px solid var(--border)",
+                  background: atmosphere === a.id ? "var(--primary)" : "var(--surface)",
+                  color: atmosphere === a.id ? "#fff" : "var(--text)",
+                  cursor: "pointer", transition: "all .15s",
+                  boxShadow: atmosphere === a.id ? "0 4px 12px rgba(255,122,69,.3)" : "none",
                 }}>{a.label}</button>
               ))}
             </div>
@@ -1156,13 +1160,15 @@ export default function GroupPage() {
                   {loading ? "메뉴 추천 중…" : "🍜 메뉴 추천받기 →"}
                 </button>
               ) : (
-              <button onClick={handleRecommend} disabled={loading || providers.size === 0} style={{
-                background: (loading || providers.size === 0) ? "var(--border)" : "var(--accent)",
-                color: (loading || providers.size === 0) ? "var(--text-muted)" : "#fff",
-                border: "none", borderRadius: 100, padding: "12px 28px", fontSize: 15, fontWeight: 600,
-                cursor: (loading || providers.size === 0) ? "default" : "pointer", transition: "all 0.15s",
+              <button className="tap" onClick={handleRecommend} disabled={loading || providers.size === 0} style={{
+                background: (loading || providers.size === 0) ? "var(--border)" : "var(--primary)",
+                color: (loading || providers.size === 0) ? "var(--text-2)" : "#fff",
+                border: "none", borderRadius: "var(--r-pill)", padding: "14px", fontSize: 16, fontWeight: 700,
+                cursor: (loading || providers.size === 0) ? "default" : "pointer",
+                fontFamily: "var(--font-display)", width: "100%",
+                boxShadow: (loading || providers.size === 0) ? "none" : "0 8px 20px rgba(255,122,69,.3)",
               }}>
-                {loading ? "주변 식당 검색 중…" : `${selected.length}명 기준 주변 맛집 추천 →`}
+                {loading ? "🔍 검색 중…" : "맛집 추천 받기 ✦"}
               </button>
               )}
               <div style={{ display: "flex", gap: 6 }}>
