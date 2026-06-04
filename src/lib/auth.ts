@@ -59,6 +59,9 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   return { type: "none" };
 }
 
+// 네이버 로그인은 커스텀 OAuth 라우트 사용 (/api/auth/naver)
+// signInWithNaver는 직접 window.location.href 사용
+
 export async function signInWithGoogle(next?: string) {
   const callbackUrl = next
     ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`

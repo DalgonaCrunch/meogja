@@ -183,6 +183,18 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
             <p style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4 }}>로그인하거나 이름만 입력해서 참여하세요</p>
             {/* 카카오 로그인 — 비즈앱 심사 후 활성화 */}
             {/* <button onClick={handleKakao}>카카오로 로그인 후 참여</button> */}
+            <button className="tap" onClick={() => {
+              sessionStorage.setItem("meogja_pending_join", groupId);
+              window.location.href = `/api/auth/naver?next=/groups/${groupId}`;
+            }} disabled={!!authLoading} style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              padding: "14px", borderRadius: "var(--r-pill)", border: "none",
+              background: "#03C75A", color: "#fff", fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer",
+              boxShadow: "0 6px 18px -8px rgba(3,199,90,.5)",
+            }}>
+              <span style={{ fontSize: 16, fontWeight: 900 }}>N</span>
+              네이버로 로그인 후 참여
+            </button>
             <button className="tap" onClick={handleGoogle} disabled={!!authLoading} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
               padding: "14px", borderRadius: "var(--r-pill)", border: "1.5px solid var(--border-2)",

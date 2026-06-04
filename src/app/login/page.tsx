@@ -92,6 +92,22 @@ function LoginContent() {
         {/* 카카오 로그인 — 비즈앱 심사 완료 후 활성화 예정 */}
         {/* <button onClick={handleKakao} ...>카카오로 로그인</button> */}
 
+        {/* 네이버 로그인 */}
+        <button onClick={() => {
+          sessionStorage.setItem("meogja_pending_join", "");
+          const nextParam = encodeURIComponent(next);
+          window.location.href = `/api/auth/naver?next=${nextParam}`;
+        }} style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+          padding: "14px 24px", borderRadius: 100,
+          background: "#03C75A", border: "none", color: "#fff",
+          fontSize: 15, fontWeight: 700, cursor: "pointer",
+          boxShadow: "0 2px 8px rgba(3,199,90,0.35)",
+        }}>
+          <span style={{ fontSize: 18, fontWeight: 900 }}>N</span>
+          네이버로 로그인
+        </button>
+
         {/* Google 로그인 */}
         <button onClick={handleGoogle} disabled={!!loadingProvider} style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
