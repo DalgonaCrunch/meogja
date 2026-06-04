@@ -105,12 +105,17 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
 
   async function handleKakao() {
     setAuthLoading("kakao");
-    try { await signInWithKakao(); } catch { setAuthLoading(null); }
+    // 로그인 후 이 모임으로 복귀 + 자동 참여 모달 열기
+    const returnUrl = `/groups/${groupId}`;
+    sessionStorage.setItem("meogja_pending_join", groupId);
+    try { await signInWithKakao(returnUrl); } catch { setAuthLoading(null); }
   }
 
   async function handleGoogle() {
     setAuthLoading("google");
-    try { await signInWithGoogle(); } catch { setAuthLoading(null); }
+    const returnUrl = `/groups/${groupId}`;
+    sessionStorage.setItem("meogja_pending_join", groupId);
+    try { await signInWithGoogle(returnUrl); } catch { setAuthLoading(null); }
   }
 
   const accountName = user.type === "auth" ? user.user.display_name : null;

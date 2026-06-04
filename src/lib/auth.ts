@@ -59,18 +59,24 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   return { type: "none" };
 }
 
-export async function signInWithGoogle() {
+export async function signInWithGoogle(next?: string) {
+  const callbackUrl = next
+    ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+    : `${window.location.origin}/auth/callback`;
   const { error } = await getSupabase().auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${window.location.origin}/auth/callback` },
+    options: { redirectTo: callbackUrl },
   });
   if (error) throw error;
 }
 
-export async function signInWithKakao() {
+export async function signInWithKakao(next?: string) {
+  const callbackUrl = next
+    ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+    : `${window.location.origin}/auth/callback`;
   const { error } = await getSupabase().auth.signInWithOAuth({
     provider: "kakao",
-    options: { redirectTo: `${window.location.origin}/auth/callback` },
+    options: { redirectTo: callbackUrl },
   });
   if (error) throw error;
 }

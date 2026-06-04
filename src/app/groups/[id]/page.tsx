@@ -180,7 +180,15 @@ export default function GroupPage() {
     loadReviewAvgs();
     loadFavLocations();
     requestAutoLocation();
-    getCurrentUser().then(setCurrentUser);
+    getCurrentUser().then((u) => {
+      setCurrentUser(u);
+      // 로그인 후 복귀 → 참여 모달 자동 열기
+      const pending = sessionStorage.getItem("meogja_pending_join");
+      if (pending === id && u.type === "auth") {
+        sessionStorage.removeItem("meogja_pending_join");
+        setShowJoinModal(true);
+      }
+    });
     // 홈 빠른 카테고리에서 선택된 항목 적용
     const quickCat = localStorage.getItem("meogja_quick_cat");
     if (quickCat) {
