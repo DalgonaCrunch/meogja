@@ -58,6 +58,12 @@ function getCategoryColor(category: string) {
   return { bg: "#F5F5F5", text: "#616161", border: "#9E9E9E" };
 }
 
+// "음식점 > 한식 > 치킨" → "치킨", "음식점" 제거
+function refinedCategory(category: string): string {
+  const parts = category.split(">").map(s => s.trim()).filter(s => s && s !== "음식점" && s !== "음식");
+  return parts[parts.length - 1] || category;
+}
+
 function categoryEmoji(category: string): string {
   const c = category.toLowerCase();
   if (c.includes("한식") || c.includes("국밥") || c.includes("찌개")) return "🍲";
@@ -479,6 +485,9 @@ export default function GroupPage() {
       if (queries.length === 0) queries = DEFAULT_QUERIES.slice(0, 5);
     }
 
+    // 매 검색마다 다른 결과를 위해 쿼리 순서 셔플
+    queries = [...queries].sort(() => Math.random() - 0.5);
+
     // 병렬 검색
     const results = await Promise.all(queries.map((q) => searchNearby(q)));
     const all = results.flat();
@@ -598,8 +607,12 @@ export default function GroupPage() {
     const trimmed = foodName.trim();
     const oppositeType = prefType === "like" ? "dislike" : "like";
 
-    // 이미 같은 타입으로 등록된 경우 skip
-    if (memberPrefs.find((p) => p.food_name === trimmed && p.preference_type === prefType)) return;
+    // 이미 같은 타입으로 등록된 경우 → 토글(삭제)
+    const alreadySame = memberPrefs.find((p) => p.food_name === trimmed && p.preference_type === prefType);
+    if (alreadySame) {
+      await removePreference(alreadySame.id);
+      return;
+    }
 
     // 삭제 대상: 반대 타입의 동일 음식 + 카테고리 하위 항목들
     const subItems = getCategorySubItems(trimmed);
@@ -629,7 +642,7 @@ export default function GroupPage() {
 
   function renderCard(r: ScoredRestaurant, i: number, _borderColor: string) {
     const isPicked = false; // 팝업으로 표시하므로 인라인 강조 제거
-    const catKey = r.category.split(">").pop()?.trim() || r.category;
+    const catKey = refinedCategory(r.category);
     const imgUrl = foodImages[catKey];
     const isFav = favorites.has(r.title);
     const hasScore = r.score > 0;
@@ -719,7 +732,7 @@ export default function GroupPage() {
       {randomPick && (() => {
         const r = scoredRestaurants.find((x) => x.title === randomPick);
         if (!r) return null;
-        const catKey = r.category.split(">").pop()?.trim() || r.category;
+        const catKey = refinedCategory(r.category);
         const imgUrl = foodImages[catKey];
         const avg = reviewAvgs[r.title];
         const isFav = favorites.has(r.title);
@@ -1648,6 +1661,16 @@ export default function GroupPage() {
                     )}
                     {memberLikes.length === 0 && memberDislikes.length === 0 && (
                       <p style={{ fontSize: 13, color: "var(--text-muted)" }}>아직 등록된 선호도가 없습니다</p>
+                    )}
+                    {/* 설정 완료 버튼 */}
+                    {(memberLikes.length > 0 || memberDislikes.length > 0) && (
+                      <button className="tap" onClick={() => { setExpandedId(null); setTab("recommend"); }} style={{
+                        marginTop: 10, width: "100%", padding: "11px", borderRadius: "var(--r-pill)", border: "none",
+                        background: "var(--primary)", color: "#fff", fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer",
+                        boxShadow: "0 6px 16px rgba(255,122,69,.25)",
+                      }}>
+                        ✓ 설정 완료 → 추천 받기
+                      </button>
                     )}
                   </div>
                 )}
