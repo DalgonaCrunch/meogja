@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
 
+type Feedback = { id: string; category: string; content: string; email: string | null; guest_name: string | null; status: string; created_at: string; };
+
 export default function AdminPage() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
@@ -12,6 +14,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState("");
+  const [adminTab, setAdminTab] = useState<"groups" | "feedbacks">("groups");
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
 
   useEffect(() => {
     checkAdmin();
@@ -25,6 +29,22 @@ export default function AdminPage() {
       return;
     }
     loadGroups();
+    loadFeedbacks();
+  }
+
+  async function loadFeedbacks() {
+    const { data } = await getSupabase().from("feedbacks").select("*").order("created_at", { ascending: false });
+    if (data) setFeedbacks(data);
+  }
+
+  async function markRead(id: string) {
+    await getSupabase().from("feedbacks").update({ status: "read" }).eq("id", id);
+    setFeedbacks((prev) => prev.map((f) => f.id === id ? { ...f, status: "read" } : f));
+  }
+
+  async function markResolved(id: string) {
+    await getSupabase().from("feedbacks").update({ status: "resolved" }).eq("id", id);
+    setFeedbacks((prev) => prev.map((f) => f.id === id ? { ...f, status: "resolved" } : f));
   }
 
   async function loadGroups() {
@@ -83,7 +103,46 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* 툴바 */}
+      {/* 탭 */}
+      <div style={{ display: "flex", borderBottom: "1.5px solid var(--border)" }}>
+        {([["groups","📋 모임 관리"],["feedbacks","💬 문의/피드백"]] as const).map(([t, label]) => (
+          <button key={t} className="tap" onClick={() => setAdminTab(t)} style={{
+            flex: 1, padding: "11px", border: "none", fontSize: 14, fontWeight: 700, background: "transparent", cursor: "pointer",
+            color: adminTab === t ? "var(--primary)" : "var(--text-2)",
+            borderBottom: adminTab === t ? "2.5px solid var(--primary)" : "2.5px solid transparent", marginBottom: -1.5,
+          }}>{label}</button>
+        ))}
+      </div>
+
+      {/* 문의 목록 */}
+      {adminTab === "feedbacks" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {feedbacks.length === 0 && <p style={{ color: "var(--muted)", textAlign: "center", padding: 40 }}>문의가 없습니다</p>}
+          {feedbacks.map((f) => (
+            <div key={f.id} style={{ padding: "16px 18px", borderRadius: 16, background: "var(--card)", border: f.status === "new" ? "1.5px solid var(--primary)" : "var(--card-border)", boxShadow: "var(--card-shadow)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12, padding: "2px 8px", borderRadius: "var(--r-pill)", fontWeight: 700, background: f.category === "bug" ? "var(--red-soft)" : f.category === "feature" ? "var(--green-soft)" : "var(--bg-2)", color: f.category === "bug" ? "var(--red)" : f.category === "feature" ? "var(--green)" : "var(--muted)" }}>
+                    {f.category === "bug" ? "🐛 버그" : f.category === "feature" ? "✨ 기능" : f.category === "general" ? "💬 문의" : "📝 기타"}
+                  </span>
+                  {f.status === "new" && <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: "var(--r-pill)", background: "var(--primary)", color: "#fff", fontWeight: 700 }}>NEW</span>}
+                  {f.status === "resolved" && <span style={{ fontSize: 11, color: "var(--green)" }}>✓ 해결됨</span>}
+                </div>
+                <span style={{ fontSize: 11, color: "var(--muted)" }}>{new Date(f.created_at).toLocaleString("ko-KR")}</span>
+              </div>
+              <p style={{ fontSize: 14, color: "var(--text)", marginBottom: 8, lineHeight: 1.6 }}>{f.content}</p>
+              {(f.email || f.guest_name) && <p style={{ fontSize: 12, color: "var(--muted)" }}>{f.guest_name && `👤 ${f.guest_name}`}{f.email && ` · 📧 ${f.email}`}</p>}
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                {f.status === "new" && <button className="tap" onClick={() => markRead(f.id)} style={{ padding: "5px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: 12, cursor: "pointer" }}>읽음</button>}
+                {f.status !== "resolved" && <button className="tap" onClick={() => markResolved(f.id)} style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: "var(--green-soft)", color: "var(--green)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✓ 해결</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {adminTab === "groups" && (
+      <>{/* 툴바 */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <input
           value={search}
@@ -163,6 +222,7 @@ export default function AdminPage() {
           )}
         </div>
       )}
+      </>)}
     </div>
   );
 }
