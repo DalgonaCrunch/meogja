@@ -87,23 +87,8 @@ function LoginContent() {
           </div>
         )}
 
-        {/* 카카오 로그인 */}
-        <button onClick={handleKakao} disabled={!!loadingProvider} style={{
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
-          padding: "14px 24px", borderRadius: 100,
-          background: "#FAE100", border: "none", color: "#3A1D1D",
-          fontSize: 15, fontWeight: 700, cursor: loadingProvider ? "default" : "pointer",
-          transition: "all 0.15s", opacity: loadingProvider === "google" ? 0.5 : 1,
-          boxShadow: "0 2px 8px rgba(250,225,0,0.4)",
-        }}
-          onMouseOver={(e) => { if (!loadingProvider) e.currentTarget.style.background = "#F0D800"; }}
-          onMouseOut={(e) => { e.currentTarget.style.background = "#FAE100"; }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="#3A1D1D">
-            <path d="M12 3C6.48 3 2 6.58 2 11c0 2.79 1.57 5.26 4 6.84V21l3.5-1.96c.82.23 1.69.36 2.5.36 5.52 0 10-3.58 10-8s-4.48-8-10-8z"/>
-          </svg>
-          {loadingProvider === "kakao" ? "연결 중…" : "카카오로 로그인"}
-        </button>
+        {/* 카카오 로그인 — 비즈앱 심사 완료 후 활성화 예정 */}
+        {/* <button onClick={handleKakao} ...>카카오로 로그인</button> */}
 
         {/* Google 로그인 */}
         <button onClick={handleGoogle} disabled={!!loadingProvider} style={{
