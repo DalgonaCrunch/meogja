@@ -17,8 +17,11 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
   const [joining, setJoining] = useState(false);
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [nameError, setNameError] = useState("");
+  const [isWebView, setIsWebView] = useState(false);
 
   useEffect(() => {
+    const ua = navigator.userAgent;
+    setIsWebView(/KAKAOTALK|NAVER|Instagram|FBAN|FBAV|Line\/|MicroMessenger|WebView|wv\b/.test(ua));
     // 모달 마운트 시 현재 유저 fresh 로드
     getCurrentUser().then((u) => {
       setUser(u);
@@ -136,6 +139,29 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
 
         {step === "choose" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* WebView 경고 */}
+            {isWebView && (
+              <div style={{ padding: "12px 14px", borderRadius: 12, background: "#FFF8E1", border: "1.5px solid #F5A623" }}>
+                <p style={{ fontSize: 12, color: "#795548", marginBottom: 8, lineHeight: 1.6 }}>
+                  ⚠️ 인앱 브라우저에서는 Google 로그인이 차단됩니다.<br/>
+                  다른 브라우저에서 열거나, 이름으로 참여하세요.
+                </p>
+                <button onClick={() => {
+                  const url = window.location.href;
+                  if (/Android/.test(navigator.userAgent)) {
+                    const u = url.replace(/^https?:\/\//, "");
+                    window.location.href = `intent://${u}#Intent;scheme=https;action=android.intent.action.VIEW;end`;
+                  } else if (navigator.share) {
+                    navigator.share({ url, title: "meogja" }).catch(() => navigator.clipboard?.writeText(url));
+                  } else {
+                    navigator.clipboard?.writeText(url);
+                    alert("링크를 복사했습니다!");
+                  }
+                }} style={{ width: "100%", padding: "9px", borderRadius: "var(--r-pill)", border: "none", background: "#FF7A45", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  다른 브라우저로 열기 →
+                </button>
+              </div>
+            )}
             <p style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4 }}>로그인하거나 이름만 입력해서 참여하세요</p>
             <button className="tap" onClick={handleKakao} disabled={!!authLoading} style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
