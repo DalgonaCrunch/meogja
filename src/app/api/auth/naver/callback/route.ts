@@ -72,8 +72,22 @@ export async function GET(request: NextRequest) {
       userId = newUser.user.id;
     }
 
-    // user_profiles 업데이트
-    await supabaseAdmin.from("user_profiles").upsert({ id: userId, display_name: displayName }, { onConflict: "id" });
+    // user_profiles 업데이트 — 네이버에서 동의한 정보 모두 저장
+    const profileData: Record<string, string | null> = {
+      id: userId,
+      display_name: displayName,
+    };
+    if (naverUser.name) profileData.name = naverUser.name;
+    if (naverUser.email) profileData.email = naverUser.email;
+    if (naverUser.nickname) profileData.nickname = naverUser.nickname;
+    if (naverUser.profile_image) profileData.profile_image = naverUser.profile_image;
+    if (naverUser.gender) profileData.gender = naverUser.gender === "M" ? "남성" : naverUser.gender === "F" ? "여성" : naverUser.gender;
+    if (naverUser.birthday) profileData.birthday = naverUser.birthday; // MM-DD
+    if (naverUser.age) profileData.age = naverUser.age;
+    if (naverUser.mobile) profileData.mobile = naverUser.mobile;
+    if (naverUser.birthyear) profileData.birthyear = naverUser.birthyear;
+
+    await supabaseAdmin.from("user_profiles").upsert(profileData, { onConflict: "id" });
 
     // 4. 세션 생성 (magic link 방식)
     const { data: otpData } = await supabaseAdmin.auth.admin.generateLink({

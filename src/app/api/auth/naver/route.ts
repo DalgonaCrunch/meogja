@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// 네이버 OAuth 시작 — 네이버 로그인 페이지로 리다이렉트
 export async function GET(request: NextRequest) {
   const next = request.nextUrl.searchParams.get("next") || "/";
   const state = Buffer.from(JSON.stringify({ next, ts: Date.now() })).toString("base64url");
@@ -10,7 +9,8 @@ export async function GET(request: NextRequest) {
     client_id: process.env.NEXT_PUBLIC_NAVER_CLIENT_ID!,
     redirect_uri: `https://meogja.vercel.app/api/auth/naver/callback`,
     state,
-    scope: "name email",
+    // 모든 선택 제공 항목 요청
+    scope: "name email nickname profile_image gender birthday age mobile birthyear",
   });
 
   return NextResponse.redirect(`https://nid.naver.com/oauth2.0/authorize?${params}`);

@@ -59,6 +59,7 @@ export default function ProfilePage() {
   }
 
   const displayName = currentUser.type === "auth" ? currentUser.user.display_name : currentUser.type === "guest" ? currentUser.user.name : "";
+  const [myProfile, setMyProfile] = useState<Record<string,string>>({});
   const [myPrefs, setMyPrefs] = useState<{id:string;food_name:string;preference_type:string}[]>([]);
   const [prefInput, setPrefInput] = useState("");
   const [prefType, setPrefType] = useState<"like"|"dislike">("like");
@@ -72,6 +73,10 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (currentUser.type === "auth") {
+      // 프로필 정보 로드
+      getSupabase().from("user_profiles").select("*").eq("id", currentUser.user.id).single().then(({ data }) => {
+        if (data) setMyProfile(data);
+      });
       getSupabase().from("user_food_preferences").select("*").eq("user_id", currentUser.user.id).order("preference_type").then(({ data }) => {
         if (data) setMyPrefs(data);
       });
@@ -144,6 +149,40 @@ export default function ProfilePage() {
           {currentUser.type === "auth" ? "로그아웃" : "나가기"}
         </button>
       </div>
+
+      {/* 👤 내 정보 (네이버 로그인 시 자동 세팅) */}
+      {currentUser.type === "auth" && (() => {
+        const FIELDS = [
+          { key: "name", label: "이름" },
+          { key: "email", label: "이메일" },
+          { key: "nickname", label: "닉네임" },
+          { key: "gender", label: "성별" },
+          { key: "birthday", label: "생일" },
+          { key: "birthyear", label: "출생연도" },
+          { key: "age", label: "연령대" },
+          { key: "mobile", label: "휴대전화" },
+        ];
+        const hasAny = FIELDS.some((f) => myProfile[f.key]);
+        if (!hasAny) return null;
+        return (
+          <div className="fade-up">
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+              {myProfile.profile_image && (
+                <img src={myProfile.profile_image} alt="프로필" style={{ width:48, height:48, borderRadius:"50%", objectFit:"cover", border:"2px solid var(--border)" }} />
+              )}
+              <p style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>👤 내 정보</p>
+            </div>
+            <div style={{ background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
+              {FIELDS.filter((f) => myProfile[f.key]).map((f, i, arr) => (
+                <div key={f.key} style={{ display:"flex", alignItems:"center", padding:"12px 16px", borderBottom: i < arr.length-1 ? "1px solid var(--border)" : "none" }}>
+                  <span style={{ fontSize:13, color:"var(--text-2)", width:80, flexShrink:0 }}>{f.label}</span>
+                  <span style={{ fontSize:14, color:"var(--text)", fontWeight:500 }}>{myProfile[f.key]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 🎨 색상 테마 */}
       <div className="fade-up">
