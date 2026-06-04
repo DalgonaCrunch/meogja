@@ -125,7 +125,7 @@ export default function GroupPage() {
   const [scoredRestaurants, setScoredRestaurants] = useState<ScoredRestaurant[]>([]);
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [providers, setProviders] = useState<Set<"naver" | "kakao">>(new Set(["naver"]));
+  const [providers, setProviders] = useState<Set<"naver" | "kakao">>(new Set(["naver", "kakao"]));
   const [location, setLocation] = useState<{ lat: number; lng: number; label?: string; address?: string } | null>(null);
   const [radius, setRadius] = useState(1000);
   const [sortBy, setSortBy] = useState<"distance" | "rating" | "score" | "category">("distance");
