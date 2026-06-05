@@ -457,7 +457,7 @@ export default function Home() {
 
       {/* ── Hero ── */}
       <div className="fade-up" style={{ position:"relative", overflow:"hidden" }}>
-        <img src="/meogja-brand.jpg" alt="meogja brand" style={{ width:"100%", display:"block", objectFit:"cover", maxHeight:220, objectPosition:"top center" }} />
+        <img src="/meogja-brand.jpg" alt="meogja brand" style={{ width:"100%", display:"block", height:"auto" }} />
       </div>
 
       {/* ── 랜덤 룰렛 ── */}
