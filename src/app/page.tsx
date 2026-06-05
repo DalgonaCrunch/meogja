@@ -415,13 +415,16 @@ export default function Home() {
         <div className="scroll-x" style={{ paddingBottom:6 }}>
           {QUICK_CATS.map((c) => (
             <div key={c.label} className="tap" onClick={() => {
+              // 비로그인 → 로그인 유도
+              if (currentUser.type === "none") { router.push("/login"); return; }
               localStorage.setItem("meogja_quick_cat", c.label);
-              // 모임이 있으면 첫 번째 모임으로 이동, 없으면 모임 만들기
-              if (groups.length > 0) {
-                const first = [...publicGroups, ...privateGroups][0];
-                if (first) handleEnter(first);
+              // 내 모임이 있으면 첫 번째 모임으로 이동
+              const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
+              if (myGroupList.length > 0) {
+                handleEnter(myGroupList[0]);
+              } else if (groups.length > 0) {
+                handleEnter(groups[0]);
               } else {
-                if (currentUser.type === "none") { router.push("/login"); return; }
                 setShowCreateForm(true);
               }
             }} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, flexShrink:0, cursor:"pointer" }}>

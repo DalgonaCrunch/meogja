@@ -591,22 +591,45 @@ export default function GroupPage() {
   async function addMember() {
     const name = newName.trim();
     if (!name) return;
+    // 중복 이름 체크
+    const dupe = members.find((m) => m.name === name);
+    if (dupe) { await showAlert(`"${name}"은 이미 있는 멤버입니다.`, { icon: "👤" }); return; }
     const userId = currentUser.type === "auth" ? currentUser.user.id : null;
     const guestName = currentUser.type === "guest" ? currentUser.user.name : null;
-    await getSupabase().from("members").insert({ name, group_id: id, user_id: userId, guest_name: guestName });
+    await getSupabase().from("members").insert({ name, group_id: id, user_id: userId, guest_name: guestName, status: "approved" });
     setNewName("");
     loadMembers();
   }
 
+  async function addSelfAsMember() {
+    const name = currentUser.type === "auth"
+      ? (currentUser.user.display_name || currentUser.user.email?.split("@")[0] || "나")
+      : currentUser.type === "guest" ? currentUser.user.name : null;
+    if (!name) return;
+    const dupe = members.find((m) => m.name === name);
+    if (dupe) { await showAlert(`"${name}"은 이미 있는 멤버입니다.`, { icon: "👤" }); return; }
+    const userId = currentUser.type === "auth" ? currentUser.user.id : null;
+    const guestName = currentUser.type === "guest" ? currentUser.user.name : null;
+    await getSupabase().from("members").insert({ name, group_id: id, user_id: userId, guest_name: guestName, status: "approved" });
+    loadMembers();
+  }
+
   async function joinAsMyself() {
-    // 현재 사용자 이름으로 멤버 추가
     const name = currentUser.type === "auth"
       ? (currentUser.user.display_name || currentUser.user.email?.split("@")[0] || "사용자")
       : currentUser.type === "guest" ? currentUser.user.name : null;
     if (!name) return;
     const userId = currentUser.type === "auth" ? currentUser.user.id : null;
     const guestName = currentUser.type === "guest" ? currentUser.user.name : null;
-    await getSupabase().from("members").upsert({ name, group_id: id, user_id: userId, guest_name: guestName }, { onConflict: "group_id,name", ignoreDuplicates: true });
+    // 승인 필요 모임: pending 상태로 삽입
+    const status = group?.requires_approval ? "pending" : "approved";
+    const { data: existing } = await getSupabase().from("members")
+      .select("id").eq("group_id", id).eq("name", name).single();
+    if (existing) return; // 이미 있으면 무시
+    await getSupabase().from("members").insert({ name, group_id: id, user_id: userId, guest_name: guestName, status });
+    if (group?.requires_approval) {
+      await showAlert("가입 신청이 완료됐습니다.\n모임장의 승인 후 참여할 수 있습니다.", { icon: "⏳", title: "승인 대기" });
+    }
     loadMembers();
   }
 
@@ -1573,9 +1596,20 @@ export default function GroupPage() {
           {/* 멤버 추가 — 모임장만 자유롭게 추가, 일반 참여자는 본인만 참여 */}
           {isOwner ? (
             <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: 22, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 12 }}>새 멤버 추가 (모임장)</p>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 12 }}>멤버 추가 (모임장)</p>
+              {/* 나 추가 버튼 — 아직 멤버가 아닌 경우 */}
+              {!myMemberId && (() => {
+                const myName = currentUser.type === "auth"
+                  ? (currentUser.user.display_name || currentUser.user.email?.split("@")[0] || "나")
+                  : currentUser.type === "guest" ? currentUser.user.name : null;
+                return myName ? (
+                  <button className="tap" onClick={addSelfAsMember} style={{ marginBottom: 10, padding: "8px 18px", borderRadius: 100, border: "none", background: "var(--green)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    + 나 ({myName}) 추가하기
+                  </button>
+                ) : null;
+              })()}
               <form onSubmit={(e) => { e.preventDefault(); addMember(); }} style={{ display: "flex", gap: 8 }}>
-                <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="이름 입력" style={{ flex: 1, padding: "10px 16px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 14, color: "var(--text)", outline: "none" }} onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
+                <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="다른 멤버 이름 입력" style={{ flex: 1, padding: "10px 16px", borderRadius: 100, border: "1.5px solid var(--border)", background: "var(--bg)", fontSize: 14, color: "var(--text)", outline: "none" }} onFocus={(e) => e.target.style.borderColor = "var(--accent)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
                 <button type="submit" style={{ padding: "10px 20px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>추가</button>
               </form>
             </div>
