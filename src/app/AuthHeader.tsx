@@ -9,14 +9,20 @@ export default function AuthHeader() {
   const router = useRouter();
   const [user, setUser] = useState<CurrentUser>({ type: "none" });
   const [isAdmin, setIsAdmin] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   function applyUser(u: CurrentUser) {
     setUser(u);
     if (u.type === "auth") {
       const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
       setIsAdmin(!!adminEmail && u.user.email === adminEmail);
+      // 프로필 이미지 로드
+      getSupabase().from("user_profiles").select("profile_image").eq("id", u.user.id).single().then(({ data }) => {
+        setProfileImage(data?.profile_image || null);
+      });
     } else {
       setIsAdmin(false);
+      setProfileImage(null);
     }
   }
 
@@ -73,8 +79,10 @@ export default function AuthHeader() {
               color: "var(--text)", fontSize: 13, fontWeight: 600, cursor: "pointer",
             }}>
               {displayName}
-              <div style={{ width: 28, height: 28, borderRadius: "50%", background: user.type === "auth" ? "var(--primary)" : "var(--green)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>
-                {displayName[0]}
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: user.type === "auth" ? "var(--primary)" : "var(--green)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, overflow: "hidden", flexShrink: 0 }}>
+                {profileImage
+                  ? <img src={profileImage} alt="profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : displayName[0]}
               </div>
             </button>
           ) : (

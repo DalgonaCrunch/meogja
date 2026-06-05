@@ -100,6 +100,33 @@ export default function ProfilePage() {
 
   const displayName = currentUser.type === "auth" ? currentUser.user.display_name : currentUser.type === "guest" ? currentUser.user.name : "";
   const [myProfile, setMyProfile] = useState<Record<string,string>>({});
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || currentUser.type !== "auth") return;
+    if (file.size > 5 * 1024 * 1024) { alert("5MB 이하 이미지만 가능합니다"); return; }
+    setUploadingPhoto(true);
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = async () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 200; canvas.height = 200;
+      const ctx = canvas.getContext("2d")!;
+      const size = Math.min(img.width, img.height);
+      const sx = (img.width - size) / 2, sy = (img.height - size) / 2;
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, 200, 200);
+      URL.revokeObjectURL(url);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      const { error } = await getSupabase().from("user_profiles").update({ profile_image: dataUrl }).eq("id", currentUser.user.id);
+      if (!error) {
+        setMyProfile((prev) => ({ ...prev, profile_image: dataUrl }));
+        window.dispatchEvent(new CustomEvent("meogja-auth-change"));
+      }
+      setUploadingPhoto(false);
+    };
+    img.src = url;
+  }
   const [myPrefs, setMyPrefs] = useState<{id:string;food_name:string;preference_type:string}[]>([]);
   const [prefInput, setPrefInput] = useState("");
   const [prefType, setPrefType] = useState<"like"|"dislike">("like");
@@ -176,16 +203,34 @@ export default function ProfilePage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
       {/* 프로필 헤더 */}
-      <div className="fade-up" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <h1 style={{ fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 600, marginBottom: 4 }}>
-            {displayName || "사용자"}
-          </h1>
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {currentUser.type === "auth" ? `${currentUser.user.email} · 로그인 계정` : "게스트 이용 중"}
-          </p>
+      <div className="fade-up" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
+          {/* 프로필 사진 */}
+          <label className="tap" style={{ position: "relative", cursor: "pointer", flexShrink: 0 }}>
+            <div style={{ width: 64, height: 64, borderRadius: "50%", overflow: "hidden", border: "2px solid var(--border)", background: "var(--bg-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {myProfile.profile_image
+                ? <img src={myProfile.profile_image} alt="profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : <span style={{ fontSize: 28, color: "var(--text-3)" }}>👤</span>}
+            </div>
+            {currentUser.type === "auth" && (
+              <div style={{ position: "absolute", bottom: 0, right: 0, width: 20, height: 20, borderRadius: "50%", background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>
+                {uploadingPhoto ? "…" : "📷"}
+              </div>
+            )}
+            {currentUser.type === "auth" && (
+              <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: "none" }} />
+            )}
+          </label>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {displayName || "사용자"}
+            </h1>
+            <p style={{ fontSize: 12, color: "var(--text-2)" }}>
+              {currentUser.type === "auth" ? `${currentUser.user.email}` : "게스트 이용 중"}
+            </p>
+          </div>
         </div>
-        <button onClick={handleSignOut} style={{ padding: "8px 18px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>
+        <button onClick={handleSignOut} style={{ padding: "7px 16px", borderRadius: "var(--r-pill)", border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-2)", fontSize: 12, fontWeight: 500, cursor: "pointer", flexShrink: 0 }}>
           {currentUser.type === "auth" ? "로그아웃" : "나가기"}
         </button>
       </div>

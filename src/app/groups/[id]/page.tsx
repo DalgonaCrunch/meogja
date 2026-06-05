@@ -124,6 +124,7 @@ export default function GroupPage() {
   const [tab, setTab] = useState<"recommend" | "history" | "members">("recommend");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [reviewAvgs, setReviewAvgs] = useState<Record<string, number>>({});
+  const [memberImages, setMemberImages] = useState<Record<string, string>>({});
   const [foodImages, setFoodImages] = useState<Record<string, string>>({});
 
   // 추천 탭
@@ -343,6 +344,19 @@ export default function GroupPage() {
     const { data } = await getSupabase().from("members").select("*").eq("group_id", id).order("name");
     if (data) {
       setMembers(data);
+      // user_id가 있는 멤버의 프로필 이미지 로드
+      const userIds = data.filter((m) => m.user_id).map((m) => m.user_id);
+      if (userIds.length > 0) {
+        const { data: profiles } = await getSupabase().from("user_profiles").select("id, profile_image").in("id", userIds);
+        if (profiles) {
+          const imgMap: Record<string, string> = {};
+          profiles.forEach((p) => { if (p.profile_image) imgMap[p.id] = p.profile_image; });
+          // member_id → image 매핑
+          const memberImgMap: Record<string, string> = {};
+          data.forEach((m) => { if (m.user_id && imgMap[m.user_id]) memberImgMap[m.id] = imgMap[m.user_id]; });
+          setMemberImages(memberImgMap);
+        }
+      }
       const validIds = new Set(data.map((m) => m.id));
       setSelected((prev) => prev.filter((id) => validIds.has(id)));
       // 내 멤버 찾기
@@ -1036,8 +1050,10 @@ export default function GroupPage() {
                       color: isSelected ? color : "var(--text)",
                       fontWeight: isSelected ? 600 : 400, fontSize: 14, cursor: "pointer", transition: "all 0.15s",
                     }}>
-                      <span style={{ width: 26, height: 26, borderRadius: "50%", background: isSelected ? color : "var(--border)", color: isSelected ? "#fff" : "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0, transition: "all 0.15s" }}>
-                        {m.name[0]}
+                      <span style={{ width: 26, height: 26, borderRadius: "50%", background: isSelected ? color : "var(--border)", color: isSelected ? "#fff" : "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0, transition: "all 0.15s", overflow: "hidden" }}>
+                        {memberImages[m.id]
+                          ? <img src={memberImages[m.id]} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : m.name[0]}
                       </span>
                       {m.name}
                     </button>
@@ -1563,7 +1579,11 @@ export default function GroupPage() {
               <div key={m.id} style={{ background: "var(--bg-card)", borderRadius: 16, border: "1px solid var(--border)", boxShadow: "var(--shadow)", overflow: "hidden", borderLeft: `4px solid ${color}` }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>{m.name[0]}</div>
+                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, overflow: "hidden", flexShrink: 0 }}>
+                      {memberImages[m.id]
+                        ? <img src={memberImages[m.id]} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        : m.name[0]}
+                    </div>
                     <span style={{ fontSize: 15, fontWeight: 600 }}>{m.name}</span>
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
