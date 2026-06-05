@@ -495,9 +495,14 @@ export default function Home() {
           <img src="/avatars/meogja_cat_051.png" alt="" style={{ position:"absolute", right:14, bottom:0, width:72, height:72, objectFit:"contain", opacity:.9, pointerEvents:"none" }} />
           <p style={{ fontFamily:"var(--font-display)", fontSize:16, color:"rgba(255,255,255,.85)", marginBottom:8 }}>오늘 뭐 먹지? 🎲</p>
           {rouletteResult ? (
-            <p style={{ fontFamily:"var(--font-display)", fontSize:32, color:"#fff", marginBottom:16, animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
-              {rouletteRunning ? rouletteResult : `🍽 ${rouletteResult}!`}
-            </p>
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
+              {!rouletteRunning && getFoodIconUrl(rouletteResult) && (
+                <img src={getFoodIconUrl(rouletteResult)!} alt={rouletteResult} style={{ width:56, height:56, objectFit:"contain", flexShrink:0 }} />
+              )}
+              <p style={{ fontFamily:"var(--font-display)", fontSize:32, color:"#fff" }}>
+                {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
+              </p>
+            </div>
           ) : (
             <p style={{ fontSize:15, color:"rgba(255,255,255,.7)", marginBottom:16 }}>버튼 하나로 메뉴 결정!</p>
           )}
