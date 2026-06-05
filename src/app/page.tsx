@@ -491,45 +491,49 @@ export default function Home() {
 
       {/* ── 랜덤 룰렛 ── */}
       <div className="fade-up fade-up-1" style={{ padding: "0 16px" }}>
-        <div style={{ background:"linear-gradient(135deg, #FF7A45 0%, #FF4E88 100%)", borderRadius:20, padding:"20px 20px", boxShadow:"0 8px 24px rgba(255,122,69,.35)", position:"relative", overflow:"hidden" }}>
-          <img src="/avatars/meogja_cat_051.png" alt="" style={{ position:"absolute", right:14, bottom:0, width:72, height:72, objectFit:"contain", opacity:.9, pointerEvents:"none" }} />
-          <p style={{ fontFamily:"var(--font-display)", fontSize:16, color:"rgba(255,255,255,.85)", marginBottom:8 }}>오늘 뭐 먹지? 🎲</p>
-          {rouletteResult ? (
-            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
-              {!rouletteRunning && getFoodIconUrl(rouletteResult) && (
-                <img src={getFoodIconUrl(rouletteResult)!} alt={rouletteResult} style={{ width:56, height:56, objectFit:"contain", flexShrink:0 }} />
-              )}
-              <p style={{ fontFamily:"var(--font-display)", fontSize:32, color:"#fff" }}>
-                {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
-              </p>
-            </div>
-          ) : (
-            <p style={{ fontSize:15, color:"rgba(255,255,255,.7)", marginBottom:16 }}>버튼 하나로 메뉴 결정!</p>
-          )}
-          <div style={{ display:"flex", gap:10 }}>
-            <button className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
-              flex:1, padding:"13px", borderRadius:"var(--r-pill)", border:"none",
-              background: rouletteRunning ? "rgba(255,255,255,.3)" : "#fff",
-              color: rouletteRunning ? "#fff" : "var(--primary)",
-              fontFamily:"var(--font-display)", fontSize:15, fontWeight:700, cursor:rouletteRunning ? "default" : "pointer",
-            }}>
-              {rouletteRunning ? "🎲 돌리는 중…" : "🎲 랜덤 추천"}
-            </button>
-            {rouletteResult && !rouletteRunning && (
-              <button className="tap" onClick={() => {
-                const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
-                if (currentUser.type === "none") { router.push("/login"); return; }
-                sessionStorage.setItem("meogja_preset_menus", JSON.stringify([rouletteResult]));
-                if (myGroupList.length > 0) handleEnter(myGroupList[0]);
-                else setShowCreateForm(true);
-              }} style={{
-                padding:"13px 16px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.5)",
-                background:"transparent", color:"#fff", fontFamily:"var(--font-display)", fontSize:14, cursor:"pointer",
-              }}>
-                이걸로 찾기 →
-              </button>
+        <div style={{ background:"linear-gradient(135deg, #FF7A45 0%, #FF4E88 100%)", borderRadius:20, padding:"20px", boxShadow:"0 8px 24px rgba(255,122,69,.35)", display:"flex", alignItems:"center", gap:12 }}>
+          {/* 왼쪽: 텍스트 + 버튼 */}
+          <div style={{ flex:1, minWidth:0 }}>
+            <p style={{ fontFamily:"var(--font-display)", fontSize:15, color:"rgba(255,255,255,.85)", marginBottom:6 }}>오늘 뭐 먹지? 🎲</p>
+            {rouletteResult ? (
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12, animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
+                {!rouletteRunning && getFoodIconUrl(rouletteResult) && (
+                  <img src={getFoodIconUrl(rouletteResult)!} alt={rouletteResult} style={{ width:40, height:40, objectFit:"contain", flexShrink:0 }} />
+                )}
+                <p style={{ fontFamily:"var(--font-display)", fontSize:26, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                  {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
+                </p>
+              </div>
+            ) : (
+              <p style={{ fontSize:13, color:"rgba(255,255,255,.7)", marginBottom:12 }}>버튼 하나로 메뉴 결정!</p>
             )}
+            <div style={{ display:"flex", gap:8 }}>
+              <button className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
+                flex:1, padding:"11px", borderRadius:"var(--r-pill)", border:"none",
+                background: rouletteRunning ? "rgba(255,255,255,.3)" : "#fff",
+                color: rouletteRunning ? "#fff" : "var(--primary)",
+                fontFamily:"var(--font-display)", fontSize:14, fontWeight:700, cursor:rouletteRunning ? "default" : "pointer",
+              }}>
+                {rouletteRunning ? "🎲 돌리는 중…" : "🎲 랜덤 추천"}
+              </button>
+              {rouletteResult && !rouletteRunning && (
+                <button className="tap" onClick={() => {
+                  const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
+                  if (currentUser.type === "none") { router.push("/login"); return; }
+                  sessionStorage.setItem("meogja_preset_menus", JSON.stringify([rouletteResult]));
+                  if (myGroupList.length > 0) handleEnter(myGroupList[0]);
+                  else setShowCreateForm(true);
+                }} style={{
+                  padding:"11px 14px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.5)",
+                  background:"transparent", color:"#fff", fontFamily:"var(--font-display)", fontSize:13, cursor:"pointer", whiteSpace:"nowrap",
+                }}>
+                  이걸로 찾기 →
+                </button>
+              )}
+            </div>
           </div>
+          {/* 오른쪽: 마스코트 */}
+          <img src="/avatars/meogja_cat_051.png" alt="" style={{ width:88, height:88, objectFit:"contain", flexShrink:0, pointerEvents:"none", mixBlendMode:"multiply" }} />
         </div>
       </div>
 
