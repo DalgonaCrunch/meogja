@@ -191,6 +191,8 @@ export default function Home() {
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [quickCatSheet, setQuickCatSheet] = useState<{label:string;emoji:string;items:string[]} | null>(null);
+  const [quickSelected, setQuickSelected] = useState<Set<string>>(new Set());
+  const [showQuickGroupPicker, setShowQuickGroupPicker] = useState(false);
 
   // 비공개 모임 입장
   const [enterTarget, setEnterTarget] = useState<Group | null>(null);
@@ -378,10 +380,14 @@ export default function Home() {
     .slice(0, 5);
 
   const QUICK_CATS = [
-    { emoji:"🍖", label:"고기" }, { emoji:"🍜", label:"국물" },
-    { emoji:"🍣", label:"일식" }, { emoji:"🍕", label:"양식" },
-    { emoji:"🍗", label:"치킨" }, { emoji:"☕", label:"카페" },
-    { emoji:"🌶️", label:"매운맛" }, { emoji:"🍰", label:"디저트" },
+    { emoji:"🍖", label:"고기", menus:["삼겹살","소갈비","불고기","목살","항정살","갈매기살","오겹살","양꼬치","소곱창","껍데기","소고기구이","차돌박이"] },
+    { emoji:"🍜", label:"국물", menus:["김치찌개","된장찌개","부대찌개","설렁탕","갈비탕","순대국밥","해장국","육개장","추어탕","콩나물국밥","선지국밥","뼈다귀해장국"] },
+    { emoji:"🍣", label:"일식", menus:["초밥","라멘","돈카츠","우동","소바","카라아게","텐동","규동","오마카세","이자카야안주","사시미","야키토리"] },
+    { emoji:"🍕", label:"양식", menus:["파스타","피자","스테이크","리조또","브런치","버거","샌드위치","스프","양갈비","크림파스타","토마토파스타","뇨끼"] },
+    { emoji:"🍗", label:"치킨", menus:["후라이드치킨","양념치킨","간장치킨","파닭","마늘치킨","치즈치킨","순살치킨","핫윙","반반치킨","뿌링클","황금올리브","교촌"] },
+    { emoji:"☕", label:"카페", menus:["아메리카노","카페라떼","케이크","크로플","에그타르트","베이글","샌드위치","와플","스콘","티라미수","마카롱","크로아상"] },
+    { emoji:"🌶️", label:"매운맛", menus:["떡볶이","마라탕","마라샹궈","낙지볶음","쭈꾸미볶음","엽기떡볶이","매운갈비찜","불닭볶음면","불닭","매운족발","불짬뽕","청양떡볶이"] },
+    { emoji:"🍰", label:"디저트", menus:["아이스크림","붕어빵","호떡","마카롱","타르트","팥빙수","츄러스","도넛","케이크","크레이프","소프트아이스크림","약과"] },
   ];
 
   return (
@@ -423,27 +429,111 @@ export default function Home() {
       <div className="fade-up fade-up-1" style={{ padding: "0 16px" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
           <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>인기 메뉴 🔥</span>
-          <span style={{ fontSize:12, color:"var(--primary)", fontWeight:700, cursor:"pointer" }}>더보기 ›</span>
+          {quickSelected.size > 0 && (
+            <button className="tap" onClick={() => setQuickSelected(new Set())} style={{ fontSize:12, color:"var(--text-3)", background:"none", border:"none", cursor:"pointer" }}>선택 초기화</button>
+          )}
         </div>
-        <div className="scroll-x" style={{ paddingBottom:6 }}>
-          {QUICK_CATS.map((c) => (
-            <div key={c.label} className="tap" onClick={() => {
-              const items = getCategorySubItems(c.label);
-              setQuickCatSheet({ label: c.label, emoji: c.emoji, items });
-            }} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, flexShrink:0, cursor:"pointer" }}>
-              <div style={{
-                width:62, height:62, borderRadius:"50%", overflow:"hidden",
-                background:`linear-gradient(140deg, hsl(${20+(QUICK_CATS.findIndex(q=>q.label===c.label)*30)%360} 80% 70%), hsl(${(50+QUICK_CATS.findIndex(q=>q.label===c.label)*30)%360} 82% 58%))`,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:28, boxShadow:"0 3px 10px rgba(0,0,0,.1)",
+        {/* 카테고리 탭 */}
+        <div className="scroll-x" style={{ gap:8, paddingBottom:4 }}>
+          {QUICK_CATS.map((c, idx) => {
+            const isActive = quickCatSheet?.label === c.label;
+            return (
+              <button key={c.label} className="tap" onClick={() => {
+                setQuickCatSheet(isActive ? null : { label: c.label, emoji: c.emoji, items: c.menus });
+              }} style={{
+                display:"flex", alignItems:"center", gap:6, flexShrink:0, padding:"8px 14px",
+                borderRadius:"var(--r-pill)", border: isActive ? "none" : "1.5px solid var(--border)",
+                background: isActive ? "var(--primary)" : "var(--surface)",
+                color: isActive ? "#fff" : "var(--text-2)", fontSize:13, fontWeight:600, cursor:"pointer",
+                boxShadow: isActive ? "0 4px 12px rgba(255,122,69,.3)" : "none", transition:"all .15s",
               }}>
-                {c.emoji}
-              </div>
-              <span style={{ fontSize:12, color:"var(--text)", fontWeight:500 }}>{c.label}</span>
-            </div>
-          ))}
+                <span style={{ fontSize:16 }}>{c.emoji}</span>{c.label}
+              </button>
+            );
+          })}
         </div>
+
+        {/* 인라인 메뉴 리스트 */}
+        {quickCatSheet && (
+          <div style={{ marginTop:12, padding:"14px 16px", background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)" }}>
+            <p style={{ fontSize:12, color:"var(--text-3)", marginBottom:10 }}>먹고 싶은 메뉴를 선택하세요 (다중 선택 가능)</p>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+              {quickCatSheet.items.map((item) => {
+                const sel = quickSelected.has(item);
+                return (
+                  <button key={item} className="tap" onClick={() => {
+                    setQuickSelected(prev => {
+                      const next = new Set(prev);
+                      if (next.has(item)) next.delete(item); else next.add(item);
+                      return next;
+                    });
+                  }} style={{
+                    padding:"7px 14px", borderRadius:"var(--r-pill)", cursor:"pointer", fontSize:13, fontWeight: sel ? 700 : 400,
+                    border: sel ? "none" : "1.5px solid var(--border)",
+                    background: sel ? "var(--primary)" : "var(--bg)",
+                    color: sel ? "#fff" : "var(--text)",
+                  }}>
+                    {sel && "✓ "}{item}
+                  </button>
+                );
+              })}
+            </div>
+            {quickSelected.size > 0 && (
+              <button className="tap" onClick={() => setShowQuickGroupPicker(true)} style={{
+                marginTop:14, width:"100%", padding:"13px", borderRadius:"var(--r-pill)", border:"none",
+                background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer",
+                boxShadow:"0 6px 18px rgba(255,122,69,.3)",
+              }}>
+                {quickSelected.size}개 메뉴로 식당 찾기 →
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* 모임 선택 시트 */}
+      {showQuickGroupPicker && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:70 }}
+          onClick={() => setShowQuickGroupPicker(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background:"var(--surface)", borderRadius:"24px 24px 0 0", padding:"20px 20px 40px", width:"100%", maxWidth:480, maxHeight:"60vh", display:"flex", flexDirection:"column", animation:"sheetUp .28s both" }}>
+            <div style={{ width:40, height:5, borderRadius:99, background:"var(--border)", margin:"0 auto 16px" }} />
+            <p style={{ fontFamily:"var(--font-display)", fontSize:18, marginBottom:4 }}>어느 모임에서 찾을까요?</p>
+            <p style={{ fontSize:13, color:"var(--text-2)", marginBottom:16 }}>{[...quickSelected].join(", ")}</p>
+            <div style={{ overflowY:"auto", flex:1, display:"flex", flexDirection:"column", gap:10 }}>
+              {(() => {
+                const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
+                if (myGroupList.length === 0) {
+                  return (
+                    <div style={{ textAlign:"center", padding:"20px 0" }}>
+                      <p style={{ fontSize:14, color:"var(--text-2)", marginBottom:16 }}>아직 가입한 모임이 없습니다</p>
+                      <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
+                        <button className="tap" onClick={() => { setShowQuickGroupPicker(false); setShowCreateForm(true); }} style={{ padding:"10px 20px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer" }}>모임 만들기</button>
+                        <button className="tap" onClick={() => { setShowQuickGroupPicker(false); router.push("/groups"); }} style={{ padding:"10px 20px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text)", fontSize:14, fontWeight:600, cursor:"pointer" }}>모임 찾기</button>
+                      </div>
+                    </div>
+                  );
+                }
+                return myGroupList.map((g) => (
+                  <button key={g.id} className="tap" onClick={() => {
+                    setShowQuickGroupPicker(false);
+                    localStorage.setItem("meogja_preset_menus", JSON.stringify([...quickSelected]));
+                    setQuickCatSheet(null);
+                    setQuickSelected(new Set());
+                    handleEnter(g);
+                  }} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", borderRadius:14, border:"1.5px solid var(--border)", background:"var(--bg)", cursor:"pointer", textAlign:"left" }}>
+                    <span style={{ fontSize:24 }}>{g.emoji || "🍱"}</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ fontFamily:"var(--font-display)", fontSize:15, color:"var(--text)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{g.name}</p>
+                      {g.description && <p style={{ fontSize:12, color:"var(--text-2)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{g.description}</p>}
+                    </div>
+                    <span style={{ color:"var(--text-3)", fontSize:18 }}>›</span>
+                  </button>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 내 모임 — 로그인/게스트 사용자에게만 표시 ── */}
       {!loading && currentUser.type !== "none" && (
@@ -551,45 +641,6 @@ export default function Home() {
                 background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
               }}>입장</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* 인기 메뉴 카테고리 시트 */}
-      {quickCatSheet && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:70 }}
-          onClick={() => setQuickCatSheet(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background:"var(--surface)", borderRadius:"24px 24px 0 0", padding:"20px 20px 40px", width:"100%", maxWidth:480, maxHeight:"70vh", overflow:"hidden", display:"flex", flexDirection:"column", animation:"sheetUp .28s both" }}>
-            <div style={{ width:40, height:5, borderRadius:99, background:"var(--border)", margin:"0 auto 16px" }} />
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
-              <span style={{ fontSize:28 }}>{quickCatSheet.emoji}</span>
-              <p style={{ fontFamily:"var(--font-display)", fontSize:19 }}>{quickCatSheet.label} 메뉴</p>
-            </div>
-            <div style={{ overflowY:"auto", flex:1 }}>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-                {quickCatSheet.items.map((item) => (
-                  <button key={item} className="tap" onClick={() => {
-                    setQuickCatSheet(null);
-                    // 내 모임 있으면 카테고리 프리셋 적용 후 이동
-                    const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
-                    if (currentUser.type !== "none" && myGroupList.length > 0) {
-                      localStorage.setItem("meogja_quick_cat", item);
-                      handleEnter(myGroupList[0]);
-                    } else if (currentUser.type !== "none") {
-                      localStorage.setItem("meogja_quick_cat", item);
-                      setShowCreateForm(true);
-                    } else {
-                      router.push("/login");
-                    }
-                  }} style={{ padding:"8px 16px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--bg)", color:"var(--text)", fontSize:14, cursor:"pointer", fontWeight:500 }}>
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <button className="tap" onClick={() => setQuickCatSheet(null)} style={{ marginTop:16, padding:"12px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:14, cursor:"pointer" }}>
-              닫기
-            </button>
           </div>
         </div>
       )}

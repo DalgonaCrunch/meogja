@@ -198,6 +198,15 @@ export default function GroupPage() {
       setFilterMedium(quickCat);
       localStorage.removeItem("meogja_quick_cat");
     }
+    // 홈 인기메뉴 다중 선택 프리셋
+    const presetRaw = localStorage.getItem("meogja_preset_menus");
+    if (presetRaw) {
+      try {
+        const items: string[] = JSON.parse(presetRaw);
+        if (items.length > 0) setFilterItem(items[0]); // 첫 번째 항목으로 필터 적용
+        localStorage.removeItem("meogja_preset_menus");
+      } catch { /* ignore */ }
+    }
   }, [id]);
 
   async function loadReviewAvgs() {
