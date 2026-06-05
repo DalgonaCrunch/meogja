@@ -48,7 +48,8 @@ export async function GET(request: NextRequest) {
     );
 
     const email = naverUser.email || `naver_${naverUser.id}@meogja.app`;
-    const displayName = naverUser.name || naverUser.nickname || "네이버 사용자";
+    // 닉네임 우선, 없으면 이름
+    const displayName = naverUser.nickname || naverUser.name || "네이버 사용자";
 
     // 기존 유저 조회
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();

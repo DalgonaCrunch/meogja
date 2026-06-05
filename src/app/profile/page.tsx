@@ -7,6 +7,46 @@ import { getSupabase, Group } from "@/lib/supabase";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems } from "@/lib/recommend";
 import { THEMES, ThemeId, applyTheme, getSavedTheme } from "@/lib/theme";
 
+function ProfileFieldRow({ fieldKey, label, value, editable, isLast, onSave }: {
+  fieldKey: string; label: string; value: string; editable: boolean; isLast: boolean;
+  onSave: (key: string, val: string) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editVal, setEditVal] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (!editVal.trim()) return;
+    setSaving(true);
+    await onSave(fieldKey, editVal.trim());
+    setSaving(false);
+    setEditing(false);
+  }
+
+  return (
+    <div style={{ display:"flex", alignItems:"center", padding:"12px 16px", borderBottom: isLast ? "none" : "1px solid var(--border)", gap:8 }}>
+      <span style={{ fontSize:12, color:"var(--text-2)", width:90, flexShrink:0, fontWeight:600 }}>{label}</span>
+      {editing ? (
+        <div style={{ display:"flex", gap:6, flex:1, alignItems:"center" }}>
+          <input autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setEditing(false); }}
+            style={{ flex:1, padding:"6px 10px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--primary)", background:"var(--bg)", fontSize:13, outline:"none" }} />
+          <button className="tap" onClick={handleSave} disabled={saving} style={{ padding:"5px 12px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            {saving ? "…" : "저장"}
+          </button>
+          <button onClick={() => { setEditing(false); setEditVal(value); }} style={{ background:"none", border:"none", color:"var(--text-2)", fontSize:16, cursor:"pointer" }}>✕</button>
+        </div>
+      ) : (
+        <>
+          <span style={{ fontSize:14, color: value ? "var(--text)" : "var(--text-3)", flex:1 }}>{value || "미설정"}</span>
+          {editable && (
+            <button className="tap" onClick={() => { setEditVal(value); setEditing(true); }} style={{ background:"none", border:"none", color:"var(--text-3)", fontSize:14, cursor:"pointer", padding:"2px 6px" }}>✏️</button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 const FEEDBACK_CATS = [
   { id: "bug", label: "🐛 버그 신고" },
   { id: "feature", label: "✨ 기능 제안" },
@@ -150,20 +190,31 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      {/* 👤 내 정보 (네이버 로그인 시 자동 세팅) */}
+      {/* 👤 내 정보 — 수정 가능 */}
       {currentUser.type === "auth" && (() => {
-        const FIELDS = [
-          { key: "name", label: "이름" },
-          { key: "email", label: "이메일" },
-          { key: "nickname", label: "닉네임" },
-          { key: "gender", label: "성별" },
-          { key: "birthday", label: "생일" },
-          { key: "birthyear", label: "출생연도" },
-          { key: "age", label: "연령대" },
-          { key: "mobile", label: "휴대전화" },
+        const FIELDS: {key:string;label:string;editable:boolean}[] = [
+          { key: "display_name", label: "앱 표시 이름", editable: true },
+          { key: "nickname", label: "닉네임", editable: true },
+          { key: "name", label: "이름", editable: true },
+          { key: "email", label: "이메일", editable: true },
+          { key: "gender", label: "성별", editable: false },
+          { key: "birthday", label: "생일", editable: false },
+          { key: "birthyear", label: "출생연도", editable: false },
+          { key: "age", label: "연령대", editable: false },
+          { key: "mobile", label: "휴대전화", editable: false },
         ];
-        const hasAny = FIELDS.some((f) => myProfile[f.key]);
-        if (!hasAny) return null;
+
+        async function saveProfileField(key: string, value: string) {
+          if (currentUser.type !== "auth") return;
+          const update: Record<string,string> = { [key]: value };
+          await getSupabase().from("user_profiles").update(update).eq("id", currentUser.user.id);
+          setMyProfile((prev) => ({ ...prev, [key]: value }));
+          // display_name이면 헤더도 갱신
+          if (key === "display_name" || key === "nickname") {
+            window.dispatchEvent(new CustomEvent("meogja-auth-change"));
+          }
+        }
+
         return (
           <div className="fade-up">
             <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
@@ -173,11 +224,8 @@ export default function ProfilePage() {
               <p style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>👤 내 정보</p>
             </div>
             <div style={{ background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
-              {FIELDS.filter((f) => myProfile[f.key]).map((f, i, arr) => (
-                <div key={f.key} style={{ display:"flex", alignItems:"center", padding:"12px 16px", borderBottom: i < arr.length-1 ? "1px solid var(--border)" : "none" }}>
-                  <span style={{ fontSize:13, color:"var(--text-2)", width:80, flexShrink:0 }}>{f.label}</span>
-                  <span style={{ fontSize:14, color:"var(--text)", fontWeight:500 }}>{myProfile[f.key]}</span>
-                </div>
+              {FIELDS.filter((f) => myProfile[f.key] || f.editable).map((f, i, arr) => (
+                <ProfileFieldRow key={f.key} fieldKey={f.key} label={f.label} value={myProfile[f.key] || ""} editable={f.editable} isLast={i === arr.length-1} onSave={saveProfileField} />
               ))}
             </div>
           </div>
