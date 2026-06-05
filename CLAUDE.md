@@ -29,6 +29,13 @@
 - DB 마이그레이션: `supabase db push --linked`
 - 빌드 확인: `npx next build`
 
+## 기능 명세 문서 (SPEC.md)
+- `SPEC.md` = 살아있는 기능 설계 문서
+- 기능 구현 완료 시 `[ ]` → `[x]` 자동 업데이트 (Claude가 직접)
+- 새 기능 추가 시 SPEC.md에 항목 추가 후 구현
+- 작업마다 하단 `마지막 업데이트` 날짜 갱신
+- 사용자는 텔레그램으로 기능 요청만 하면 됨 (문서 직접 편집 불필요)
+
 ## 보안
 - SUPABASE_SERVICE_ROLE_KEY 클라이언트 노출 금지
 - 관리자 기능은 NEXT_PUBLIC_ADMIN_EMAIL 검증 필수
