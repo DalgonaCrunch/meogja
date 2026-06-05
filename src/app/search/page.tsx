@@ -107,8 +107,8 @@ function SearchContent() {
             <p style={{ fontSize:12, color:"var(--text-2)", marginBottom:8 }}>{r.roadAddress || r.address}</p>
             {r.category && <span style={{ fontSize:11, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"var(--bg-2)", color:"var(--text-3)" }}>{r.category}</span>}
             <div style={{ display:"flex", gap:8, marginTop:10 }}>
-              <a href={`https://map.naver.com/p/search/${encodeURIComponent((r.title||"").replace(/<[^>]*>/g,"") + " " + (r.address||""))}`} target="_blank" rel="noopener noreferrer" style={{ flex:1, padding:"8px", borderRadius:10, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none", textAlign:"center" }}>N 지도</a>
               <a href={`https://map.kakao.com/link/search/${encodeURIComponent((r.title||"").replace(/<[^>]*>/g,""))}`} target="_blank" rel="noopener noreferrer" style={{ flex:1, padding:"8px", borderRadius:10, background:"#FAE100", color:"#3A1D1D", fontSize:12, fontWeight:700, textDecoration:"none", textAlign:"center" }}>K 지도</a>
+              <a href={`https://map.naver.com/p/search/${encodeURIComponent((r.title||"").replace(/<[^>]*>/g,""))}`} target="_blank" rel="noopener noreferrer" style={{ flex:1, padding:"8px", borderRadius:10, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none", textAlign:"center" }}>N 지도</a>
             </div>
           </div>
         ))}

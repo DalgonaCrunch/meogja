@@ -717,6 +717,19 @@ export default function GroupPage() {
   const memberLikes = memberPrefs.filter((p) => p.preference_type === "like");
   const memberDislikes = memberPrefs.filter((p) => p.preference_type === "dislike");
 
+  function getSnsInfo(url: string): { label: string; bg: string; color: string } | null {
+    if (!url || !url.startsWith("http")) return null;
+    if (url.includes("instagram.com")) return { label: "Instagram", bg: "#E1306C", color: "#fff" };
+    if (url.includes("youtube.com") || url.includes("youtu.be")) return { label: "YouTube", bg: "#FF0000", color: "#fff" };
+    if (url.includes("facebook.com")) return { label: "Facebook", bg: "#1877F2", color: "#fff" };
+    if (url.includes("blog.naver.com")) return { label: "N 블로그", bg: "#03C75A", color: "#fff" };
+    if (url.includes("naver.me") || url.includes("place.naver") || url.includes("smartplace.naver")) return { label: "N 플레이스", bg: "#03C75A", color: "#fff" };
+    if (url.includes("place.map.kakao") || url.includes("map.kakao")) return { label: "K 지도", bg: "#FAE100", color: "#3A1D1D" };
+    if (url.includes("twitter.com") || url.includes("x.com")) return { label: "X", bg: "#000", color: "#fff" };
+    if (url.includes("tiktok.com")) return { label: "TikTok", bg: "#010101", color: "#fff" };
+    return { label: "홈페이지", bg: "var(--bg-2)", color: "var(--text-2)" };
+  }
+
   function renderCard(r: ScoredRestaurant, i: number, _borderColor: string) {
     const isPicked = false; // 팝업으로 표시하므로 인라인 강조 제거
     const catKey = refinedCategory(r.category);
@@ -738,7 +751,7 @@ export default function GroupPage() {
           {/* 정보 */}
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:4 }}>
-              <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`} target="_blank" rel="noopener noreferrer"
+              <a href={`https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`} target="_blank" rel="noopener noreferrer"
                 style={{ fontFamily:"var(--font-display)", fontSize:16, color:"var(--text)", textDecoration:"none", lineHeight:1.3 }}>
                 {r.title}
               </a>
@@ -755,15 +768,21 @@ export default function GroupPage() {
             {hasScore && (
               <div style={{ fontSize:11.5, color:"var(--primary)", fontWeight:600, marginBottom:6 }}>💛 모임 선호도 높음</div>
             )}
-            <div style={{ display:"flex", gap:6 }}>
-              <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`} target="_blank" rel="noopener noreferrer"
-                style={{ padding:"5px 12px", borderRadius:8, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>N 지도</a>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
               <a href={`https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`} target="_blank" rel="noopener noreferrer"
                 style={{ padding:"5px 12px", borderRadius:8, background:"#FAE100", color:"#3A1D1D", fontSize:12, fontWeight:700, textDecoration:"none" }}>K 지도</a>
-              {r.link && r.link.startsWith("http") && (
-                <a href={r.link} target="_blank" rel="noopener noreferrer"
-                  style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", border:"1px solid var(--border)", color:"var(--text-2)", fontSize:12, fontWeight:500, textDecoration:"none" }}>🌐</a>
-              )}
+              <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title)}`} target="_blank" rel="noopener noreferrer"
+                style={{ padding:"5px 12px", borderRadius:8, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>N 지도</a>
+              {r.link && r.link.startsWith("http") && (() => {
+                const sns = getSnsInfo(r.link);
+                if (!sns) return null;
+                return (
+                  <a href={r.link} target="_blank" rel="noopener noreferrer"
+                    style={{ padding:"5px 12px", borderRadius:8, background:sns.bg, color:sns.color, fontSize:12, fontWeight:700, textDecoration:"none", border: sns.bg === "var(--bg-2)" ? "1px solid var(--border)" : "none" }}>
+                    {sns.label}
+                  </a>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -840,7 +859,7 @@ export default function GroupPage() {
                     {imgUrl ? <img src={imgUrl} alt={catKey} style={{ width:"100%", height:"100%", objectFit:"cover" }} referrerPolicy="no-referrer" /> : <span style={{ fontSize:36 }}>{categoryEmoji(r.category)}</span>}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`} target="_blank" rel="noopener noreferrer" style={{ fontFamily:"var(--font-display)", fontSize:20, color:"var(--text)", textDecoration:"none", display:"block", marginBottom:6 }}>{r.title}</a>
+                    <a href={`https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`} target="_blank" rel="noopener noreferrer" style={{ fontFamily:"var(--font-display)", fontSize:20, color:"var(--text)", textDecoration:"none", display:"block", marginBottom:6 }}>{r.title}</a>
                     <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
                       {avg && <span style={{ fontSize:13, color:"#E67700", fontWeight:700 }}>★ {avg.toFixed(1)}</span>}
                       {r.distance !== null && <span style={{ fontSize:12, color:"var(--green)", fontWeight:600 }}>📍 {formatDistance(r.distance)}</span>}
@@ -854,8 +873,8 @@ export default function GroupPage() {
                   <button className="tap" onClick={() => toggleFavorite(r)} style={{ flex:1, padding:"10px", borderRadius:12, border:`1.5px solid ${isFav ? "#F5A623" : "var(--border)"}`, background: isFav ? "#FFF4CC" : "var(--bg-2)", color: isFav ? "#C77800" : "var(--text-2)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
                     {isFav ? "★ 즐겨찾기" : "☆ 즐겨찾기"}
                   </button>
-                  <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title + " " + r.address)}`} target="_blank" rel="noopener noreferrer" style={{ flex:1, padding:"10px", borderRadius:12, background:"#03C75A", color:"#fff", fontSize:13, fontWeight:800, textDecoration:"none", textAlign:"center" }}>N 지도</a>
                   <a href={`https://map.kakao.com/link/search/${encodeURIComponent(r.title)}`} target="_blank" rel="noopener noreferrer" style={{ flex:1, padding:"10px", borderRadius:12, background:"#FAE100", color:"#3A1D1D", fontSize:13, fontWeight:800, textDecoration:"none", textAlign:"center" }}>K 지도</a>
+                  <a href={`https://map.naver.com/p/search/${encodeURIComponent(r.title)}`} target="_blank" rel="noopener noreferrer" style={{ flex:1, padding:"10px", borderRadius:12, background:"#03C75A", color:"#fff", fontSize:13, fontWeight:800, textDecoration:"none", textAlign:"center" }}>N 지도</a>
                 </div>
                 <button className="tap" onClick={() => {
                   const list = sortedRestaurants;
