@@ -45,3 +45,6 @@ next-env.d.ts
 system_prompt.txt
 run_telegrambot.sh
 .venv
+
+# claude code
+.claude/
