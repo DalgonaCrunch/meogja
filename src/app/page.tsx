@@ -291,6 +291,17 @@ export default function Home() {
       .select().single();
     setCreating(false);
     if (data) {
+      // 모임장 자동 멤버 추가
+      const ownerMemberName =
+        currentUser.type === "auth"
+          ? (currentUser.user.display_name || currentUser.user.email?.split("@")[0] || "모임장")
+          : currentUser.type === "guest" ? currentUser.user.name : null;
+      if (ownerMemberName) {
+        await getSupabase().from("members").insert({
+          name: ownerMemberName, group_id: data.id,
+          user_id: ownerId, guest_name: ownerGuestName, status: "approved",
+        });
+      }
       if (ownerId) {
         await getSupabase().from("group_memberships").insert({ group_id: data.id, user_id: ownerId, role: "owner" });
       }
