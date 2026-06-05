@@ -102,18 +102,58 @@ export default function ProfilePage() {
   const [myProfile, setMyProfile] = useState<Record<string,string>>({});
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  const DEFAULT_AVATARS = [
-    "/avatars/avatar-1.jpg",
-    // 추가 기본 아바타는 여기에 추가
+  // 스프라이트 아바타: sprite:row:col 형식으로 저장
+  const SPRITE_AVATARS: { row: number; col: number }[] = [
+    // 1행 (흰 고양이들)
+    {row:0,col:0},{row:0,col:1},{row:0,col:2},{row:0,col:3},{row:0,col:4},{row:0,col:5},
+    {row:0,col:6},{row:0,col:7},{row:0,col:8},{row:0,col:9},{row:0,col:10},{row:0,col:11},
+    // 2행 (컬러 고양이들)
+    {row:1,col:0},{row:1,col:1},{row:1,col:2},{row:1,col:3},{row:1,col:4},{row:1,col:5},
+    {row:1,col:6},{row:1,col:7},{row:1,col:8},{row:1,col:9},{row:1,col:10},{row:1,col:11},
+    // 3행
+    {row:2,col:0},{row:2,col:1},{row:2,col:2},{row:2,col:3},{row:2,col:4},{row:2,col:5},
+    // 4행 (원형)
+    {row:3,col:0},{row:3,col:1},{row:3,col:2},{row:3,col:3},{row:3,col:4},
   ];
 
-  async function selectDefaultAvatar(url: string) {
+  function spriteKey(row: number, col: number) { return `sprite:${row}:${col}`; }
+  function spriteStyle(row: number, col: number, size: number): React.CSSProperties {
+    const COLS = 12, ROWS = 5;
+    const xPct = col / (COLS - 1) * 100;
+    const yPct = row / (ROWS - 1) * 100;
+    return {
+      backgroundImage: "url('/avatars/sprite.jpg')",
+      backgroundSize: `${COLS * 100}% ${ROWS * 100}%`,
+      backgroundPosition: `${xPct}% ${yPct}%`,
+      width: size, height: size,
+    };
+  }
+
+  async function selectDefaultAvatar(key: string) {
     if (currentUser.type !== "auth") return;
-    const { error } = await getSupabase().from("user_profiles").update({ profile_image: url }).eq("id", currentUser.user.id);
+    const { error } = await getSupabase().from("user_profiles").update({ profile_image: key }).eq("id", currentUser.user.id);
     if (!error) {
-      setMyProfile((prev) => ({ ...prev, profile_image: url }));
+      setMyProfile((prev) => ({ ...prev, profile_image: key }));
       window.dispatchEvent(new CustomEvent("meogja-auth-change"));
     }
+  }
+
+  function getProfileImageStyle(url: string | undefined, size: number): React.CSSProperties {
+    if (!url) return {};
+    if (url.startsWith("sprite:")) {
+      const [, r, c] = url.split(":");
+      return spriteStyle(parseInt(r), parseInt(c), size);
+    }
+    return {};
+  }
+
+  function ProfileImg({ url, size, style }: { url?: string; size: number; style?: React.CSSProperties }) {
+    if (!url) return <span style={{ fontSize: size * 0.5, color: "var(--text-3)" }}>👤</span>;
+    if (url.startsWith("sprite:")) {
+      const [, r, c] = url.split(":");
+      return <div style={{ ...spriteStyle(parseInt(r), parseInt(c), size), flexShrink: 0, ...style }} />;
+    }
+    return <img src={url} alt="profile" style={{ width: size, height: size, objectFit: "cover", flexShrink: 0, ...style }} />;
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -222,9 +262,11 @@ export default function ProfilePage() {
           {/* 프로필 사진 */}
           <label className="tap" style={{ position: "relative", cursor: "pointer", flexShrink: 0 }}>
             <div style={{ width: 64, height: 64, borderRadius: "50%", overflow: "hidden", border: "2px solid var(--border)", background: "var(--bg-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {myProfile.profile_image
-                ? <img src={myProfile.profile_image} alt="profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <span style={{ fontSize: 28, color: "var(--text-3)" }}>👤</span>}
+              {myProfile.profile_image && myProfile.profile_image.startsWith("sprite:")
+                ? (() => { const [,r,c] = myProfile.profile_image.split(":"); return <div style={{ ...spriteStyle(parseInt(r), parseInt(c), 64) }} />; })()
+                : myProfile.profile_image
+                  ? <img src={myProfile.profile_image} alt="profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : <span style={{ fontSize: 28, color: "var(--text-3)" }}>👤</span>}
             </div>
             {currentUser.type === "auth" && (
               <div style={{ position: "absolute", bottom: 0, right: 0, width: 20, height: 20, borderRadius: "50%", background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>
@@ -249,16 +291,23 @@ export default function ProfilePage() {
         </button>
       </div>
       {/* 기본 아바타 선택 */}
-      {currentUser.type === "auth" && DEFAULT_AVATARS.length > 0 && (
-        <div className="fade-up" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>기본 이미지</span>
-          {DEFAULT_AVATARS.map((url) => (
-            <button key={url} className="tap" onClick={() => selectDefaultAvatar(url)} style={{
-              width: 44, height: 44, borderRadius: "50%", overflow: "hidden", padding: 0, border: myProfile.profile_image === url ? "3px solid var(--primary)" : "2px solid var(--border)", cursor: "pointer", background: "none",
-            }}>
-              <img src={url} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            </button>
-          ))}
+      {currentUser.type === "auth" && (
+        <div className="fade-up">
+          <p style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 700, marginBottom: 10 }}>기본 아바타 선택</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: 200, overflowY: "auto" }}>
+            {SPRITE_AVATARS.map(({ row, col }) => {
+              const key = spriteKey(row, col);
+              const isSelected = myProfile.profile_image === key;
+              return (
+                <button key={key} className="tap" onClick={() => selectDefaultAvatar(key)} style={{
+                  width: 52, height: 52, borderRadius: "50%", overflow: "hidden", padding: 0,
+                  border: isSelected ? "3px solid var(--primary)" : "2px solid var(--border)",
+                  cursor: "pointer", background: "#FFF9F2", flexShrink: 0,
+                  ...spriteStyle(row, col, 52),
+                }} />
+              );
+            })}
+          </div>
         </div>
       )}
 

@@ -1052,7 +1052,9 @@ export default function GroupPage() {
                     }}>
                       <span style={{ width: 26, height: 26, borderRadius: "50%", background: isSelected ? color : "var(--border)", color: isSelected ? "#fff" : "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0, transition: "all 0.15s", overflow: "hidden" }}>
                         {memberImages[m.id]
-                          ? <img src={memberImages[m.id]} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ? (memberImages[m.id].startsWith("sprite:")
+                            ? (() => { const [,r,c] = memberImages[m.id].split(":"); const COLS=12,ROWS=5; return <div style={{ backgroundImage:"url('/avatars/sprite.jpg')", backgroundSize:`${COLS*100}% ${ROWS*100}%`, backgroundPosition:`${parseInt(c)/(COLS-1)*100}% ${parseInt(r)/(ROWS-1)*100}%`, width:"100%", height:"100%" }} />; })()
+                            : <img src={memberImages[m.id]} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />)
                           : m.name[0]}
                       </span>
                       {m.name}
@@ -1581,7 +1583,9 @@ export default function GroupPage() {
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ width: 34, height: 34, borderRadius: "50%", background: color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, overflow: "hidden", flexShrink: 0 }}>
                       {memberImages[m.id]
-                        ? <img src={memberImages[m.id]} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ? (memberImages[m.id].startsWith("sprite:")
+                          ? (() => { const [,r,c] = memberImages[m.id].split(":"); const COLS=12,ROWS=5; return <div style={{ backgroundImage:"url('/avatars/sprite.jpg')", backgroundSize:`${COLS*100}% ${ROWS*100}%`, backgroundPosition:`${parseInt(c)/(COLS-1)*100}% ${parseInt(r)/(ROWS-1)*100}%`, width:"100%", height:"100%" }} />; })()
+                          : <img src={memberImages[m.id]} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />)
                         : m.name[0]}
                     </div>
                     <span style={{ fontSize: 15, fontWeight: 600 }}>{m.name}</span>
