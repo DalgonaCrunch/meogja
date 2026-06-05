@@ -3,6 +3,7 @@ import "./globals.css";
 import AuthHeader from "./AuthHeader";
 import BottomNav from "./BottomNav";
 import ThemeLoader from "./ThemeLoader";
+import InstallBanner from "./InstallBanner";
 
 export const metadata: Metadata = {
   title: "오늘 뭐 먹지? — meogja",
@@ -51,6 +52,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <main style={{ flex: 1, maxWidth: 480, margin: "0 auto", width: "100%", padding: "0 0 8px" }}>
           {children}
         </main>
+        <InstallBanner />
         <BottomNav />
       </body>
     </html>
