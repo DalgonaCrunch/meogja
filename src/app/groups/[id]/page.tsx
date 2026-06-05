@@ -127,6 +127,7 @@ export default function GroupPage() {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [reviewAvgs, setReviewAvgs] = useState<Record<string, number>>({});
   const [memberImages, setMemberImages] = useState<Record<string, string>>({});
+  const [restaurantImages, setRestaurantImages] = useState<Record<string, string>>({});
   const [pendingMembers, setPendingMembers] = useState<Member[]>([]);
 
   // 추천 탭
@@ -593,6 +594,15 @@ export default function GroupPage() {
     saveSession(selected, top.slice(0, 5));
     setLoading(false);
 
+    // 상위 10개 식당 이미지 비동기 fetch (식당명으로 Naver 이미지 검색)
+    top.slice(0, 10).forEach(async (r) => {
+      if (restaurantImages[r.title]) return;
+      try {
+        const res = await fetch(`/api/food-image?query=${encodeURIComponent(r.title)}`);
+        const data = await res.json();
+        if (data.url) setRestaurantImages((prev) => ({ ...prev, [r.title]: data.url }));
+      } catch { /* fallback to food icon */ }
+    });
   }
 
   // 멤버 관리 함수들
@@ -745,7 +755,7 @@ export default function GroupPage() {
   function renderCard(r: ScoredRestaurant, i: number, _borderColor: string) {
     const isPicked = false; // 팝업으로 표시하므로 인라인 강조 제거
     const catKey = refinedCategory(r.category);
-    const imgUrl = getFoodIconUrl(catKey);
+    const imgUrl = restaurantImages[r.title] || getFoodIconUrl(catKey);
     const isFav = favorites.has(r.title);
     const hasScore = r.score > 0;
     const avg = reviewAvgs[r.title];
@@ -756,7 +766,10 @@ export default function GroupPage() {
           <div style={{ width:80, height:80, borderRadius:14, overflow:"hidden", flexShrink:0, position:"relative",
             background:"var(--bg-2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
             {imgUrl
-              ? <img src={imgUrl} alt={catKey} style={{ width:"100%", height:"100%", objectFit:"contain", padding:4 }} />
+              ? <img src={imgUrl} alt={catKey} referrerPolicy="no-referrer"
+                  style={{ width:"100%", height:"100%",
+                    objectFit: restaurantImages[r.title] ? "cover" : "contain",
+                    padding: restaurantImages[r.title] ? 0 : 4 }} />
               : <span style={{ fontSize:34 }}>{categoryEmoji(r.category)}</span>}
             {hasScore && <div style={{ position:"absolute", top:5, left:5, padding:"2px 6px", borderRadius:6, background:"var(--primary)", color:"#fff", fontSize:10, fontWeight:800 }}>BEST</div>}
           </div>
@@ -848,7 +861,7 @@ export default function GroupPage() {
         const r = scoredRestaurants.find((x) => x.title === randomPick);
         if (!r) return null;
         const catKey = refinedCategory(r.category);
-        const imgUrl = getFoodIconUrl(catKey);
+        const imgUrl = restaurantImages[r.title] || getFoodIconUrl(catKey);
         const avg = reviewAvgs[r.title];
         const isFav = favorites.has(r.title);
         return (
@@ -868,7 +881,11 @@ export default function GroupPage() {
                 <div style={{ display:"flex", gap:14, marginBottom:16 }}>
                   {/* 음식 사진 */}
                   <div style={{ width:80, height:80, borderRadius:16, overflow:"hidden", flexShrink:0, background:"var(--bg-2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                    {imgUrl ? <img src={imgUrl} alt={catKey} style={{ width:"100%", height:"100%", objectFit:"contain", padding:4 }} /> : <span style={{ fontSize:36 }}>{categoryEmoji(r.category)}</span>}
+                    {imgUrl ? <img src={imgUrl} alt={catKey} referrerPolicy="no-referrer"
+                        style={{ width:"100%", height:"100%",
+                          objectFit: restaurantImages[r.title] ? "cover" : "contain",
+                          padding: restaurantImages[r.title] ? 0 : 4 }} />
+                      : <span style={{ fontSize:36 }}>{categoryEmoji(r.category)}</span>}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <a href={getKakaoMapUrl(r)} target="_blank" rel="noopener noreferrer" style={{ fontFamily:"var(--font-display)", fontSize:20, color:"var(--text)", textDecoration:"none", display:"block", marginBottom:6 }}>{r.title}</a>
