@@ -80,9 +80,7 @@ export default function AuthHeader() {
             }}>
               {displayName}
               <div style={{ width: 28, height: 28, borderRadius: "50%", background: user.type === "auth" ? "var(--primary)" : "var(--green)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, overflow: "hidden", flexShrink: 0 }}>
-                {profileImage && profileImage.startsWith("sprite:")
-                  ? (() => { const [,r,c] = profileImage.split(":"); const COLS=12,ROWS=5; return <div style={{ backgroundImage:"url('/avatars/sprite.jpg')", backgroundSize:`${COLS*100}% ${ROWS*100}%`, backgroundPosition:`${parseInt(c)/(COLS-1)*100}% ${parseInt(r)/(ROWS-1)*100}%`, width:"100%", height:"100%" }} />; })()
-                  : profileImage
+                {profileImage
                   ? <img src={profileImage} alt="profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   : displayName[0]}
               </div>
