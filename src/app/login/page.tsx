@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithGoogle, signInWithKakao, setGuestUser, getCurrentUser } from "@/lib/auth";
+import { toast } from "@/lib/dialog";
 
 function LoginContent() {
   const router = useRouter();
@@ -35,11 +36,11 @@ function LoginContent() {
       if (navigator.share) {
         navigator.share({ url, title: "meogja" }).catch(() => {
           navigator.clipboard?.writeText(url);
-          alert("링크를 복사했습니다!\nSafari 주소창에 붙여넣기 해주세요.");
+          toast("링크가 복사됐습니다!", "🔗")
         });
       } else {
         navigator.clipboard?.writeText(url);
-        alert("링크를 복사했습니다!\n브라우저 주소창에 붙여넣기 해주세요.");
+        toast("링크가 복사됐습니다!", "🔗")
       }
     }
   }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
+import { toast, showAlert, showPrompt } from "@/lib/dialog";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
@@ -77,15 +78,14 @@ export default function GroupsPage() {
     setLoading(false);
   }
 
-  function navigate(group: Group) {
+  async function navigate(group: Group) {
     if (group.is_private) {
-      const pw = prompt(`"${group.name}" 비밀번호 입력:`);
+      const pw = await showPrompt(`"${group.name}" 비밀번호를 입력하세요`, { title: "비공개 모임", placeholder: "비밀번호", inputType: "password" });
       if (!pw) return;
-      fetch("/api/groups/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ groupId: group.id, password: pw }) })
-        .then(r => r.json()).then(({ valid }) => {
-          if (valid) router.push(`/groups/${group.id}`);
-          else alert("비밀번호가 틀렸습니다");
-        });
+      const res = await fetch("/api/groups/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ groupId: group.id, password: pw }) });
+      const { valid } = await res.json();
+      if (valid) router.push(`/groups/${group.id}`);
+      else await showAlert("비밀번호가 틀렸습니다.", { icon: "🔒" });
     } else {
       router.push(`/groups/${group.id}`);
     }

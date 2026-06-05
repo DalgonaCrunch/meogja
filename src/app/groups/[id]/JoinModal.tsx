@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser, setGuestUser, signInWithGoogle, signInWithKakao, CurrentUser } from "@/lib/auth";
+import { toast } from "@/lib/dialog";
 
 type Props = {
   groupId: string;
@@ -195,7 +196,7 @@ export default function JoinModal({ groupId, requiresApproval, onJoined, onClose
                     navigator.share({ url, title: "meogja" }).catch(() => navigator.clipboard?.writeText(url));
                   } else {
                     navigator.clipboard?.writeText(url);
-                    alert("링크를 복사했습니다!");
+                    toast("링크가 복사됐습니다!", "🔗")
                   }
                 }} style={{ width: "100%", padding: "9px", borderRadius: "var(--r-pill)", border: "none", background: "#FF7A45", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                   다른 브라우저로 열기 →

@@ -6,6 +6,7 @@ import { getCurrentUser, signOut, CurrentUser } from "@/lib/auth";
 import { getSupabase, Group } from "@/lib/supabase";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems } from "@/lib/recommend";
 import { THEMES, ThemeId, applyTheme, getSavedTheme } from "@/lib/theme";
+import { toast, showAlert } from "@/lib/dialog";
 
 function ProfileFieldRow({ fieldKey, label, value, editable, isLast, onSave }: {
   fieldKey: string; label: string; value: string; editable: boolean; isLast: boolean;
@@ -130,7 +131,7 @@ export default function ProfilePage() {
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || currentUser.type !== "auth") return;
-    if (file.size > 5 * 1024 * 1024) { alert("5MB 이하 이미지만 가능합니다"); return; }
+    if (file.size > 5 * 1024 * 1024) { await showAlert("5MB 이하 이미지만 가능합니다", { icon: "🖼️" }); return; }
     setUploadingPhoto(true);
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -329,7 +330,7 @@ export default function ProfilePage() {
               .neq("id", currentUser.user.id)
               .single();
             if (dupe) {
-              alert(`"${trimmed}" 닉네임은 이미 사용 중입니다. 다른 닉네임을 입력해주세요.`);
+              await showAlert(`"${trimmed}" 닉네임은 이미 사용 중입니다.\n다른 닉네임을 입력해주세요.`, { icon: "👤", title: "닉네임 중복" });
               return;
             }
           }
@@ -341,7 +342,7 @@ export default function ProfilePage() {
             { id: currentUser.user.id, ...update },
             { onConflict: "id" }
           );
-          if (error) { alert("저장 실패: " + error.message); return; }
+          if (error) { await showAlert("저장에 실패했습니다.\n" + error.message, { icon: "⚠️" }); return; }
           setMyProfile((prev) => ({ ...prev, ...update }));
           window.dispatchEvent(new CustomEvent("meogja-auth-change"));
         }

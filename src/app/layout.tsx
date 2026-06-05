@@ -4,6 +4,7 @@ import AuthHeader from "./AuthHeader";
 import BottomNav from "./BottomNav";
 import ThemeLoader from "./ThemeLoader";
 import InstallBanner from "./InstallBanner";
+import DialogProvider from "./DialogProvider";
 
 export const metadata: Metadata = {
   title: "오늘 뭐 먹지? — meogja",
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className="min-h-full flex flex-col" style={{ background: "var(--bg)" }}>
         <ThemeLoader />
+        <DialogProvider />
         <AuthHeader />
         <main style={{ flex: 1, maxWidth: 480, margin: "0 auto", width: "100%", padding: "0 0 8px" }}>
           {children}

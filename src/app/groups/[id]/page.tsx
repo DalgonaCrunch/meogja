@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendations } from "@/lib/recommend";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
+import { toast, showAlert, showConfirm, showPrompt } from "@/lib/dialog";
 import JoinModal from "./JoinModal";
 import AddFavLocationForm from "./AddFavLocationForm";
 import HistoryTab from "./tabs/HistoryTab";
@@ -220,7 +221,7 @@ export default function GroupPage() {
   }
 
   async function addFavLocation(name: string, address: string, lat: number | null, lng: number | null) {
-    if (favLocations.length >= 5) { alert("즐겨찾는 지역은 최대 5개까지 등록 가능합니다"); return; }
+    if (favLocations.length >= 5) { await showAlert("즐겨찾는 지역은 최대 5개까지 등록 가능합니다", { icon: "📍" }); return; }
     await getSupabase().from("favorite_locations").insert({ group_id: id, name, address, lat, lng });
     loadFavLocations();
     setShowAddLocation(false);
@@ -234,7 +235,7 @@ export default function GroupPage() {
   async function saveGroupName() {
     if (!editNameValue.trim() || editNameValue === group?.name) { setEditingName(false); return; }
     const { error } = await getSupabase().from("groups").update({ name: editNameValue.trim() }).eq("id", id);
-    if (error) { alert("이름 변경에 실패했습니다."); return; }
+    if (error) { await showAlert("이름 변경에 실패했습니다.", { icon: "⚠️" }); return; }
     setGroup((prev) => prev ? { ...prev, name: editNameValue.trim() } : null);
     setEditingName(false);
   }
@@ -990,7 +991,7 @@ export default function GroupPage() {
               navigator.share({ title: `${group.name} 모임 초대`, text: `"${group.name}" 모임에 참여하세요! 🍽️`, url });
             } else {
               await navigator.clipboard.writeText(url);
-              alert("초대 링크가 복사되었습니다!");
+              toast("초대 링크가 복사되었습니다!");
             }
           }} style={{ padding: "7px 16px", borderRadius: "var(--r-pill)", border: "none", background: "var(--primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
             + 초대
@@ -998,14 +999,14 @@ export default function GroupPage() {
           {/* 링크 복사 */}
           <button onClick={async () => {
             await navigator.clipboard.writeText(window.location.href).catch(() => {});
-            alert("링크 복사됨!");
+            toast("링크 복사됨!");
           }} style={{ padding: "7px 12px", borderRadius: "var(--r-pill)", border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 13, cursor: "pointer", flexShrink: 0 }}>
             🔗
           </button>
           {/* 나가기 — 참여 중이고 모임장 아닌 경우 */}
           {myMemberId && !isOwner && (
             <button onClick={async () => {
-              if (!confirm("이 모임에서 나가시겠습니까?\n선호도 설정은 삭제됩니다.")) return;
+              if (!await showConfirm("이 모임에서 나가시겠습니까?\n선호도 설정은 삭제됩니다.", { icon: "👋", title: "모임 나가기" })) return;
               await getSupabase().from("members").delete().eq("id", myMemberId);
               setMyMemberId(null);
               loadMembers();
@@ -1017,11 +1018,11 @@ export default function GroupPage() {
           {(isOwner || isAdmin) && (
             <button onClick={async () => {
               if (group.is_private) {
-                const pw = prompt(`"${group.name}" 비공개 모임\n삭제하려면 비밀번호를 입력하세요:`);
+                const pw = await showPrompt(`"${group.name}" 비공개 모임 삭제`, { title: "비밀번호 확인", placeholder: "비밀번호 입력", inputType: "password" });
                 if (pw === null) return;
-                if (pw !== group.password) { alert("비밀번호가 틀렸습니다."); return; }
+                if (pw !== group.password) { await showAlert("비밀번호가 틀렸습니다.", { icon: "🔒" }); return; }
               } else {
-                if (!confirm(`"${group.name}" 모임을 삭제하시겠습니까?\n멤버, 선호도, 히스토리가 모두 삭제됩니다.`)) return;
+                if (!await showConfirm(`"${group.name}" 모임을 삭제하시겠습니까?\n멤버, 선호도, 히스토리가 모두 삭제됩니다.`, { icon: "🗑️", title: "모임 삭제", danger: true, confirmLabel: "삭제" })) return;
               }
               await getSupabase().from("groups").delete().eq("id", id);
               router.push("/");
@@ -1634,7 +1635,7 @@ export default function GroupPage() {
                     {/* 닉네임 변경: 본인 멤버 */}
                     {m.id === myMemberId && (
                       <button onClick={async () => {
-                        const newName = prompt("새 닉네임을 입력하세요:", m.name);
+                        const newName = await showPrompt("새 닉네임을 입력하세요.", { title: "닉네임 변경", placeholder: m.name, defaultValue: m.name });
                         if (!newName?.trim() || newName.trim() === m.name) return;
                         await getSupabase().from("members").update({ name: newName.trim() }).eq("id", m.id);
                         loadMembers();
@@ -1744,7 +1745,7 @@ export default function GroupPage() {
                       <div style={{ display:"flex", gap:8, marginTop:12 }}>
                         <button className="tap" onClick={async () => {
                           const { data } = await getSupabase().from("user_food_preferences").select("*").eq("user_id", currentUser.user.id);
-                          if (!data || data.length === 0) { alert("저장된 기본값이 없습니다. 먼저 선호도를 설정한 뒤 저장해주세요."); return; }
+                          if (!data || data.length === 0) { await showAlert("저장된 기본값이 없습니다.\n먼저 선호도를 설정한 뒤 저장해주세요.", { icon: "📋" }); return; }
                           // 현재 멤버의 기존 선호도 삭제 후 기본값 적용
                           const ids = memberPrefs.map((p) => p.id);
                           if (ids.length > 0) await getSupabase().from("food_preferences").delete().in("id", ids);
@@ -1752,19 +1753,19 @@ export default function GroupPage() {
                             data.map((p) => ({ member_id: expandedId, food_name: p.food_name, preference_type: p.preference_type }))
                           );
                           await loadMemberPrefs(expandedId!);
-                          alert("기본값을 불러왔습니다!");
+                          toast("기본값을 불러왔습니다!", "📋");
                         }} style={{ flex:1, padding:"9px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text-2)", fontSize:12, fontWeight:700, cursor:"pointer" }}>
                           📥 기본값 불러오기
                         </button>
                         <button className="tap" onClick={async () => {
-                          if (memberLikes.length === 0 && memberDislikes.length === 0) { alert("저장할 선호도가 없습니다."); return; }
+                          if (memberLikes.length === 0 && memberDislikes.length === 0) { await showAlert("저장할 선호도가 없습니다.", { icon: "🍽️" }); return; }
                           // 기존 기본값 삭제 후 현재 값으로 대체
                           await getSupabase().from("user_food_preferences").delete().eq("user_id", currentUser.user.id);
                           await getSupabase().from("user_food_preferences").insert([
                             ...memberLikes.map((p) => ({ user_id: currentUser.user.id, food_name: p.food_name, preference_type: "like" as const })),
                             ...memberDislikes.map((p) => ({ user_id: currentUser.user.id, food_name: p.food_name, preference_type: "dislike" as const })),
                           ]);
-                          alert("내 기본값에 저장됐습니다! 다른 모임에서도 불러올 수 있어요.");
+                          toast("내 기본값에 저장됐습니다!", "✓");
                         }} style={{ flex:1, padding:"9px", borderRadius:"var(--r-pill)", border:"none", background:"var(--green-soft)", color:"var(--green)", fontSize:12, fontWeight:700, cursor:"pointer" }}>
                           💾 기본값에 저장
                         </button>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
+import { toast, showAlert, showConfirm, showPrompt } from "@/lib/dialog";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
@@ -72,10 +73,10 @@ function CreateForm({ newName, setNewName, description, setDescription, emoji, s
   creating: boolean; onSubmit: (e: React.FormEvent) => void;
   isLoggedIn: boolean;
 }) {
-  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert("2MB 이하 이미지만 가능합니다"); return; }
+    if (file.size > 2 * 1024 * 1024) { await showAlert("2MB 이하 이미지만 가능합니다", { icon: "🖼️" }); return; }
     const reader = new FileReader();
     reader.onload = (ev) => setImageUrl(ev.target?.result as string);
     reader.readAsDataURL(file);
@@ -265,7 +266,7 @@ export default function Home() {
         .select("id", { count: "exact", head: true })
         .eq("owner_id", currentUser.user.id);
       if ((count ?? 0) >= 10) {
-        alert("모임은 계정당 최대 10개까지 만들 수 있습니다.");
+        await showAlert("모임은 계정당 최대 10개까지 만들 수 있습니다.", { icon: "📌", title: "생성 제한" });
         return;
       }
     }
@@ -314,19 +315,22 @@ export default function Home() {
     loadGroups();
   }
 
-  function handleEnter(group: Group) {
+  async function handleEnter(group: Group) {
     // 인증 전용 모임: 비로그인/게스트 차단
     if (group.require_auth && currentUser.type !== "auth") {
-      alert("이 모임은 로그인한 사용자만 참여할 수 있습니다.\n로그인 후 다시 시도해주세요.");
+      await showAlert("이 모임은 로그인한 사용자만 참여할 수 있습니다.\n로그인 후 다시 시도해주세요.", { icon: "🔑", title: "로그인 필요" });
       router.push(`/login?next=/groups/${group.id}`);
       return;
     }
-    if (!group.is_private) {
-      router.push(`/groups/${group.id}`);
+    if (group.is_private) {
+      const pw = await showPrompt(`"${group.name}" 비밀번호를 입력하세요`, { title: "비공개 모임", placeholder: "비밀번호", inputType: "password" });
+      if (!pw) return;
+      const res = await fetch("/api/groups/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ groupId: group.id, password: pw }) });
+      const { valid } = await res.json();
+      if (valid) router.push(`/groups/${group.id}`);
+      else await showAlert("비밀번호가 틀렸습니다.", { icon: "🔒" });
     } else {
-      setEnterTarget(group);
-      setEnterPassword("");
-      setPasswordError(false);
+      router.push(`/groups/${group.id}`);
     }
   }
 

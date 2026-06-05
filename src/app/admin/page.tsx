@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
+import { showConfirm } from "@/lib/dialog";
 
 type Feedback = { id: string; category: string; content: string; email: string | null; guest_name: string | null; status: string; created_at: string; };
 type GuestAccount = { id: string; name: string; password: string | null; created_at: string; };
@@ -88,7 +89,7 @@ export default function AdminPage() {
 
   async function deleteSelected() {
     if (selected.size === 0) return;
-    if (!confirm(`선택한 ${selected.size}개 모임을 삭제하시겠습니까?\n(멤버, 선호도, 히스토리 모두 삭제)`)) return;
+    if (!await showConfirm(`선택한 ${selected.size}개 모임을 삭제하시겠습니까?\n멤버, 선호도, 히스토리 모두 삭제됩니다.`, { icon: "🗑️", title: "일괄 삭제", danger: true, confirmLabel: "삭제" })) return;
     setDeleting(true);
     await getSupabase().from("groups").delete().in("id", [...selected]);
     setSelected(new Set());
