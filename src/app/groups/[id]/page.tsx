@@ -895,7 +895,8 @@ export default function GroupPage() {
       )}
 
       {/* 헤더 */}
-      <div className="fade-up" style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+      <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
         <button className="tap" onClick={() => router.push("/")} style={{ width: 38, height: 38, borderRadius: 12, border: "1px solid var(--border)", background: "var(--card)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text)", flexShrink: 0, marginTop: 2 }}>←</button>
         <div style={{ flex: 1 }}>
           {/* 모임명 (수정 가능) */}
@@ -978,53 +979,58 @@ export default function GroupPage() {
             </button>
           )}
         </div>
-        {/* 멤버 초대 버튼 — 누구나 */}
-        <button className="tap" onClick={async () => {
-          const url = window.location.href;
-          if (navigator.share) {
-            navigator.share({ title: `${group.name} 모임 초대`, text: `"${group.name}" 모임에 참여하세요! 🍽️`, url });
-          } else {
-            await navigator.clipboard.writeText(url);
-            alert("초대 링크가 복사되었습니다!");
-          }
-        }} style={{ padding: "7px 16px", borderRadius: "var(--r-pill)", border: "none", background: "var(--primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-          + 초대
-        </button>
-        {/* 링크 복사 */}
-        <button onClick={async () => {
-          await navigator.clipboard.writeText(window.location.href).catch(() => {});
-          alert("링크 복사됨!");
-        }} style={{ padding: "6px 10px", borderRadius: "var(--r-pill)", border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, cursor: "pointer" }}>
-          🔗
-        </button>
-        {/* 나가기 버튼 — 참여 중이고 모임장 아닌 경우 */}
-        {myMemberId && !isOwner && (
-          <button onClick={async () => {
-            if (!confirm("이 모임에서 나가시겠습니까?\n선호도 설정은 삭제됩니다.")) return;
-            await getSupabase().from("members").delete().eq("id", myMemberId);
-            setMyMemberId(null);
-            loadMembers();
-          }} style={{ padding: "6px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>
-            나가기
-          </button>
-        )}
-        {/* 모임 삭제 — 모임장 또는 어드민 */}
-        {(isOwner || isAdmin) && (
-          <button onClick={async () => {
-            if (group.is_private) {
-              const pw = prompt(`"${group.name}" 비공개 모임\n삭제하려면 비밀번호를 입력하세요:`);
-              if (pw === null) return;
-              if (pw !== group.password) { alert("비밀번호가 틀렸습니다."); return; }
+        </div>{/* /title+info row */}
+
+        {/* 액션 버튼 행 — 항상 가로, 필요하면 wrap */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {/* 멤버 초대 버튼 */}
+          <button className="tap" onClick={async () => {
+            const url = window.location.href;
+            if (navigator.share) {
+              navigator.share({ title: `${group.name} 모임 초대`, text: `"${group.name}" 모임에 참여하세요! 🍽️`, url });
             } else {
-              if (!confirm(`"${group.name}" 모임을 삭제하시겠습니까?\n멤버, 선호도, 히스토리가 모두 삭제됩니다.`)) return;
+              await navigator.clipboard.writeText(url);
+              alert("초대 링크가 복사되었습니다!");
             }
-            await getSupabase().from("groups").delete().eq("id", id);
-            router.push("/");
-          }} style={{ padding: "6px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-            삭제
+          }} style={{ padding: "7px 16px", borderRadius: "var(--r-pill)", border: "none", background: "var(--primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+            + 초대
           </button>
-        )}
-      </div>
+          {/* 링크 복사 */}
+          <button onClick={async () => {
+            await navigator.clipboard.writeText(window.location.href).catch(() => {});
+            alert("링크 복사됨!");
+          }} style={{ padding: "7px 12px", borderRadius: "var(--r-pill)", border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 13, cursor: "pointer", flexShrink: 0 }}>
+            🔗
+          </button>
+          {/* 나가기 — 참여 중이고 모임장 아닌 경우 */}
+          {myMemberId && !isOwner && (
+            <button onClick={async () => {
+              if (!confirm("이 모임에서 나가시겠습니까?\n선호도 설정은 삭제됩니다.")) return;
+              await getSupabase().from("members").delete().eq("id", myMemberId);
+              setMyMemberId(null);
+              loadMembers();
+            }} style={{ padding: "7px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 500, cursor: "pointer", flexShrink: 0 }}>
+              나가기
+            </button>
+          )}
+          {/* 삭제 — 모임장 또는 어드민 */}
+          {(isOwner || isAdmin) && (
+            <button onClick={async () => {
+              if (group.is_private) {
+                const pw = prompt(`"${group.name}" 비공개 모임\n삭제하려면 비밀번호를 입력하세요:`);
+                if (pw === null) return;
+                if (pw !== group.password) { alert("비밀번호가 틀렸습니다."); return; }
+              } else {
+                if (!confirm(`"${group.name}" 모임을 삭제하시겠습니까?\n멤버, 선호도, 히스토리가 모두 삭제됩니다.`)) return;
+              }
+              await getSupabase().from("groups").delete().eq("id", id);
+              router.push("/");
+            }} style={{ padding: "7px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
+              삭제
+            </button>
+          )}
+        </div>
+      </div>{/* /fade-up header */}
 
       {/* 탭 */}
       <div className="fade-up fade-up-1" style={{ display:"flex", borderBottom:"1.5px solid var(--border)", marginBottom:0 }}>
