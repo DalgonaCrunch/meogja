@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local secrets
+.token
+system_prompt.txt
+run_telegrambot.sh
+.venv
