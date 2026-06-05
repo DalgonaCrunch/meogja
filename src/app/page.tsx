@@ -498,12 +498,14 @@ export default function Home() {
                 {!rouletteRunning && getFoodIconUrl(rouletteResult) && (
                   <img src={getFoodIconUrl(rouletteResult)!} alt={rouletteResult} style={{ width:44, height:44, objectFit:"contain", flexShrink:0 }} />
                 )}
-                <p style={{ fontFamily:"var(--font-display)", fontSize:28, color:"#fff", flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                  {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
-                </p>
-                {!rouletteRunning && (
-                  <img src="/avatars/meogja_cat_051.png" alt="" style={{ width:64, height:64, objectFit:"contain", flexShrink:0, pointerEvents:"none", mixBlendMode:"multiply" }} />
-                )}
+                <div style={{ display:"flex", alignItems:"center", gap:4, minWidth:0 }}>
+                  <p style={{ fontFamily:"var(--font-display)", fontSize:28, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                    {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
+                  </p>
+                  {!rouletteRunning && (
+                    <img src="/avatars/meogja_cat_051.png" alt="" style={{ width:42, height:42, objectFit:"contain", flexShrink:0, pointerEvents:"none", mixBlendMode:"multiply", marginBottom:8 }} />
+                  )}
+                </div>
               </div>
             ) : (
               <p style={{ fontSize:13, color:"rgba(255,255,255,.7)", marginBottom:12 }}>버튼 하나로 메뉴 결정!</p>
