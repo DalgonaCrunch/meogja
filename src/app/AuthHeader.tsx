@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "@/lib/dialog";
 import { useRouter } from "next/navigation";
 import { getCurrentUser, CurrentUser, getGuestUser } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
@@ -106,9 +107,15 @@ export default function AuthHeader() {
             </button>
           )}
           {showIOSGuide && (
-            <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:80 }}
+            <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,.5)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:80 }}
               onClick={() => setShowIOSGuide(false)}>
-              <div onClick={(e) => e.stopPropagation()} style={{ background:"var(--surface)", borderRadius:"24px 24px 0 0", padding:"24px 22px 40px", width:"100%", maxWidth:480, animation:"sheetUp .3s both" }}>
+              <div onClick={(e) => e.stopPropagation()} style={{
+                position:"absolute", bottom:0, left:0, right:0,
+                background:"var(--surface)", borderRadius:"24px 24px 0 0",
+                padding:"24px 22px", paddingBottom:"max(40px, env(safe-area-inset-bottom, 20px))",
+                maxWidth:480, margin:"0 auto", maxHeight:"80vh", overflowY:"auto",
+                animation:"sheetUp .3s both",
+              }}>
                 <div style={{ width:40, height:5, borderRadius:99, background:"var(--border)", margin:"0 auto 20px" }} />
                 {isWebView ? (
                   <>
@@ -125,7 +132,7 @@ export default function AuthHeader() {
                     ))}
                     <button className="tap" onClick={() => {
                       navigator.clipboard?.writeText(window.location.href).catch(() => {});
-                      alert("링크가 복사됐습니다!\nChrome/Safari에서 붙여넣기 해주세요.");
+                      toast("링크 복사됨! Chrome/Safari에 붙여넣기 하세요", "🔗");
                     }} style={{ marginTop:8, width:"100%", padding:"13px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer" }}>
                       링크 복사하기
                     </button>
