@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getSupabase } from "@/lib/supabase";
-import { getCurrentUser, setGuestUser, signInWithGoogle, signInWithKakao, CurrentUser } from "@/lib/auth";
+import { getCurrentUser, setGuestUser, signInWithGoogle, signInWithKakao, getDeviceId, CurrentUser } from "@/lib/auth";
 import { toast } from "@/lib/dialog";
 
 type Props = {
@@ -111,18 +111,23 @@ export default function JoinModal({ groupId, requiresApproval, onJoined, onClose
     const userId = user.type === "auth" ? user.user.id : null;
 
     if (user.type === "none") {
+      const deviceId = getDeviceId();
       // 게스트: guest_accounts 확인
-      const { data: acct } = await getSupabase().from("guest_accounts").select("password").eq("name", name.trim()).single();
+      const { data: acct } = await getSupabase().from("guest_accounts").select("password, device_id").eq("name", name.trim()).single();
       if (acct) {
         if (acct.password) {
           // 비밀번호 있는 기존 계정
           if (!requiresPassword) { setRequiresPassword(true); return; }
           if (guestPassword !== acct.password) { setNameError("비밀번호가 틀렸습니다."); return; }
+        } else if (acct.device_id && acct.device_id !== deviceId) {
+          // 다른 기기에서 등록된 이름 (비밀번호 없음) → 차단
+          setNameError("이 이름은 다른 기기에서 사용 중입니다. 다른 이름을 사용하거나 비밀번호로 보호된 이름을 만들어주세요.");
+          return;
         }
       } else {
-        // 새 계정 생성
+        // 새 계정 생성 (device_id 포함)
         const pw = newGuestPassword.trim() || null;
-        await getSupabase().from("guest_accounts").insert({ name: name.trim(), password: pw });
+        await getSupabase().from("guest_accounts").insert({ name: name.trim(), password: pw, device_id: deviceId });
       }
       setGuestUser(name.trim());
       await doJoin(name.trim(), null, name.trim());

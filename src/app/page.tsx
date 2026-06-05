@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import { toast, showAlert, showConfirm, showPrompt } from "@/lib/dialog";
+import { getCategorySubItems } from "@/lib/recommend";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
@@ -189,6 +190,7 @@ export default function Home() {
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [quickCatSheet, setQuickCatSheet] = useState<{label:string;emoji:string;items:string[]} | null>(null);
 
   // 비공개 모임 입장
   const [enterTarget, setEnterTarget] = useState<Group | null>(null);
@@ -426,18 +428,8 @@ export default function Home() {
         <div className="scroll-x" style={{ paddingBottom:6 }}>
           {QUICK_CATS.map((c) => (
             <div key={c.label} className="tap" onClick={() => {
-              // 비로그인 → 로그인 유도
-              if (currentUser.type === "none") { router.push("/login"); return; }
-              localStorage.setItem("meogja_quick_cat", c.label);
-              // 내 모임이 있으면 첫 번째 모임으로 이동
-              const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
-              if (myGroupList.length > 0) {
-                handleEnter(myGroupList[0]);
-              } else if (groups.length > 0) {
-                handleEnter(groups[0]);
-              } else {
-                setShowCreateForm(true);
-              }
+              const items = getCategorySubItems(c.label);
+              setQuickCatSheet({ label: c.label, emoji: c.emoji, items });
             }} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, flexShrink:0, cursor:"pointer" }}>
               <div style={{
                 width:62, height:62, borderRadius:"50%", overflow:"hidden",
@@ -559,6 +551,45 @@ export default function Home() {
                 background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
               }}>입장</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 인기 메뉴 카테고리 시트 */}
+      {quickCatSheet && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:70 }}
+          onClick={() => setQuickCatSheet(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background:"var(--surface)", borderRadius:"24px 24px 0 0", padding:"20px 20px 40px", width:"100%", maxWidth:480, maxHeight:"70vh", overflow:"hidden", display:"flex", flexDirection:"column", animation:"sheetUp .28s both" }}>
+            <div style={{ width:40, height:5, borderRadius:99, background:"var(--border)", margin:"0 auto 16px" }} />
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+              <span style={{ fontSize:28 }}>{quickCatSheet.emoji}</span>
+              <p style={{ fontFamily:"var(--font-display)", fontSize:19 }}>{quickCatSheet.label} 메뉴</p>
+            </div>
+            <div style={{ overflowY:"auto", flex:1 }}>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                {quickCatSheet.items.map((item) => (
+                  <button key={item} className="tap" onClick={() => {
+                    setQuickCatSheet(null);
+                    // 내 모임 있으면 카테고리 프리셋 적용 후 이동
+                    const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
+                    if (currentUser.type !== "none" && myGroupList.length > 0) {
+                      localStorage.setItem("meogja_quick_cat", item);
+                      handleEnter(myGroupList[0]);
+                    } else if (currentUser.type !== "none") {
+                      localStorage.setItem("meogja_quick_cat", item);
+                      setShowCreateForm(true);
+                    } else {
+                      router.push("/login");
+                    }
+                  }} style={{ padding:"8px 16px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--bg)", color:"var(--text)", fontSize:14, cursor:"pointer", fontWeight:500 }}>
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button className="tap" onClick={() => setQuickCatSheet(null)} style={{ marginTop:16, padding:"12px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:14, cursor:"pointer" }}>
+              닫기
+            </button>
           </div>
         </div>
       )}

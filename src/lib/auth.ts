@@ -16,6 +16,18 @@ export type CurrentUser =
   | { type: "none" };
 
 const GUEST_KEY = "meogja_guest";
+const DEVICE_KEY = "meogja_device_id";
+
+export function getDeviceId(): string {
+  if (typeof window === "undefined") return "";
+  let id = localStorage.getItem(DEVICE_KEY);
+  if (!id) {
+    id = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map(b => b.toString(16).padStart(2, "0")).join("");
+    localStorage.setItem(DEVICE_KEY, id);
+  }
+  return id;
+}
 
 export function getGuestUser(): GuestUser | null {
   if (typeof window === "undefined") return null;
