@@ -39,7 +39,7 @@ export default function InstallBanner() {
 
   async function handleInstall() {
     if (deferredPrompt) {
-      (deferredPrompt as { prompt: () => void }).prompt();
+      (deferredPrompt as unknown as { prompt: () => void }).prompt();
       setShow(false);
     }
   }
