@@ -85,6 +85,13 @@ export default function ProfilePage() {
     const user = await getCurrentUser();
     setCurrentUser(user);
     if (user.type === "none") { router.replace("/login"); return; }
+    // 아바타 설정 로드
+    const { data: cfgData } = await getSupabase().from("avatar_config").select("id,purpose,object_position");
+    if (cfgData) {
+      const map: Record<string, {purpose:string;object_position:string}> = {};
+      cfgData.forEach((r: {id:string;purpose:string;object_position:string}) => { map[r.id] = r; });
+      setAvatarCfgs(map);
+    }
 
     if (user.type === "auth") {
       // 내가 만든 모임
@@ -119,6 +126,7 @@ export default function ProfilePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const [showAllAvatars, setShowAllAvatars] = useState(false);
+  const [avatarCfgs, setAvatarCfgs] = useState<Record<string, {purpose:string;object_position:string}>>({});
 
   async function selectDefaultAvatar(url: string) {
     if (currentUser.type !== "auth") return;
@@ -231,15 +239,31 @@ export default function ProfilePage() {
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
       {/* 프로필 헤더 */}
       <div className="fade-up" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
-        <div style={{ minWidth: 0 }}>
-          <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {displayName || "사용자"}
-          </h1>
-          <p style={{ fontSize: 12, color: "var(--text-2)" }}>
-            {currentUser.type === "auth" ? currentUser.user.email : "게스트 이용 중"}
-          </p>
+        <div style={{ display:"flex", alignItems:"center", gap:12, flex:1, minWidth:0 }}>
+          {/* 프로필 사진 (업로드 가능) */}
+          {currentUser.type === "auth" && (
+            <label className="tap" style={{ position:"relative", cursor:"pointer", flexShrink:0 }}>
+              <div style={{ width:56, height:56, borderRadius:"50%", overflow:"hidden", border:"2px solid var(--border)", background:"var(--bg-2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                {myProfile.profile_image
+                  ? <img src={myProfile.profile_image} alt="profile" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                  : <span style={{ fontSize:24, color:"var(--text-3)" }}>👤</span>}
+              </div>
+              <div style={{ position:"absolute", bottom:0, right:0, width:18, height:18, borderRadius:"50%", background:"var(--primary)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10 }}>
+                {uploadingPhoto ? "…" : "📷"}
+              </div>
+              <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display:"none" }} />
+            </label>
+          )}
+          <div style={{ minWidth:0 }}>
+            <h1 style={{ fontFamily:"var(--font-display)", fontSize:22, marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {displayName || "사용자"}
+            </h1>
+            <p style={{ fontSize:12, color:"var(--text-2)" }}>
+              {currentUser.type === "auth" ? currentUser.user.email : "게스트 이용 중"}
+            </p>
+          </div>
         </div>
-        <button onClick={handleSignOut} style={{ padding: "7px 16px", borderRadius: "var(--r-pill)", border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-2)", fontSize: 12, fontWeight: 500, cursor: "pointer", flexShrink: 0 }}>
+        <button onClick={handleSignOut} style={{ padding:"7px 16px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:12, fontWeight:500, cursor:"pointer", flexShrink:0 }}>
           {currentUser.type === "auth" ? "로그아웃" : "나가기"}
         </button>
       </div>
@@ -279,16 +303,27 @@ export default function ProfilePage() {
             </button>
           </div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-            {(showAllAvatars ? ALL_AVATARS : DEFAULT_AVATARS).map((url) => (
-              <button key={url} className="tap" onClick={() => selectDefaultAvatar(url)} style={{
-                width:52, height:52, borderRadius:"50%", overflow:"hidden", padding:0,
-                border: myProfile.profile_image === url ? "3px solid var(--primary)" : "2px solid transparent",
-                cursor:"pointer", background:"var(--bg-2)",
-                boxShadow: myProfile.profile_image === url ? "0 0 0 2px var(--primary)" : "none",
-              }}>
-                <img src={url} alt="avatar" style={{ width:"100%", height:"100%", objectFit:"contain" }} />
-              </button>
-            ))}
+            {ALL_AVATARS.filter((url, i) => {
+              const id = `cat-${String(i+1).padStart(2,"0")}`;
+              const cfg = avatarCfgs[id];
+              if (cfg?.purpose === "hidden") return false;
+              if (!showAllAvatars && cfg?.purpose === "emotion") return false;
+              return true;
+            }).map((url, _, arr) => {
+              const idx = ALL_AVATARS.indexOf(url);
+              const id = `cat-${String(idx+1).padStart(2,"0")}`;
+              const cfg = avatarCfgs[id];
+              return (
+                <button key={url} className="tap" onClick={() => selectDefaultAvatar(url)} style={{
+                  width:52, height:52, borderRadius:"50%", overflow:"hidden", padding:0,
+                  border: myProfile.profile_image === url ? "3px solid var(--primary)" : "2px solid transparent",
+                  cursor:"pointer", background:"var(--bg-2)",
+                  boxShadow: myProfile.profile_image === url ? "0 0 0 2px var(--primary)" : "none",
+                }}>
+                  <img src={url} alt="avatar" style={{ width:"100%", height:"100%", objectFit:"contain", objectPosition: cfg?.object_position || "center" }} />
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
