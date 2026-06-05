@@ -1070,7 +1070,17 @@ export default function GroupPage() {
       </div>
 
       {/* ── 메뉴 추천 탭 ── */}
-      {tab === "recommend" && (
+      {tab === "recommend" && !myMemberId && !isOwner && (
+        <div style={{ padding: "32px 16px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+          <div style={{ fontSize: 48 }}>🍽️</div>
+          <p style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)" }}>이 모임의 멤버만 추천을 볼 수 있습니다</p>
+          <p style={{ fontSize: 14, color: "var(--text-2)" }}>모임에 참여하면 멤버들의 선호도 기반 추천을 받을 수 있어요</p>
+          <button className="tap" onClick={() => setShowJoinModal(true)} style={{ padding: "12px 28px", borderRadius: "var(--r-pill)", border: "none", background: "var(--primary)", color: "#fff", fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer" }}>
+            이 모임 참여하기
+          </button>
+        </div>
+      )}
+      {tab === "recommend" && (myMemberId || isOwner) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
           {/* 참가자 선택 */}
