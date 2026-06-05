@@ -10,6 +10,7 @@ import JoinModal from "./JoinModal";
 import AddFavLocationForm from "./AddFavLocationForm";
 import HistoryTab from "./tabs/HistoryTab";
 import { getFoodIconUrl } from "@/lib/foodIcons";
+import ReportModal from "@/components/ReportModal";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
 
@@ -129,6 +130,7 @@ export default function GroupPage() {
   const [memberImages, setMemberImages] = useState<Record<string, string>>({});
   const [restaurantImages, setRestaurantImages] = useState<Record<string, string>>({});
   const [pendingMembers, setPendingMembers] = useState<Member[]>([]);
+  const [reportTarget, setReportTarget] = useState<{type:"user"|"group";id:string;name:string} | null>(null);
 
   // 추천 탭
   const [presetMenus, setPresetMenus] = useState<string[]>([]); // 홈에서 선택한 메뉴 프리셋
@@ -853,8 +855,19 @@ export default function GroupPage() {
     }
   }
 
+  const reporterUserId = currentUser.type === "auth" ? currentUser.user.id : null;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+      {reportTarget && (
+        <ReportModal
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          targetName={reportTarget.name}
+          reporterUserId={reporterUserId}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
 
       {/* 🎲 랜덤선택 팝업 */}
       {randomPick && (() => {
@@ -1126,6 +1139,12 @@ export default function GroupPage() {
             }} style={{ padding: "7px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
               삭제
             </button>
+          )}
+          {/* 모임 신고 (비소유자만) */}
+          {!isOwner && group && (
+            <button className="tap" onClick={() => setReportTarget({ type:"group", id: group.id, name: group.name })}
+              style={{ padding:"7px 12px", borderRadius:100, border:"1.5px solid #E5393520", background:"transparent", color:"#E53935", fontSize:12, cursor:"pointer", flexShrink:0 }}
+              title="모임 신고">🚨</button>
           )}
         </div>
       </div>{/* /fade-up header */}
@@ -1811,6 +1830,12 @@ export default function GroupPage() {
                     {/* 삭제: 모임장 또는 어드민 */}
                     {(isOwner || isAdmin) && (
                       <button onClick={() => deleteMember(m.id)} style={{ padding: "5px 12px", borderRadius: 100, fontSize: 12, border: "1.5px solid var(--border)", background: "transparent", color: "var(--red)", cursor: "pointer" }}>삭제</button>
+                    )}
+                    {/* 신고: 본인 제외 */}
+                    {m.id !== myMemberId && (
+                      <button className="tap" onClick={() => setReportTarget({ type:"user", id: m.id, name: m.name })}
+                        style={{ padding:"5px 10px", borderRadius:100, fontSize:12, border:"1.5px solid #E5393520", background:"transparent", color:"#E53935", cursor:"pointer" }}
+                        title="신고">🚨</button>
                     )}
                   </div>
                 </div>

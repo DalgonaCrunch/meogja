@@ -8,6 +8,7 @@ import { toast, showAlert, showConfirm, showPrompt } from "@/lib/dialog";
 import { getCategorySubItems } from "@/lib/recommend";
 import MenuBattle from "./MenuBattle";
 import { MENU_CATEGORIES, ROULETTE_POOL } from "@/lib/menus";
+import { getFoodIconUrl } from "@/lib/foodIcons";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
@@ -490,7 +491,8 @@ export default function Home() {
 
       {/* ── 랜덤 룰렛 ── */}
       <div className="fade-up fade-up-1" style={{ padding: "0 16px" }}>
-        <div style={{ background:"linear-gradient(135deg, #FF7A45 0%, #FF4E88 100%)", borderRadius:20, padding:"20px 20px", boxShadow:"0 8px 24px rgba(255,122,69,.35)" }}>
+        <div style={{ background:"linear-gradient(135deg, #FF7A45 0%, #FF4E88 100%)", borderRadius:20, padding:"20px 20px", boxShadow:"0 8px 24px rgba(255,122,69,.35)", position:"relative", overflow:"hidden" }}>
+          <img src="/avatars/meogja_cat_051.png" alt="" style={{ position:"absolute", right:14, bottom:0, width:72, height:72, objectFit:"contain", opacity:.9, pointerEvents:"none" }} />
           <p style={{ fontFamily:"var(--font-display)", fontSize:16, color:"rgba(255,255,255,.85)", marginBottom:8 }}>오늘 뭐 먹지? 🎲</p>
           {rouletteResult ? (
             <p style={{ fontFamily:"var(--font-display)", fontSize:32, color:"#fff", marginBottom:16, animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
@@ -538,17 +540,22 @@ export default function Home() {
               <span style={{ fontFamily:"var(--font-display)", fontSize:16 }}>{t.emoji} {t.label}</span>
             </div>
             <div className="scroll-x" style={{ gap:8, paddingBottom:4 }}>
-              {t.menus.map((m) => (
+              {t.menus.map((m) => {
+                const iconUrl = getFoodIconUrl(m);
+                return (
                 <button key={m} className="tap" onClick={() => {
                   openMenuAction([m]);
                 }} style={{
-                  flexShrink:0, padding:"9px 16px", borderRadius:"var(--r-pill)",
+                  flexShrink:0, padding: iconUrl ? "7px 14px 7px 10px" : "9px 16px", borderRadius:"var(--r-pill)",
                   border:"1.5px solid var(--border)", background:"var(--surface)",
                   color:"var(--text)", fontSize:14, fontWeight:500, cursor:"pointer", whiteSpace:"nowrap",
+                  display:"flex", alignItems:"center", gap:6,
                 }}>
+                  {iconUrl && <img src={iconUrl} alt="" style={{ width:26, height:26, objectFit:"contain" }} />}
                   {m}
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         );
@@ -563,14 +570,16 @@ export default function Home() {
               const medals = ["🥇","🥈","🥉","4위","5위"];
               const maxCount = trendingMenus[0]?.count || 1;
               const widths = trendingMenus.slice(0,5).map(x => x.count > 0 ? Math.round(x.count / maxCount * 100) : [100,82,68,55,44][trendingMenus.indexOf(x)] || 40);
+              const iconUrl = getFoodIconUrl(m.name);
               return (
                 <button key={m.name} className="tap" onClick={() => {
                   openMenuAction([m.name]);
                 }} style={{
-                  display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
+                  display:"flex", alignItems:"center", gap:10, padding:"8px 14px",
                   background:"var(--surface)", borderRadius:12, border:"var(--card-border)", cursor:"pointer", textAlign:"left",
                 }}>
                   <span style={{ fontSize:i < 3 ? 20 : 13, fontWeight:700, width:32, flexShrink:0, textAlign:"center" }}>{medals[i]}</span>
+                  {iconUrl && <img src={iconUrl} alt="" style={{ width:32, height:32, objectFit:"contain", flexShrink:0 }} />}
                   <span style={{ fontFamily:"var(--font-display)", fontSize:15, flex:1 }}>{m.name}</span>
                   <div style={{ width:80, height:6, borderRadius:99, background:"var(--bg-2)", overflow:"hidden" }}>
                     <div style={{ width:`${widths[i]}%`, height:"100%", background:`hsl(${20+i*20} 85% 56%)`, borderRadius:99 }} />
@@ -594,17 +603,21 @@ export default function Home() {
         <div className="scroll-x" style={{ gap:8, paddingBottom:4 }}>
           {MENU_CATEGORIES.map((c, idx) => {
             const isActive = quickCatSheet?.label === c.label;
+            const catIconUrl = getFoodIconUrl(c.label);
             return (
               <button key={c.label} className="tap" onClick={() => {
                 setQuickCatSheet(isActive ? null : { label: c.label, emoji: c.emoji, items: c.menus });
               }} style={{
-                display:"flex", alignItems:"center", gap:6, flexShrink:0, padding:"8px 14px",
+                display:"flex", alignItems:"center", gap:6, flexShrink:0, padding:"6px 14px 6px 8px",
                 borderRadius:"var(--r-pill)", border: isActive ? "none" : "1.5px solid var(--border)",
                 background: isActive ? "var(--primary)" : "var(--surface)",
                 color: isActive ? "#fff" : "var(--text-2)", fontSize:13, fontWeight:600, cursor:"pointer",
                 boxShadow: isActive ? "0 4px 12px rgba(255,122,69,.3)" : "none", transition:"all .15s",
               }}>
-                <span style={{ fontSize:16 }}>{c.emoji}</span>{c.label}
+                {catIconUrl
+                  ? <img src={catIconUrl} alt="" style={{ width:24, height:24, objectFit:"contain" }} />
+                  : <span style={{ fontSize:16 }}>{c.emoji}</span>}
+                {c.label}
               </button>
             );
           })}

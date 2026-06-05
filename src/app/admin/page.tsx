@@ -8,6 +8,7 @@ import { showConfirm } from "@/lib/dialog";
 
 type Feedback = { id: string; category: string; content: string; email: string | null; guest_name: string | null; status: string; created_at: string; };
 type GuestAccount = { id: string; name: string; password: string | null; created_at: string; };
+type Report = { id: string; target_type: string; target_id: string; target_name: string | null; reason: string; status: string; created_at: string; };
 
 export default function AdminPage() {
   const router = useRouter();
@@ -16,10 +17,11 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState("");
-  const [adminTab, setAdminTab] = useState<"groups" | "feedbacks" | "guests">("groups");
+  const [adminTab, setAdminTab] = useState<"groups" | "feedbacks" | "guests" | "reports">("groups");
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [guestAccounts, setGuestAccounts] = useState<GuestAccount[]>([]);
   const [guestSearch, setGuestSearch] = useState("");
+  const [reports, setReports] = useState<Report[]>([]);
 
   useEffect(() => {
     checkAdmin();
@@ -35,6 +37,18 @@ export default function AdminPage() {
     loadGroups();
     loadFeedbacks();
     loadGuestAccounts();
+    loadReports();
+  }
+
+  async function loadReports() {
+    const res = await fetch("/api/admin/reports");
+    const data = await res.json();
+    if (data.reports) setReports(data.reports);
+  }
+
+  async function updateReportStatus(id: string, status: string) {
+    await fetch("/api/admin/reports", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    setReports((prev) => prev.map((r) => r.id === id ? { ...r, status } : r));
   }
 
   async function loadFeedbacks() {
@@ -116,6 +130,9 @@ export default function AdminPage() {
           <h1 style={{ fontFamily: "var(--font-display)", fontSize: 28 }}>🛡️ 관리자 모드</h1>
           <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>모임 일괄 관리</p>
         </div>
+        <button className="tap" onClick={() => router.push("/admin/menus")} style={{ padding:"7px 14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--bg-2)", color:"var(--text)", fontSize:13, cursor:"pointer", flexShrink:0 }}>
+          🍽️ 메뉴
+        </button>
         <button className="tap" onClick={() => router.push("/admin/images")} style={{ padding:"7px 14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--bg-2)", color:"var(--text)", fontSize:13, cursor:"pointer", flexShrink:0 }}>
           🐱 이미지
         </button>
@@ -123,7 +140,7 @@ export default function AdminPage() {
 
       {/* 탭 */}
       <div style={{ display: "flex", borderBottom: "1.5px solid var(--border)" }}>
-        {([["groups","📋 모임"],["feedbacks","💬 문의"],["guests","👤 게스트"]] as const).map(([t, label]) => (
+        {([["groups","📋 모임"],["feedbacks","💬 문의"],["guests","👤 게스트"],["reports","🚨 신고"]] as const).map(([t, label]) => (
           <button key={t} className="tap" onClick={() => setAdminTab(t)} style={{
             flex: 1, padding: "11px", border: "none", fontSize: 14, fontWeight: 700, background: "transparent", cursor: "pointer",
             color: adminTab === t ? "var(--primary)" : "var(--text-2)",
@@ -178,6 +195,30 @@ export default function AdminPage() {
               </div>
             ))}
           {guestAccounts.length === 0 && <p style={{ color:"var(--muted)", textAlign:"center", padding:30 }}>게스트 계정 없음</p>}
+        </div>
+      )}
+
+      {/* 신고 목록 */}
+      {adminTab === "reports" && (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          <p style={{ fontSize:13, color:"var(--text-2)" }}>총 {reports.length}건 · 미처리 {reports.filter(r=>r.status==="pending").length}건</p>
+          {reports.length === 0 && <p style={{ color:"var(--text-3)", textAlign:"center", padding:40 }}>신고 없음</p>}
+          {reports.map((r) => (
+            <div key={r.id} style={{ padding:"14px 16px", borderRadius:14, background:"var(--card)", border: r.status==="pending" ? "1.5px solid #E53935" : "var(--card-border)", boxShadow:"var(--card-shadow)" }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                <span style={{ fontSize:13, fontWeight:700 }}>{r.target_type==="user"?"👤":"👥"} {r.target_name || r.target_id}</span>
+                <span style={{ fontSize:11, padding:"2px 8px", borderRadius:99, background: r.status==="resolved"?"#D4EDDA":r.status==="reviewed"?"#FFF3CD":"#FFE0DE", color: r.status==="resolved"?"#155724":r.status==="reviewed"?"#856404":"#721c24" }}>
+                  {r.status==="resolved"?"처리완료":r.status==="reviewed"?"검토중":"미처리"}
+                </span>
+              </div>
+              <p style={{ fontSize:13, color:"var(--text)", marginBottom:6 }}>{r.reason}</p>
+              <p style={{ fontSize:11, color:"var(--text-3)", marginBottom:8 }}>{new Date(r.created_at).toLocaleString("ko-KR")}</p>
+              <div style={{ display:"flex", gap:8 }}>
+                {r.status !== "reviewed" && <button className="tap" onClick={() => updateReportStatus(r.id, "reviewed")} style={{ padding:"4px 12px", borderRadius:99, border:"1.5px solid var(--border)", background:"transparent", fontSize:12, cursor:"pointer" }}>검토중으로</button>}
+                {r.status !== "resolved" && <button className="tap" onClick={() => updateReportStatus(r.id, "resolved")} style={{ padding:"4px 12px", borderRadius:99, border:"none", background:"#28A745", color:"#fff", fontSize:12, cursor:"pointer" }}>처리완료</button>}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

@@ -125,6 +125,8 @@ export default function ProfilePage() {
   const displayName = currentUser.type === "auth" ? currentUser.user.display_name : currentUser.type === "guest" ? currentUser.user.name : "";
   const [myProfile, setMyProfile] = useState<Record<string,string>>({});
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [myReports, setMyReports] = useState<{id:string;target_type:string;target_name:string;reason:string;status:string;created_at:string}[]>([]);
+  const [showReports, setShowReports] = useState(false);
 
   const [showAllAvatars, setShowAllAvatars] = useState(false);
   const [avatarCfgs, setAvatarCfgs] = useState<Record<string, {purpose:string;object_position:string}>>({});
@@ -178,6 +180,10 @@ export default function ProfilePage() {
       });
       getSupabase().from("user_food_preferences").select("*").eq("user_id", currentUser.user.id).order("preference_type").then(({ data }) => {
         if (data) setMyPrefs(data);
+      });
+      // 신고 내역
+      getSupabase().from("reports").select("id,target_type,target_name,reason,status,created_at").eq("reporter_user_id", currentUser.user.id).order("created_at", { ascending: false }).then(({ data }) => {
+        if (data) setMyReports(data);
       });
     }
   }, [currentUser]);
@@ -610,6 +616,38 @@ export default function ProfilePage() {
           </form>
         )}</div>}
       </div>
+
+      {/* 신고 내역 (로그인 사용자만) */}
+      {currentUser.type === "auth" && (
+        <div className="fade-up" style={{ marginTop: 8 }}>
+          <button className="tap" onClick={() => setShowReports((v) => !v)} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%", background:"none", border:"none", cursor:"pointer", padding:0, marginBottom: showReports ? 14 : 0 }}>
+            <p style={{ fontFamily:"var(--font-display)", fontSize:17 }}>🚨 내 신고 내역</p>
+            <span style={{ fontSize:20, color:"var(--text-2)", transition:"transform .2s", transform: showReports ? "rotate(180deg)" : "" }}>⌄</span>
+          </button>
+          {showReports && (
+            <div style={{ background:"var(--surface)", borderRadius:16, border:"var(--card-border)", overflow:"hidden" }}>
+              {myReports.length === 0 ? (
+                <p style={{ padding:"20px 16px", textAlign:"center", color:"var(--text-3)", fontSize:14 }}>신고 내역이 없습니다</p>
+              ) : myReports.map((r, i) => (
+                <div key={r.id} style={{ padding:"12px 16px", borderBottom: i < myReports.length-1 ? "1px solid var(--border)" : "none" }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
+                    <span style={{ fontSize:13, fontWeight:600, color:"var(--text)" }}>
+                      {r.target_type === "user" ? "👤" : "👥"} {r.target_name}
+                    </span>
+                    <span style={{ fontSize:11, padding:"2px 8px", borderRadius:99,
+                      background: r.status === "resolved" ? "var(--green-soft)" : r.status === "reviewed" ? "#FFF3CD" : "var(--bg-2)",
+                      color: r.status === "resolved" ? "var(--green)" : r.status === "reviewed" ? "#856404" : "var(--text-3)" }}>
+                      {r.status === "resolved" ? "처리완료" : r.status === "reviewed" ? "검토중" : "접수됨"}
+                    </span>
+                  </div>
+                  <p style={{ fontSize:12, color:"var(--text-2)", marginBottom:2 }}>{r.reason}</p>
+                  <p style={{ fontSize:11, color:"var(--text-3)" }}>{new Date(r.created_at).toLocaleDateString("ko-KR")}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
