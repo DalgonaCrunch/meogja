@@ -7,6 +7,7 @@ import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import { toast, showAlert, showConfirm, showPrompt } from "@/lib/dialog";
 import { getCategorySubItems } from "@/lib/recommend";
 import MenuBattle from "./MenuBattle";
+import { MENU_CATEGORIES, ROULETTE_POOL } from "@/lib/menus";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
@@ -195,7 +196,8 @@ export default function Home() {
   const [quickSelected, setQuickSelected] = useState<Set<string>>(new Set());
   const [showQuickGroupPicker, setShowQuickGroupPicker] = useState(false);
   const [menuActionMenus, setMenuActionMenus] = useState<string[]>([]); // 공통 메뉴 액션 시트용
-  const [battleVoted, setBattleVoted] = useState(false);
+  // 오늘 이미 투표했으면 배틀 카드 처음부터 숨김
+  const [battleVoted, setBattleVoted] = useState<boolean>(false);
   const [showRoulettePopup, setShowRoulettePopup] = useState(false);
 
   // 홈 기능
@@ -218,6 +220,9 @@ export default function Home() {
     if (saved) setStarredGroups(new Set(JSON.parse(saved)));
     loadGroups();
     loadTrendingMenus();
+    // 오늘 이미 배틀 투표 여부
+    const today = new Date().toISOString().slice(0,10);
+    if (localStorage.getItem("meogja_battle_voted") === today) setBattleVoted(true);
     // 첫 방문 시 룰렛 팝업
     if (!sessionStorage.getItem("meogja_roulette_seen")) {
       setShowRoulettePopup(true);
@@ -277,8 +282,6 @@ export default function Home() {
       setTrendingMenus(sorted);
     }
   }
-
-  const ROULETTE_POOL = ["삼겹살","초밥","마라탕","치킨","파스타","떡볶이","순대국밥","김치찌개","불고기","라멘","갈비찜","돈카츠","우동","비빔밥","감자탕","피자","스테이크","부대찌개","칼국수","짬뽕","냉면","제육볶음","족발","양꼬치","오마카세","갈비","소불고기","낙지볶음","쭈꾸미","불닭","마라샹궈","규동","텐동","카라아게","야키토리","해물찜","꽃게찜","간장게장","수육","편육","보쌈","순대","떡갈비","불고기버거","BLT샌드위치","크로플","에그타르트","팥빙수","아이스크림","타코","나초","케밥","샤브샤브","훠궈","전골","탕수육","깐풍기","짜장면","유산슬","잡채","갈낙전골","해장국","설렁탕"];
 
   function spinRoulette() {
     if (rouletteRunning) return;
@@ -462,17 +465,6 @@ export default function Home() {
     .sort(() => Math.random() - 0.5)
     .slice(0, 5);
 
-  const QUICK_CATS = [
-    { emoji:"🍖", label:"고기", menus:["삼겹살","소갈비","불고기","목살","항정살","갈매기살","오겹살","양꼬치","소곱창","껍데기","소고기구이","차돌박이"] },
-    { emoji:"🍜", label:"국물", menus:["김치찌개","된장찌개","부대찌개","설렁탕","갈비탕","순대국밥","해장국","육개장","추어탕","콩나물국밥","선지국밥","뼈다귀해장국"] },
-    { emoji:"🍣", label:"일식", menus:["초밥","라멘","돈카츠","우동","소바","카라아게","텐동","규동","오마카세","이자카야안주","사시미","야키토리"] },
-    { emoji:"🍕", label:"양식", menus:["파스타","피자","스테이크","리조또","브런치","버거","샌드위치","스프","양갈비","크림파스타","토마토파스타","뇨끼"] },
-    { emoji:"🍗", label:"치킨", menus:["후라이드치킨","양념치킨","간장치킨","파닭","마늘치킨","치즈치킨","순살치킨","핫윙","반반치킨","뿌링클","황금올리브","교촌"] },
-    { emoji:"☕", label:"카페", menus:["아메리카노","카페라떼","케이크","크로플","에그타르트","베이글","샌드위치","와플","스콘","티라미수","마카롱","크로아상"] },
-    { emoji:"🌶️", label:"매운맛", menus:["떡볶이","마라탕","마라샹궈","낙지볶음","쭈꾸미볶음","엽기떡볶이","매운갈비찜","불닭","매운족발","불짬뽕","청양떡볶이"] },
-    { emoji:"🍰", label:"디저트", menus:["아이스크림","붕어빵","호떡","마카롱","타르트","팥빙수","츄러스","도넛","케이크","크레이프","소프트아이스크림","약과"] },
-  ];
-
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
 
@@ -585,7 +577,7 @@ export default function Home() {
         </div>
         {/* 카테고리 탭 */}
         <div className="scroll-x" style={{ gap:8, paddingBottom:4 }}>
-          {QUICK_CATS.map((c, idx) => {
+          {MENU_CATEGORIES.map((c, idx) => {
             const isActive = quickCatSheet?.label === c.label;
             return (
               <button key={c.label} className="tap" onClick={() => {

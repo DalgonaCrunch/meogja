@@ -3,16 +3,7 @@
 import { useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { getDeviceId } from "@/lib/auth";
-
-const MENU_POOL = [
-  "삼겹살","초밥","마라탕","치킨","파스타","떡볶이","순대국밥","김치찌개","불고기","라멘",
-  "갈비찜","돈카츠","우동","비빔밥","감자탕","피자","스테이크","부대찌개","칼국수","짬뽕",
-  "냉면","제육볶음","족발","양꼬치","오마카세","갈비","소불고기","낙지볶음","쭈꾸미","불닭",
-  "마라샹궈","규동","텐동","카라아게","야키토리","해물찜","꽃게찜","간장게장","수육","보쌈",
-  "순대","떡갈비","짜장면","짬뽕","탕수육","깐풍기","잡채","해장국","설렁탕","갈낙전골",
-  "샤브샤브","훠궈","전골","유산슬","닭갈비","오겹살","항정살","갈매기살","목살","껍데기",
-  "치즈닭갈비","매운찜닭","간장찜닭","엽기떡볶이","매운낙지볶음",
-];
+import { ROULETTE_POOL } from "@/lib/menus";
 
 const EMOJIS: Record<string, string> = {
   삼겹살:"🥓",초밥:"🍣",마라탕:"🌶️",치킨:"🍗",파스타:"🍝",떡볶이:"🌮",순대국밥:"🍲",
@@ -56,7 +47,7 @@ export default function WorldCup({ onChampion }: Props) {
     setSize(n);
     setChampion(null);
     setRoundWinners([]);
-    const pool = shuffle(MENU_POOL).slice(0, n);
+    const pool = shuffle(ROULETTE_POOL).slice(0, n);
     const pairs: string[][] = [];
     for (let i = 0; i < pool.length; i += 2) pairs.push([pool[i], pool[i+1]]);
     setBracket(pairs);

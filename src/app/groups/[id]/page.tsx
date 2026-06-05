@@ -734,13 +734,10 @@ export default function GroupPage() {
   function getNaverMapUrl(r: ScoredRestaurant): string {
     // Naver API: link = store.naver.com 직접 링크
     if (r.link && (r.link.includes("store.naver.com") || r.link.includes("naver.me") || r.link.includes("smartplace.naver"))) return r.link;
-    // 좌표 있으면 센터 지정 검색 (같은 이름 다른 위치 방지)
-    if (r.mapx && r.mapy) {
-      const lng = parseFloat(r.mapx) > 1e6 ? parseFloat(r.mapx) / 1e7 : parseFloat(r.mapx);
-      const lat = parseFloat(r.mapy) > 1e6 ? parseFloat(r.mapy) / 1e7 : parseFloat(r.mapy);
-      return `https://map.naver.com/p/search/${encodeURIComponent(r.title)}&c=${lng.toFixed(7)},${lat.toFixed(7)},15,0,0,0,dh`;
-    }
-    return `https://map.naver.com/p/search/${encodeURIComponent(r.title)}`;
+    // 이름 + 주소 (주소에서 번지수 제거, 동네까지만)
+    const shortAddr = r.address ? r.address.split(" ").slice(0, 3).join(" ") : "";
+    const query = shortAddr ? `${r.title} ${shortAddr}` : r.title;
+    return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
   }
 
   function getKakaoMapUrl(r: ScoredRestaurant): string {

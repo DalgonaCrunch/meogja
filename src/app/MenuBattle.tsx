@@ -68,7 +68,14 @@ export default function MenuBattle({ onVoted }: { onVoted?: () => void }) {
     const { data: myVoteData } = await getSupabase()
       .from("menu_battle_votes").select("choice")
       .eq("battle_id", existing.id).eq("voter_device_id", deviceId).single();
-    if (myVoteData) { setMyVote(myVoteData.choice as "a"|"b"); onVoted?.(); }
+    if (myVoteData) {
+      setMyVote(myVoteData.choice as "a"|"b");
+      setShowShare(true);
+      // 이미 투표한 경우: localStorage에 날짜 저장 (다음 방문에서 숨김 처리용)
+      const today = new Date().toISOString().slice(0,10);
+      localStorage.setItem("meogja_battle_voted", today);
+      onVoted?.(); // 이미 투표한 경우 즉시 숨김
+    }
   }
 
   async function vote(choice: "a"|"b") {
@@ -86,7 +93,10 @@ export default function MenuBattle({ onVoted }: { onVoted?: () => void }) {
     setVotes(prev => ({ ...prev, [choice]: prev[choice] + 1 }));
     setVoting(false);
     setShowShare(true);
-    onVoted?.();
+    // 투표 완료: 결과 먼저 보여주고, 날짜 저장 (다음 방문 때 숨김)
+    const today = new Date().toISOString().slice(0,10);
+    localStorage.setItem("meogja_battle_voted", today);
+    // onVoted 호출 안 함 — 지금은 결과 계속 보여줌, 다음 방문에서 숨김
   }
 
   if (!battle) return null;
