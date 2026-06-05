@@ -112,10 +112,13 @@ export default function AdminPage() {
       {/* 헤더 */}
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <button className="tap" onClick={() => router.push("/")} style={{ width: 38, height: 38, borderRadius: 12, border: "1px solid var(--border)", background: "var(--card)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text)" }}>←</button>
-        <div>
+        <div style={{ flex:1 }}>
           <h1 style={{ fontFamily: "var(--font-display)", fontSize: 28 }}>🛡️ 관리자 모드</h1>
           <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>모임 일괄 관리</p>
         </div>
+        <button className="tap" onClick={() => router.push("/admin/images")} style={{ padding:"7px 14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--bg-2)", color:"var(--text)", fontSize:13, cursor:"pointer", flexShrink:0 }}>
+          🐱 이미지
+        </button>
       </div>
 
       {/* 탭 */}

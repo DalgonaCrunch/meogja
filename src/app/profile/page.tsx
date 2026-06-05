@@ -7,6 +7,7 @@ import { getSupabase, Group } from "@/lib/supabase";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems } from "@/lib/recommend";
 import { THEMES, ThemeId, applyTheme, getSavedTheme } from "@/lib/theme";
 import { toast, showAlert } from "@/lib/dialog";
+import { ALL_AVATARS, DEFAULT_AVATARS } from "@/lib/mascot";
 
 function ProfileFieldRow({ fieldKey, label, value, editable, isLast, onSave }: {
   fieldKey: string; label: string; value: string; editable: boolean; isLast: boolean;
@@ -117,7 +118,7 @@ export default function ProfilePage() {
   const [myProfile, setMyProfile] = useState<Record<string,string>>({});
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  const DEFAULT_AVATARS = ["/avatars/avatar-1.jpg"];
+  const [showAllAvatars, setShowAllAvatars] = useState(false);
 
   async function selectDefaultAvatar(url: string) {
     if (currentUser.type !== "auth") return;
@@ -268,19 +269,27 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* 기본 아바타 선택 */}
+      {/* 먹자냥 아바타 선택 */}
       {currentUser.type === "auth" && (
-        <div className="fade-up" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>기본 이미지</span>
-          {DEFAULT_AVATARS.map((url) => (
-            <button key={url} className="tap" onClick={() => selectDefaultAvatar(url)} style={{
-              width: 48, height: 48, borderRadius: "50%", overflow: "hidden", padding: 0,
-              border: myProfile.profile_image === url ? "3px solid var(--primary)" : "2px solid var(--border)",
-              cursor: "pointer", background: "none",
-            }}>
-              <img src={url} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <div className="fade-up" style={{ background:"var(--surface)", borderRadius:16, padding:"16px", border:"var(--card-border)" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+            <span style={{ fontSize:13, fontWeight:700, color:"var(--text)" }}>먹자냥 아바타</span>
+            <button onClick={() => setShowAllAvatars(v => !v)} style={{ fontSize:12, color:"var(--primary)", background:"none", border:"none", cursor:"pointer" }}>
+              {showAllAvatars ? "접기" : `전체보기 (${ALL_AVATARS.length}개)`}
             </button>
-          ))}
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+            {(showAllAvatars ? ALL_AVATARS : DEFAULT_AVATARS).map((url) => (
+              <button key={url} className="tap" onClick={() => selectDefaultAvatar(url)} style={{
+                width:52, height:52, borderRadius:"50%", overflow:"hidden", padding:0,
+                border: myProfile.profile_image === url ? "3px solid var(--primary)" : "2px solid transparent",
+                cursor:"pointer", background:"var(--bg-2)",
+                boxShadow: myProfile.profile_image === url ? "0 0 0 2px var(--primary)" : "none",
+              }}>
+                <img src={url} alt="avatar" style={{ width:"100%", height:"100%", objectFit:"contain" }} />
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

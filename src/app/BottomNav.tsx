@@ -2,10 +2,10 @@
 import { usePathname, useRouter } from "next/navigation";
 
 const TABS = [
-  { href: "/", icon: "🏠", label: "홈" },
-  { href: "/groups", icon: "👥", label: "모임" },
-  { href: "/battle", icon: "🎮", label: "게임" },
-  { href: "/profile", icon: "👤", label: "내 정보" },
+  { href: "/", img: "/mascot/tabs/home.png", label: "홈" },
+  { href: "/groups", img: "/mascot/tabs/community.png", label: "모임" },
+  { href: "/battle", img: "/mascot/tabs/game.png", label: "게임" },
+  { href: "/profile", img: "/mascot/tabs/profile.png", label: "내 정보" },
 ];
 
 export default function BottomNav() {
@@ -32,14 +32,14 @@ export default function BottomNav() {
         const isActive = active(t.href);
         return (
           <button key={t.href} className="tap" onClick={() => router.push(t.href)} style={{
-            flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
-            background: "none", border: "none", cursor: "pointer", padding: "8px 0",
-            color: isActive ? "var(--primary)" : "var(--text-3)",
-            transition: "color .15s",
+            flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
+            background: "none", border: "none", cursor: "pointer", padding: "6px 0",
+            opacity: isActive ? 1 : 0.45,
+            transition: "opacity .15s, transform .15s",
+            transform: isActive ? "scale(1.08)" : "scale(1)",
           }}>
-            <span style={{ fontSize: 22 }}>{t.icon}</span>
-            <span style={{ fontSize: 11, fontWeight: isActive ? 700 : 400 }}>{t.label}</span>
-            {isActive && <div style={{ width: 4, height: 4, borderRadius: 2, background: "var(--primary)", marginTop: 1 }} />}
+            <img src={(t as {href:string;img:string;label:string}).img} alt={t.label} style={{ width:34, height:34, objectFit:"contain" }} />
+            <span style={{ fontSize: 10, fontWeight: isActive ? 700 : 400, color: isActive ? "var(--primary)" : "var(--text-3)" }}>{t.label}</span>
           </button>
         );
       })}
