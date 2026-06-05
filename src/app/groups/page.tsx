@@ -22,6 +22,7 @@ function GroupItem({ group, myMemberName, onClick }: { group: Group; myMemberNam
           {myMemberName && <span style={{ fontSize:11, padding:"1px 7px", borderRadius:"var(--r-pill)", fontWeight:700, color:"var(--primary)", background:"var(--primary-light)" }}>나: {myMemberName}</span>}
           {group.is_private && <span style={{ fontSize:11, padding:"1px 6px", borderRadius:"var(--r-pill)", color:"var(--text-2)", background:"var(--bg-2)" }}>🔒</span>}
           {group.require_auth && <span style={{ fontSize:11, padding:"1px 6px", borderRadius:"var(--r-pill)", color:"var(--primary)", background:"var(--primary-light)" }}>🔑</span>}
+          {group.requires_approval && <span style={{ fontSize:11, padding:"1px 6px", borderRadius:"var(--r-pill)", color:"#C05E00", background:"#FFF0E0", fontWeight:600 }}>가입 승인 필요</span>}
         </div>
       </div>
       <span style={{ color:"var(--text-3)", fontSize:18, flexShrink:0 }}>›</span>
@@ -47,8 +48,8 @@ export default function GroupsPage() {
     setCurrentUser(user);
 
     const [allRes, pubRes] = await Promise.all([
-      getSupabase().from("groups").select("id,name,description,is_private,require_auth,owner_id,owner_guest_name,emoji,image_url,created_at").order("created_at", { ascending: false }),
-      getSupabase().from("groups").select("id,name,description,is_private,require_auth,owner_id,owner_guest_name,emoji,image_url,created_at").eq("is_private", false).eq("require_auth", false).order("created_at", { ascending: false }),
+      getSupabase().from("groups").select("id,name,description,is_private,require_auth,requires_approval,owner_id,owner_guest_name,emoji,image_url,created_at").order("created_at", { ascending: false }),
+      getSupabase().from("groups").select("id,name,description,is_private,require_auth,requires_approval,owner_id,owner_guest_name,emoji,image_url,created_at").eq("is_private", false).eq("require_auth", false).order("created_at", { ascending: false }),
     ]);
 
     let memberMap: Record<string, string> = {};

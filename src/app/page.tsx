@@ -43,6 +43,7 @@ function GroupCard({ group, onClick, myMemberName, isOwner, starred, onStar }: {
           </span>
           {group.is_private && <span style={{ fontSize:11, padding:"2px 7px", borderRadius:"var(--r-pill)", fontWeight:600, color:"var(--text-2)", background:"var(--bg-2)" }}>🔒</span>}
           {group.require_auth && <span style={{ fontSize:11, padding:"2px 7px", borderRadius:"var(--r-pill)", fontWeight:600, color:"var(--primary)", background:"var(--primary-light)" }}>🔑</span>}
+          {group.requires_approval && <span style={{ fontSize:11, padding:"2px 7px", borderRadius:"var(--r-pill)", fontWeight:600, color:"#C05E00", background:"#FFF0E0" }}>가입 승인 필요</span>}
         </div>
       </div>
       <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
@@ -59,7 +60,7 @@ function GroupCard({ group, onClick, myMemberName, isOwner, starred, onStar }: {
 
 const GROUP_EMOJI_LIST = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰','🍖','🍛','🥩','🍝','🌯','🥙','🍞','🍔','🍤','🧆'];
 
-function CreateForm({ newName, setNewName, description, setDescription, emoji, setEmoji, imageUrl, setImageUrl, isPrivate, setIsPrivate, newPassword, setNewPassword, requireAuth, setRequireAuth, creating, onSubmit, isLoggedIn }: {
+function CreateForm({ newName, setNewName, description, setDescription, emoji, setEmoji, imageUrl, setImageUrl, isPrivate, setIsPrivate, newPassword, setNewPassword, requireAuth, setRequireAuth, requiresApproval, setRequiresApproval, creating, onSubmit, isLoggedIn }: {
   newName: string; setNewName: (v: string) => void;
   description: string; setDescription: (v: string) => void;
   emoji: string; setEmoji: (v: string) => void;
@@ -67,6 +68,7 @@ function CreateForm({ newName, setNewName, description, setDescription, emoji, s
   isPrivate: boolean; setIsPrivate: (v: boolean) => void;
   newPassword: string; setNewPassword: (v: string) => void;
   requireAuth: boolean; setRequireAuth: (v: boolean) => void;
+  requiresApproval: boolean; setRequiresApproval: (v: boolean) => void;
   creating: boolean; onSubmit: (e: React.FormEvent) => void;
   isLoggedIn: boolean;
 }) {
@@ -137,15 +139,26 @@ function CreateForm({ newName, setNewName, description, setDescription, emoji, s
 
       {/* 인증 전용 (로그인 사용자만) */}
       {isLoggedIn && (
-        <button type="button" onClick={() => setRequireAuth(!requireAuth)} style={{
-          display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 100, width: "fit-content",
-          border: `1.5px solid ${requireAuth ? "var(--green)" : "var(--border)"}`,
-          background: requireAuth ? "var(--green-soft)" : "transparent",
-          color: requireAuth ? "var(--green)" : "var(--text-muted)",
-          fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
-        }}>
-          {requireAuth ? "✓" : "○"} 로그인 사용자만 참여 가능
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <button type="button" onClick={() => setRequireAuth(!requireAuth)} style={{
+            display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 100, width: "fit-content",
+            border: `1.5px solid ${requireAuth ? "var(--green)" : "var(--border)"}`,
+            background: requireAuth ? "var(--green-soft)" : "transparent",
+            color: requireAuth ? "var(--green)" : "var(--text-muted)",
+            fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+          }}>
+            {requireAuth ? "✓" : "○"} 로그인 사용자만 참여 가능
+          </button>
+          <button type="button" onClick={() => setRequiresApproval(!requiresApproval)} style={{
+            display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 100, width: "fit-content",
+            border: `1.5px solid ${requiresApproval ? "var(--primary)" : "var(--border)"}`,
+            background: requiresApproval ? "var(--primary-light)" : "transparent",
+            color: requiresApproval ? "var(--primary)" : "var(--text-muted)",
+            fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+          }}>
+            {requiresApproval ? "✓" : "○"} 가입 시 승인 필요
+          </button>
+        </div>
       )}
 
       <button type="submit" disabled={creating || (isPrivate && !isLoggedIn)} style={{ padding: "13px", borderRadius: 100, border: "none", background: (isPrivate && !isLoggedIn) ? "var(--border)" : "var(--accent)", color: (isPrivate && !isLoggedIn) ? "var(--muted)" : "#fff", fontFamily: "var(--font-display)", fontSize: 16, cursor: (creating || (isPrivate && !isLoggedIn)) ? "default" : "pointer", boxShadow: (isPrivate && !isLoggedIn) ? "none" : "0 4px 14px rgba(255,107,53,0.3)" }}>
@@ -172,6 +185,7 @@ export default function Home() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [requireAuth, setRequireAuth] = useState(false);
+  const [requiresApproval, setRequiresApproval] = useState(false);
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -219,7 +233,7 @@ export default function Home() {
   async function loadGroups() {
     setLoading(true);
     // password 필드 제외 — 서버측 API로만 검증
-    const COLS = "id,name,description,is_private,require_auth,owner_id,owner_guest_name,emoji,image_url,created_at";
+    const COLS = "id,name,description,is_private,require_auth,requires_approval,owner_id,owner_guest_name,emoji,image_url,created_at";
     const [myRes, publicRes] = await Promise.all([
       getSupabase().from("groups").select(COLS).order("created_at", { ascending: false }),
       getSupabase().from("groups").select(COLS).eq("is_private", false).eq("require_auth", false).order("created_at", { ascending: false }).limit(20),
@@ -242,10 +256,20 @@ export default function Home() {
   async function createGroup(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim()) return;
-    // 비공개 모임은 로그인 필수
     if (isPrivate && currentUser.type !== "auth") return;
-    // 비로그인은 생성 불가
     if (currentUser.type === "none") { router.push("/login"); return; }
+
+    // 최대 10개 제한 (로그인 사용자)
+    if (currentUser.type === "auth") {
+      const { count } = await getSupabase().from("groups")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", currentUser.user.id);
+      if ((count ?? 0) >= 10) {
+        alert("모임은 계정당 최대 10개까지 만들 수 있습니다.");
+        return;
+      }
+    }
+
     setCreating(true);
     const ownerId = currentUser.type === "auth" ? currentUser.user.id : null;
     const ownerGuestName = currentUser.type === "guest" ? currentUser.user.name : null;
@@ -261,6 +285,7 @@ export default function Home() {
         owner_id: ownerId,
         owner_guest_name: ownerGuestName,
         require_auth: requireAuth,
+        requires_approval: requiresApproval,
       })
       .select().single();
     setCreating(false);
@@ -373,7 +398,7 @@ export default function Home() {
             <span style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>새 모임 만들기</span>
             <button onClick={() => { setShowCreateForm(false); setNewName(""); setIsPrivate(false); setNewPassword(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-2)", fontSize: 18 }}>✕</button>
           </div>
-          <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} emoji={groupEmoji} setEmoji={setGroupEmoji} imageUrl={groupImageUrl} setImageUrl={setGroupImageUrl} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
+          <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} emoji={groupEmoji} setEmoji={setGroupEmoji} imageUrl={groupImageUrl} setImageUrl={setGroupImageUrl} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} requiresApproval={requiresApproval} setRequiresApproval={setRequiresApproval} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
         </div>
       )}
 

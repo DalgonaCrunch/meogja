@@ -32,6 +32,14 @@ ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE food_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Allow all for members" ON members FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Allow all for food_preferences" ON food_preferences FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Allow all for groups" ON groups FOR ALL USING (true) WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='members' AND policyname='Allow all for members') THEN
+    CREATE POLICY "Allow all for members" ON members FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='food_preferences' AND policyname='Allow all for food_preferences') THEN
+    CREATE POLICY "Allow all for food_preferences" ON food_preferences FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='groups' AND policyname='Allow all for groups') THEN
+    CREATE POLICY "Allow all for groups" ON groups FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;

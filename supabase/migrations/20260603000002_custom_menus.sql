@@ -5,4 +5,8 @@ CREATE TABLE IF NOT EXISTS custom_menus (
 );
 
 ALTER TABLE custom_menus ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "Allow all for custom_menus" ON custom_menus FOR ALL USING (true) WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='custom_menus' AND policyname='Allow all for custom_menus') THEN
+    CREATE POLICY "Allow all for custom_menus" ON custom_menus FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;

@@ -126,6 +126,7 @@ export default function GroupPage() {
   const [reviewAvgs, setReviewAvgs] = useState<Record<string, number>>({});
   const [memberImages, setMemberImages] = useState<Record<string, string>>({});
   const [foodImages, setFoodImages] = useState<Record<string, string>>({});
+  const [pendingMembers, setPendingMembers] = useState<Member[]>([]);
 
   // 추천 탭
   const [selected, setSelected] = useState<string[]>([]);
@@ -343,7 +344,8 @@ export default function GroupPage() {
   async function loadMembers() {
     const { data } = await getSupabase().from("members").select("*").eq("group_id", id).order("name");
     if (data) {
-      setMembers(data);
+      setPendingMembers(data.filter((m: Member) => m.status === "pending"));
+      setMembers(data.filter((m: Member) => m.status === "approved"));
       // user_id가 있는 멤버의 프로필 이미지 로드
       const userIds = data.filter((m) => m.user_id).map((m) => m.user_id);
       if (userIds.length > 0) {
@@ -613,6 +615,16 @@ export default function GroupPage() {
     loadMembers();
   }
 
+  async function approveMember(memberId: string) {
+    await getSupabase().from("members").update({ status: "approved" }).eq("id", memberId);
+    loadMembers();
+  }
+
+  async function rejectMember(memberId: string) {
+    await getSupabase().from("members").delete().eq("id", memberId);
+    loadMembers();
+  }
+
   async function toggleExpand(memberId: string) {
     if (expandedId === memberId) { setExpandedId(null); return; }
     setExpandedId(memberId);
@@ -865,6 +877,7 @@ export default function GroupPage() {
       {showJoinModal && (
         <JoinModal
           groupId={id}
+          requiresApproval={group?.requires_approval}
           onJoined={handleJoined}
           onClose={() => setShowJoinModal(false)}
         />
@@ -942,6 +955,7 @@ export default function GroupPage() {
             {isOwner && <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"var(--green-soft)", color:"var(--green)", fontSize:11, fontWeight:700 }}>모임장</span>}
             {isAdmin && !isOwner && <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"#F3E5F5", color:"#6A1B9A", fontSize:11, fontWeight:700 }}>🛡️ 관리자</span>}
             {myMemberId && !isOwner && <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"var(--accent-soft)", color:"var(--accent)", fontSize:11, fontWeight:600 }}>✓ 참여 중</span>}
+            {group?.requires_approval && <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"#FFF0E0", color:"#C05E00", fontSize:11, fontWeight:700 }}>가입 승인 필요</span>}
           </div>
           {/* 참여하기 버튼 — 미참여자에게 표시 */}
           {!myMemberId && !isOwner && (
@@ -1568,6 +1582,24 @@ export default function GroupPage() {
               <button onClick={joinAsMyself} style={{ padding: "10px 24px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
                 {currentUser.type === "auth" ? currentUser.user.display_name || "내 이름" : currentUser.type === "guest" ? currentUser.user.name : "이름"} 으로 참여하기
               </button>
+            </div>
+          )}
+
+          {/* 승인 대기 목록 — 모임장만 */}
+          {isOwner && pendingMembers.length > 0 && (
+            <div style={{ background: "#FFF8F0", borderRadius: 16, padding: "16px 18px", border: "1.5px solid #FFD199" }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#C05E00", marginBottom: 12 }}>가입 승인 대기 ({pendingMembers.length}명)</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {pendingMembers.map((m) => (
+                  <div key={m.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--surface)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{m.name}</span>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="tap" onClick={() => approveMember(m.id)} style={{ padding: "6px 14px", borderRadius: 100, border: "none", background: "var(--green)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>승인</button>
+                      <button className="tap" onClick={() => rejectMember(m.id)} style={{ padding: "6px 14px", borderRadius: 100, border: "none", background: "var(--red, #E53935)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>거절</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

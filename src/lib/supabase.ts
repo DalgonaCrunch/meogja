@@ -18,10 +18,11 @@ export type Group = {
   id: string;
   name: string;
   is_private: boolean;
-  password?: string | null; // 클라이언트에서는 노출 안 함
+  password?: string | null;
   owner_id: string | null;
   owner_guest_name: string | null;
   require_auth: boolean;
+  requires_approval: boolean;
   description: string | null;
   emoji: string | null;
   image_url: string | null;
@@ -32,6 +33,7 @@ export type Member = {
   id: string;
   group_id: string;
   name: string;
+  status: "approved" | "pending";
   created_at: string;
 };
 

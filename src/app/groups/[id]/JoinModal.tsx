@@ -6,12 +6,13 @@ import { getCurrentUser, setGuestUser, signInWithGoogle, signInWithKakao, Curren
 
 type Props = {
   groupId: string;
+  requiresApproval?: boolean;
   onJoined: (memberId: string, memberName: string) => void;
   onClose: () => void;
 };
 
-export default function JoinModal({ groupId, onJoined, onClose }: Props) {
-  const [step, setStep] = useState<"loading" | "choose" | "name">("loading");
+export default function JoinModal({ groupId, requiresApproval, onJoined, onClose }: Props) {
+  const [step, setStep] = useState<"loading" | "choose" | "name" | "pending">("loading");
   const [user, setUser] = useState<CurrentUser>({ type: "none" });
   const [name, setName] = useState("");
   const [joining, setJoining] = useState(false);
@@ -76,12 +77,13 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
     }
 
     // 2. 새 멤버 생성
+    const status = requiresApproval ? "pending" : "approved";
     const { data, error } = await getSupabase().from("members")
-      .insert({ name: joinName, group_id: groupId, user_id: userId, guest_name: guestName })
+      .insert({ name: joinName, group_id: groupId, user_id: userId, guest_name: guestName, status })
       .select().single();
 
     // 3. group_memberships에도 기록 (프로필 페이지에서 참여 모임 표시용)
-    if (userId && data) {
+    if (userId && data && !requiresApproval) {
       await getSupabase().from("group_memberships").upsert(
         { group_id: groupId, user_id: userId, role: "member" },
         { onConflict: "group_id,user_id", ignoreDuplicates: true }
@@ -93,7 +95,13 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
       setNameError("참여 중 오류가 발생했습니다. 다시 시도해주세요.");
       return;
     }
-    if (data) onJoined(data.id, joinName);
+    if (data) {
+      if (requiresApproval) {
+        setStep("pending");
+      } else {
+        onJoined(data.id, joinName);
+      }
+    }
   }
 
   async function handleNameJoin(e: React.FormEvent) {
@@ -153,6 +161,20 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
 
         {step === "loading" && (
           <div style={{ textAlign: "center", padding: "30px 0", color: "var(--muted)" }}>로딩 중…</div>
+        )}
+
+        {step === "pending" && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "20px 0" }}>
+            <div style={{ fontSize: 48 }}>⏳</div>
+            <p style={{ fontFamily: "var(--font-display)", fontSize: 20, textAlign: "center" }}>가입 신청 완료!</p>
+            <p style={{ fontSize: 14, color: "var(--muted)", textAlign: "center", lineHeight: 1.6 }}>
+              모임장의 승인 후 입장할 수 있습니다.<br/>
+              승인되면 다시 모임에 들어오세요.
+            </p>
+            <button className="tap" onClick={onClose} style={{ padding: "13px 32px", borderRadius: "var(--r-pill)", border: "none", background: "var(--accent)", color: "#fff", fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer" }}>
+              확인
+            </button>
+          </div>
         )}
 
         {step === "choose" && (
@@ -277,7 +299,7 @@ export default function JoinModal({ groupId, onJoined, onClose }: Props) {
               fontFamily: "var(--font-display)", fontSize: 16, cursor: "pointer",
               boxShadow: name.trim() && !joining ? "0 8px 18px -8px var(--accent)" : "none",
             }}>
-              {joining ? "참여 중…" : "참여하기 →"}
+              {joining ? "신청 중…" : requiresApproval ? "가입 신청하기 →" : "참여하기 →"}
             </button>
             {user.type === "none" && (
               <button type="button" onClick={() => setStep("choose")} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 13, cursor: "pointer" }}>
