@@ -36,7 +36,10 @@ LABELS = {
 }
 
 def find_icon_rows(img_path):
-    """Detect icon row y-boundaries using alternating large/small bands."""
+    """Detect icon row y-boundaries.
+    Top boundary = midpoint of separator above (captures icon pixels that bleed into separator).
+    Bottom boundary = midpoint of small separator below (icon-label gap).
+    """
     img = Image.open(img_path).convert('RGB')
     arr = np.array(img)
     h = arr.shape[0]
@@ -44,23 +47,36 @@ def find_icon_rows(img_path):
     row_white = white.mean(axis=1)
 
     is_sep = row_white > 0.90
-    in_sep = False
-    sep_bands = []
+    # Build full band list (alternating sep / content)
+    in_sep = bool(is_sep[0])
     start = 0
-    for i in range(h):
-        if is_sep[i] and not in_sep:
+    bands = []
+    for i in range(1, h):
+        if bool(is_sep[i]) != in_sep:
+            bands.append(('sep' if in_sep else 'cnt', start, i))
             start = i
-            in_sep = True
-        elif not is_sep[i] and in_sep:
-            sep_bands.append((start, i))
-            in_sep = False
-    if in_sep:
-        sep_bands.append((start, h))
+            in_sep = bool(is_sep[i])
+    bands.append(('sep' if in_sep else 'cnt', start, h))
 
-    boundaries = sorted(set([0] + [s for s,e in sep_bands] + [e for s,e in sep_bands] + [h]))
-    segs = [(boundaries[i], boundaries[i+1]) for i in range(len(boundaries)-1)]
-    # Icon rows = segments with height > 80px (label rows are ~15-50px)
-    icon_rows = [(s, e) for s, e in segs if e - s > 80]
+    icon_rows = []
+    for i, (kind, s, e) in enumerate(bands):
+        if kind != 'cnt' or (e - s) <= 80:
+            continue
+
+        # Top: midpoint of the separator immediately above this icon band
+        top_bound = s
+        if i > 0 and bands[i - 1][0] == 'sep':
+            sep_s, sep_e = bands[i - 1][1], bands[i - 1][2]
+            top_bound = (sep_s + sep_e) // 2
+
+        # Bottom: midpoint of the separator immediately below (icon-label gap)
+        bot_bound = e
+        if i + 1 < len(bands) and bands[i + 1][0] == 'sep':
+            sep_s, sep_e = bands[i + 1][1], bands[i + 1][2]
+            bot_bound = (sep_s + sep_e) // 2
+
+        icon_rows.append((top_bound, bot_bound))
+
     return icon_rows
 
 
@@ -126,12 +142,12 @@ def extract_icons(src_dir, out_dir):
                 row_labels = row_labels[:n]
 
             for col_idx, ((cx1, cx2), label) in enumerate(zip(cols, row_labels)):
-                # Add small padding (4px) clamped to image bounds
-                pad = 4
+                # Small fixed side padding (row top/bottom already uses sep midpoints)
+                pad = 3
                 x1 = max(0, cx1 - pad)
                 x2 = min(img.width, cx2 + pad)
-                y1 = max(0, iy1 - pad)
-                y2 = min(img.height, iy2 + pad)
+                y1 = max(0, iy1)
+                y2 = min(img.height, iy2)
 
                 crop = img.crop((x1, y1, x2, y2))
 
