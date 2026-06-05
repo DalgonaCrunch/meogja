@@ -194,6 +194,11 @@ export default function Home() {
   const [quickSelected, setQuickSelected] = useState<Set<string>>(new Set());
   const [showQuickGroupPicker, setShowQuickGroupPicker] = useState(false);
 
+  // 홈 기능
+  const [rouletteResult, setRouletteResult] = useState<string | null>(null);
+  const [rouletteRunning, setRouletteRunning] = useState(false);
+  const [trendingMenus, setTrendingMenus] = useState<{name:string;count:number}[]>([]);
+
   // 비공개 모임 입장
   const [enterTarget, setEnterTarget] = useState<Group | null>(null);
   const [enterPassword, setEnterPassword] = useState("");
@@ -208,6 +213,7 @@ export default function Home() {
     const saved = localStorage.getItem("meogja_starred_groups");
     if (saved) setStarredGroups(new Set(JSON.parse(saved)));
     loadGroups();
+    loadTrendingMenus();
     getCurrentUser().then(async (u) => {
       setCurrentUser(u);
       if (u.type === "auth") {
@@ -229,6 +235,61 @@ export default function Home() {
   }, []);
 
   // 모임장 여부 확인
+  async function loadTrendingMenus() {
+    const { data } = await getSupabase()
+      .from("food_preferences")
+      .select("food_name")
+      .eq("preference_type", "like")
+      .limit(500);
+    if (!data) return;
+    const counts: Record<string, number> = {};
+    data.forEach((r) => { counts[r.food_name] = (counts[r.food_name] || 0) + 1; });
+    const sorted = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([name, count]) => ({ name, count }));
+    // 데이터 없으면 기본 인기 메뉴
+    if (sorted.length === 0) {
+      setTrendingMenus([
+        { name:"삼겹살", count:0 }, { name:"치킨", count:0 }, { name:"초밥", count:0 },
+        { name:"마라탕", count:0 }, { name:"파스타", count:0 }, { name:"떡볶이", count:0 },
+        { name:"순대국밥", count:0 }, { name:"김치찌개", count:0 }, { name:"불고기", count:0 }, { name:"라멘", count:0 },
+      ]);
+    } else {
+      setTrendingMenus(sorted);
+    }
+  }
+
+  const ROULETTE_POOL = ["삼겹살","초밥","마라탕","치킨","파스타","떡볶이","순대국밥","김치찌개","불고기","라멘","갈비찜","돈카츠","우동","비빔밥","감자탕","피자","스테이크","부대찌개","칼국수","짬뽕","냉면","제육볶음","족발","양꼬치","오마카세"];
+
+  function spinRoulette() {
+    if (rouletteRunning) return;
+    setRouletteRunning(true);
+    setRouletteResult(null);
+    const pool = trendingMenus.length > 0 ? trendingMenus.map(m => m.name).concat(ROULETTE_POOL) : ROULETTE_POOL;
+    let i = 0;
+    const total = 20;
+    const interval = setInterval(() => {
+      setRouletteResult(pool[Math.floor(Math.random() * pool.length)]);
+      i++;
+      if (i >= total) {
+        clearInterval(interval);
+        const final = pool[Math.floor(Math.random() * pool.length)];
+        setRouletteResult(final);
+        setRouletteRunning(false);
+      }
+    }, i < 10 ? 80 : 150);
+  }
+
+  function getTimeBasedMenus(): { label: string; emoji: string; menus: string[] } {
+    const h = new Date().getHours();
+    if (h >= 6 && h < 10) return { label:"아침 추천", emoji:"🌅", menus:["김밥","토스트","죽","샌드위치","베이글","계란말이","오트밀","영양밥"] };
+    if (h >= 10 && h < 15) return { label:"점심 추천", emoji:"☀️", menus:["김밥","제육볶음","국밥","비빔밥","냉면","돈카츠","짜장면","볶음밥"] };
+    if (h >= 15 && h < 18) return { label:"오후 간식", emoji:"☕", menus:["카페라떼","케이크","크로플","타르트","와플","마카롱","에그타르트","빙수"] };
+    if (h >= 18 && h < 22) return { label:"저녁 추천", emoji:"🌆", menus:["삼겹살","치킨","초밥","스테이크","갈비","파스타","마라탕","갈비탕"] };
+    return { label:"야식 추천", emoji:"🌙", menus:["족발","치킨","떡볶이","피자","라면","마라탕","순대","보쌈"] };
+  }
+
   function isGroupOwner(group: Group, user: typeof currentUser) {
     if (user.type === "auth") return group.owner_id === user.user.id;
     if (user.type === "guest") return group.owner_guest_name === user.user.name;
@@ -393,25 +454,9 @@ export default function Home() {
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
 
-      {/* ── Hero — 브랜드 이미지 기반 ── */}
+      {/* ── Hero ── */}
       <div className="fade-up" style={{ position:"relative", overflow:"hidden" }}>
-        {/* 브랜드 이미지 (하단 음식 일러스트 영역) */}
-        <img src="/meogja-brand.jpg" alt="meogja brand" style={{ width:"100%", display:"block", objectFit:"cover", maxHeight:260, objectPosition:"top center" }} />
-        {/* 이미지 위 오버레이 버튼 */}
-        <div style={{ padding:"0 16px 16px" }}>
-          <button className="tap" onClick={() => {
-            if (currentUser.type === "none") { router.push("/login"); return; }
-            setShowCreateForm(true);
-          }} style={{
-            display:"flex", alignItems:"center", justifyContent:"center", gap:8, width:"100%",
-            padding:"14px", borderRadius:"var(--r-pill)", border:"none",
-            background:"var(--primary)", color:"#fff",
-            fontFamily:"var(--font-display)", fontSize:16, cursor:"pointer",
-            boxShadow:"0 8px 20px rgba(255,122,69,.3)",
-          }}>
-            + 모임 만들기
-          </button>
-        </div>
+        <img src="/meogja-brand.jpg" alt="meogja brand" style={{ width:"100%", display:"block", objectFit:"cover", maxHeight:220, objectPosition:"top center" }} />
       </div>
 
       {/* ── 새 모임 폼 ── */}
@@ -425,7 +470,121 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── 인기 메뉴 ── */}
+      {/* ── 빠른 액션 ── */}
+      <div className="fade-up" style={{ padding: "0 16px" }}>
+        <button className="tap" onClick={() => {
+          if (currentUser.type === "none") { router.push("/login"); return; }
+          setShowCreateForm(true);
+        }} style={{
+          display:"flex", alignItems:"center", justifyContent:"center", gap:8, width:"100%",
+          padding:"14px", borderRadius:"var(--r-pill)", border:"none",
+          background:"var(--primary)", color:"#fff",
+          fontFamily:"var(--font-display)", fontSize:16, cursor:"pointer",
+          boxShadow:"0 6px 18px rgba(255,122,69,.3)",
+        }}>
+          + 모임 만들기
+        </button>
+      </div>
+
+      {/* ── 랜덤 룰렛 ── */}
+      <div className="fade-up fade-up-1" style={{ padding: "0 16px" }}>
+        <div style={{ background:"linear-gradient(135deg, #FF7A45 0%, #FF4E88 100%)", borderRadius:20, padding:"20px 20px", boxShadow:"0 8px 24px rgba(255,122,69,.35)" }}>
+          <p style={{ fontFamily:"var(--font-display)", fontSize:16, color:"rgba(255,255,255,.85)", marginBottom:8 }}>오늘 뭐 먹지? 🎲</p>
+          {rouletteResult ? (
+            <p style={{ fontFamily:"var(--font-display)", fontSize:32, color:"#fff", marginBottom:16, animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
+              {rouletteRunning ? rouletteResult : `🍽 ${rouletteResult}!`}
+            </p>
+          ) : (
+            <p style={{ fontSize:15, color:"rgba(255,255,255,.7)", marginBottom:16 }}>버튼 하나로 메뉴 결정!</p>
+          )}
+          <div style={{ display:"flex", gap:10 }}>
+            <button className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
+              flex:1, padding:"13px", borderRadius:"var(--r-pill)", border:"none",
+              background: rouletteRunning ? "rgba(255,255,255,.3)" : "#fff",
+              color: rouletteRunning ? "#fff" : "var(--primary)",
+              fontFamily:"var(--font-display)", fontSize:15, fontWeight:700, cursor:rouletteRunning ? "default" : "pointer",
+            }}>
+              {rouletteRunning ? "🎲 돌리는 중…" : "🎲 랜덤 추천"}
+            </button>
+            {rouletteResult && !rouletteRunning && (
+              <button className="tap" onClick={() => {
+                const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
+                if (currentUser.type === "none") { router.push("/login"); return; }
+                sessionStorage.setItem("meogja_preset_menus", JSON.stringify([rouletteResult]));
+                if (myGroupList.length > 0) handleEnter(myGroupList[0]);
+                else setShowCreateForm(true);
+              }} style={{
+                padding:"13px 16px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.5)",
+                background:"transparent", color:"#fff", fontFamily:"var(--font-display)", fontSize:14, cursor:"pointer",
+              }}>
+                이걸로 찾기 →
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 시간대별 추천 ── */}
+      {(() => {
+        const t = getTimeBasedMenus();
+        return (
+          <div className="fade-up fade-up-1" style={{ padding: "0 16px" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+              <span style={{ fontFamily:"var(--font-display)", fontSize:16 }}>{t.emoji} {t.label}</span>
+            </div>
+            <div className="scroll-x" style={{ gap:8, paddingBottom:4 }}>
+              {t.menus.map((m) => (
+                <button key={m} className="tap" onClick={() => {
+                  if (currentUser.type === "none") { router.push("/login"); return; }
+                  sessionStorage.setItem("meogja_preset_menus", JSON.stringify([m]));
+                  const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
+                  if (myGroupList.length > 0) { handleEnter(myGroupList[0]); }
+                  else setShowQuickGroupPicker(true);
+                }} style={{
+                  flexShrink:0, padding:"9px 16px", borderRadius:"var(--r-pill)",
+                  border:"1.5px solid var(--border)", background:"var(--surface)",
+                  color:"var(--text)", fontSize:14, fontWeight:500, cursor:"pointer", whiteSpace:"nowrap",
+                }}>
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── 오늘의 인기 메뉴 ── */}
+      {trendingMenus.length > 0 && (
+        <div className="fade-up fade-up-1" style={{ padding: "0 16px" }}>
+          <p style={{ fontFamily:"var(--font-display)", fontSize:16, marginBottom:10 }}>🔥 오늘의 인기 메뉴</p>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {trendingMenus.slice(0,5).map((m, i) => {
+              const medals = ["🥇","🥈","🥉","4위","5위"];
+              const widths = [100,82,68,55,44];
+              return (
+                <button key={m.name} className="tap" onClick={() => {
+                  if (currentUser.type === "none") { router.push("/login"); return; }
+                  sessionStorage.setItem("meogja_preset_menus", JSON.stringify([m.name]));
+                  const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
+                  if (myGroupList.length > 0) handleEnter(myGroupList[0]);
+                  else setShowQuickGroupPicker(true);
+                }} style={{
+                  display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
+                  background:"var(--surface)", borderRadius:12, border:"var(--card-border)", cursor:"pointer", textAlign:"left",
+                }}>
+                  <span style={{ fontSize:i < 3 ? 20 : 13, fontWeight:700, width:32, flexShrink:0, textAlign:"center" }}>{medals[i]}</span>
+                  <span style={{ fontFamily:"var(--font-display)", fontSize:15, flex:1 }}>{m.name}</span>
+                  <div style={{ width:80, height:6, borderRadius:99, background:"var(--bg-2)", overflow:"hidden" }}>
+                    <div style={{ width:`${widths[i]}%`, height:"100%", background:`hsl(${20+i*20} 85% 56%)`, borderRadius:99 }} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── 메뉴 카테고리 탭 ── */}
       <div className="fade-up fade-up-1" style={{ padding: "0 16px" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
           <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>인기 메뉴 🔥</span>
