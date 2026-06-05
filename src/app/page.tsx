@@ -491,18 +491,19 @@ export default function Home() {
 
       {/* ── 랜덤 룰렛 ── */}
       <div className="fade-up fade-up-1" style={{ padding: "0 16px" }}>
-        <div style={{ background:"linear-gradient(135deg, #FF7A45 0%, #FF4E88 100%)", borderRadius:20, padding:"20px", boxShadow:"0 8px 24px rgba(255,122,69,.35)", display:"flex", alignItems:"center", gap:12 }}>
-          {/* 왼쪽: 텍스트 + 버튼 */}
-          <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ background:"linear-gradient(135deg, #FF7A45 0%, #FF4E88 100%)", borderRadius:20, padding:"20px", boxShadow:"0 8px 24px rgba(255,122,69,.35)" }}>
             <p style={{ fontFamily:"var(--font-display)", fontSize:15, color:"rgba(255,255,255,.85)", marginBottom:6 }}>오늘 뭐 먹지? 🎲</p>
             {rouletteResult ? (
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12, animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
                 {!rouletteRunning && getFoodIconUrl(rouletteResult) && (
-                  <img src={getFoodIconUrl(rouletteResult)!} alt={rouletteResult} style={{ width:40, height:40, objectFit:"contain", flexShrink:0 }} />
+                  <img src={getFoodIconUrl(rouletteResult)!} alt={rouletteResult} style={{ width:44, height:44, objectFit:"contain", flexShrink:0 }} />
                 )}
-                <p style={{ fontFamily:"var(--font-display)", fontSize:26, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                <p style={{ fontFamily:"var(--font-display)", fontSize:28, color:"#fff", flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
                   {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
                 </p>
+                {!rouletteRunning && (
+                  <img src="/avatars/meogja_cat_051.png" alt="" style={{ width:64, height:64, objectFit:"contain", flexShrink:0, pointerEvents:"none", mixBlendMode:"multiply" }} />
+                )}
               </div>
             ) : (
               <p style={{ fontSize:13, color:"rgba(255,255,255,.7)", marginBottom:12 }}>버튼 하나로 메뉴 결정!</p>
@@ -531,9 +532,6 @@ export default function Home() {
                 </button>
               )}
             </div>
-          </div>
-          {/* 오른쪽: 마스코트 */}
-          <img src="/avatars/meogja_cat_051.png" alt="" style={{ width:88, height:88, objectFit:"contain", flexShrink:0, pointerEvents:"none", mixBlendMode:"multiply" }} />
         </div>
       </div>
 
