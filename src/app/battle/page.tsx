@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getDeviceId } from "@/lib/auth";
+import WorldCup from "./WorldCup";
 
 type Battle = {
   id: string;
@@ -25,6 +26,7 @@ const EMOJIS: Record<string, string> = {
 
 export default function BattlePage() {
   const router = useRouter();
+  const [tab, setTab] = useState<"worldcup"|"battle">("worldcup");
   const [battles, setBattles] = useState<Battle[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,12 +57,30 @@ export default function BattlePage() {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:0, paddingBottom:80 }}>
-      <div style={{ padding:"16px 16px 12px", position:"sticky", top:52, background:"var(--bg)", zIndex:10, borderBottom:"1px solid var(--border)" }}>
-        <h1 style={{ fontFamily:"var(--font-display)", fontSize:22 }}>⚔️ 메뉴 배틀 히스토리</h1>
-        <p style={{ fontSize:13, color:"var(--text-2)", marginTop:4 }}>매일 두 메뉴가 맞붙습니다</p>
+      <div style={{ padding:"16px 16px 0", position:"sticky", top:52, background:"var(--bg)", zIndex:10, borderBottom:"1px solid var(--border)" }}>
+        <h1 style={{ fontFamily:"var(--font-display)", fontSize:22, marginBottom:12 }}>🎮 게임</h1>
+        <div style={{ display:"flex", gap:0 }}>
+          {([["worldcup","🏆 월드컵"],["battle","⚔️ 배틀 히스토리"]] as const).map(([t,label]) => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              flex:1, padding:"10px 0", border:"none", background:"transparent", cursor:"pointer",
+              fontFamily: tab===t ? "var(--font-display)" : "inherit",
+              fontSize:14, fontWeight: tab===t ? 700 : 400,
+              color: tab===t ? "var(--primary)" : "var(--text-3)",
+              borderBottom: tab===t ? "2.5px solid var(--primary)" : "2.5px solid transparent",
+              transition:"all .15s",
+            }}>{label}</button>
+          ))}
+        </div>
       </div>
 
-      {loading && <div style={{ textAlign:"center", padding:40, color:"var(--text-2)" }}>불러오는 중…</div>}
+      {tab === "worldcup" && (
+        <div style={{ padding:"16px" }}>
+          <WorldCup />
+        </div>
+      )}
+
+      {tab === "battle" && loading && <div style={{ textAlign:"center", padding:40, color:"var(--text-2)" }}>불러오는 중…</div>}
+      {tab === "battle" && !loading && (
 
       <div style={{ padding:"12px 16px", display:"flex", flexDirection:"column", gap:12 }}>
         {battles.map((b) => {
@@ -123,13 +143,14 @@ export default function BattlePage() {
           );
         })}
 
-        {!loading && battles.length === 0 && (
+        {battles.length === 0 && (
           <div style={{ textAlign:"center", padding:"40px 0", color:"var(--text-2)" }}>
             <p style={{ fontSize:24, marginBottom:8 }}>⚔️</p>
             <p>아직 배틀 기록이 없습니다</p>
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -194,6 +194,7 @@ export default function Home() {
   const [quickCatSheet, setQuickCatSheet] = useState<{label:string;emoji:string;items:string[]} | null>(null);
   const [quickSelected, setQuickSelected] = useState<Set<string>>(new Set());
   const [showQuickGroupPicker, setShowQuickGroupPicker] = useState(false);
+  const [menuActionMenus, setMenuActionMenus] = useState<string[]>([]); // 공통 메뉴 액션 시트용
 
   // 홈 기능
   const [rouletteResult, setRouletteResult] = useState<string | null>(null);
@@ -237,19 +238,28 @@ export default function Home() {
 
   // 모임장 여부 확인
   async function loadTrendingMenus() {
-    const { data } = await getSupabase()
-      .from("food_preferences")
-      .select("food_name")
-      .eq("preference_type", "like")
-      .limit(500);
-    if (!data) return;
     const counts: Record<string, number> = {};
-    data.forEach((r) => { counts[r.food_name] = (counts[r.food_name] || 0) + 1; });
+
+    // 1. food_preferences (like)
+    const { data: prefs } = await getSupabase()
+      .from("food_preferences").select("food_name").eq("preference_type", "like").limit(500);
+    prefs?.forEach((r) => { counts[r.food_name] = (counts[r.food_name] || 0) + 1; });
+
+    // 2. worldcup_selections (winner)
+    const { data: wc } = await getSupabase()
+      .from("worldcup_selections").select("winner").limit(1000);
+    wc?.forEach((r) => { counts[r.winner] = (counts[r.winner] || 0) + 2; }); // 월드컵 승리는 가중치 2
+
+    // 3. worldcup 최종 우승 (is_final)
+    const { data: wcFinal } = await getSupabase()
+      .from("worldcup_selections").select("winner").eq("is_final", true).limit(200);
+    wcFinal?.forEach((r) => { counts[r.winner] = (counts[r.winner] || 0) + 5; }); // 최종 우승 가중치 5
+
     const sorted = Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .map(([name, count]) => ({ name, count }));
-    // 데이터 없으면 기본 인기 메뉴
+
     if (sorted.length === 0) {
       setTrendingMenus([
         { name:"삼겹살", count:0 }, { name:"치킨", count:0 }, { name:"초밥", count:0 },
@@ -280,6 +290,10 @@ export default function Home() {
         setRouletteRunning(false);
       }
     }, i < 10 ? 80 : 150);
+  }
+
+  function openMenuAction(menus: string[]) {
+    setMenuActionMenus(menus);
   }
 
   function getTimeBasedMenus(): { label: string; emoji: string; menus: string[] } {
@@ -512,11 +526,7 @@ export default function Home() {
             <div className="scroll-x" style={{ gap:8, paddingBottom:4 }}>
               {t.menus.map((m) => (
                 <button key={m} className="tap" onClick={() => {
-                  if (currentUser.type === "none") { router.push("/login"); return; }
-                  sessionStorage.setItem("meogja_preset_menus", JSON.stringify([m]));
-                  const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
-                  if (myGroupList.length > 0) { handleEnter(myGroupList[0]); }
-                  else setShowQuickGroupPicker(true);
+                  openMenuAction([m]);
                 }} style={{
                   flexShrink:0, padding:"9px 16px", borderRadius:"var(--r-pill)",
                   border:"1.5px solid var(--border)", background:"var(--surface)",
@@ -537,14 +547,11 @@ export default function Home() {
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
             {trendingMenus.slice(0,5).map((m, i) => {
               const medals = ["🥇","🥈","🥉","4위","5위"];
-              const widths = [100,82,68,55,44];
+              const maxCount = trendingMenus[0]?.count || 1;
+              const widths = trendingMenus.slice(0,5).map(x => x.count > 0 ? Math.round(x.count / maxCount * 100) : [100,82,68,55,44][trendingMenus.indexOf(x)] || 40);
               return (
                 <button key={m.name} className="tap" onClick={() => {
-                  if (currentUser.type === "none") { router.push("/login"); return; }
-                  sessionStorage.setItem("meogja_preset_menus", JSON.stringify([m.name]));
-                  const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
-                  if (myGroupList.length > 0) handleEnter(myGroupList[0]);
-                  else setShowQuickGroupPicker(true);
+                  openMenuAction([m.name]);
                 }} style={{
                   display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
                   background:"var(--surface)", borderRadius:12, border:"var(--card-border)", cursor:"pointer", textAlign:"left",
@@ -671,19 +678,37 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── 바로 찾기 (모임 없이) ── */}
-      {quickSelected.size > 0 && (
-        <div style={{ padding: "0 16px" }}>
-          <button className="tap" onClick={() => {
-            sessionStorage.setItem("meogja_preset_menus", JSON.stringify([...quickSelected]));
-            router.push("/search");
-          }} style={{
-            width:"100%", padding:"12px", borderRadius:"var(--r-pill)",
-            border:"1.5px solid var(--border)", background:"var(--surface)",
-            color:"var(--text)", fontSize:14, fontWeight:600, cursor:"pointer",
-          }}>
-            📍 모임 없이 바로 주변 식당 찾기
-          </button>
+      {/* ── 메뉴 액션 시트 (모임 선택 or 바로 찾기) ── */}
+      {menuActionMenus.length > 0 && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:75 }}
+          onClick={() => setMenuActionMenus([])}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background:"var(--surface)", borderRadius:"24px 24px 0 0", padding:"20px 20px 40px", width:"100%", maxWidth:480, animation:"sheetUp .28s both" }}>
+            <div style={{ width:40, height:5, borderRadius:99, background:"var(--border)", margin:"0 auto 16px" }} />
+            <p style={{ fontFamily:"var(--font-display)", fontSize:18, marginBottom:6 }}>어떻게 찾으시겠어요?</p>
+            <p style={{ fontSize:13, color:"var(--text-2)", marginBottom:18 }}>{menuActionMenus.join(", ")}</p>
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              <button className="tap" onClick={() => {
+                const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
+                sessionStorage.setItem("meogja_preset_menus", JSON.stringify(menuActionMenus));
+                setMenuActionMenus([]);
+                if (currentUser.type === "none") { router.push("/login"); return; }
+                if (myGroupList.length > 0) {
+                  setShowQuickGroupPicker(true);
+                } else {
+                  setShowQuickGroupPicker(true);
+                }
+              }} style={{ padding:"14px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer" }}>
+                👥 모임에서 찾기
+              </button>
+              <button className="tap" onClick={() => {
+                sessionStorage.setItem("meogja_preset_menus", JSON.stringify(menuActionMenus));
+                setMenuActionMenus([]);
+                router.push("/search");
+              }} style={{ padding:"14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text)", fontSize:15, fontWeight:600, cursor:"pointer" }}>
+                📍 모임 없이 바로 주변 찾기
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
