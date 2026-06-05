@@ -6,6 +6,7 @@ import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import { toast, showAlert, showConfirm, showPrompt } from "@/lib/dialog";
 import { getCategorySubItems } from "@/lib/recommend";
+import MenuBattle from "./MenuBattle";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
@@ -523,6 +524,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* ── 오늘의 배틀 ── */}
+      <MenuBattle />
 
       {/* ── 시간대별 추천 ── */}
       {(() => {

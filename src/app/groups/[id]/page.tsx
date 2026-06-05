@@ -1637,6 +1637,31 @@ export default function GroupPage() {
                 {sortedRestaurants.map((r, i) => renderCard(r, i, r.score > 0 ? MEMBER_COLORS[i % MEMBER_COLORS.length] : "var(--border)"))}
               </div>
               )}
+
+              {/* 결과 공유 카드 */}
+              {sortedRestaurants.length > 0 && (
+                <button className="tap" onClick={() => {
+                  const top3 = sortedRestaurants.slice(0, 3).map(r => r.title);
+                  const memberNames = members.filter(m => selected.includes(m.id)).map(m => m.name);
+                  const text = [
+                    `🍽️ ${group.name} 모임 맛집 추천 결과`,
+                    memberNames.length > 0 ? `👥 ${memberNames.join(", ")}` : "",
+                    ``,
+                    ...top3.map((t, i) => `${["🥇","🥈","🥉"][i]} ${t}`),
+                    ``,
+                    `meogja에서 확인 → ${window.location.href}`,
+                  ].filter(Boolean).join("\n");
+                  if (navigator.share) navigator.share({ title: `${group.name} 맛집 추천`, text, url: window.location.href });
+                  else { navigator.clipboard?.writeText(text); toast("결과 복사됨!"); }
+                }} style={{
+                  marginTop:16, width:"100%", padding:"13px", borderRadius:"var(--r-pill)",
+                  border:"none", background:"linear-gradient(135deg, #FF7A45, #FF4E88)",
+                  color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer",
+                  boxShadow:"0 6px 18px rgba(255,122,69,.3)",
+                }}>
+                  결과 카드 공유하기 →
+                </button>
+              )}
             </div>
           )}
         </div>
