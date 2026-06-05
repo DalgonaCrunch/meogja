@@ -336,7 +336,11 @@ export default function ProfilePage() {
 
           const update: Record<string,string> = { [key]: value };
           if (key === "nickname") update.display_name = value;
-          const { error } = await getSupabase().from("user_profiles").update(update).eq("id", currentUser.user.id);
+          // upsert: 행이 없을 경우 생성, 있으면 업데이트
+          const { error } = await getSupabase().from("user_profiles").upsert(
+            { id: currentUser.user.id, ...update },
+            { onConflict: "id" }
+          );
           if (error) { alert("저장 실패: " + error.message); return; }
           setMyProfile((prev) => ({ ...prev, ...update }));
           window.dispatchEvent(new CustomEvent("meogja-auth-change"));

@@ -49,6 +49,15 @@ export async function getCurrentUser(): Promise<CurrentUser> {
       user.user_metadata?.name ||
       user.user_metadata?.preferred_username;
     const displayName = profile?.display_name || metaName || user.email?.split("@")[0] || "";
+    // 프로필 행 없으면 생성 (소셜 로그인 콜백이 누락된 경우 대비)
+    if (!profile) {
+      const profileImage = user.user_metadata?.avatar_url || "/avatars/avatar-1.jpg";
+      getSupabase().from("user_profiles").insert({
+        id: user.id,
+        display_name: displayName,
+        profile_image: profileImage,
+      }).then(() => {});
+    }
     return {
       type: "auth",
       user: { id: user.id, email: user.email, display_name: displayName }

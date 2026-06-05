@@ -8,11 +8,12 @@ export async function GET(request: NextRequest) {
   const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
 
   if (code) {
-    const supabase = createClient(
+    // anon key로 code 교환 (세션 획득)
+    const anonClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
-    const { data: { session } } = await supabase.auth.exchangeCodeForSession(code);
+    const { data: { session } } = await anonClient.auth.exchangeCodeForSession(code);
 
     if (session?.user) {
       const user = session.user;
@@ -21,10 +22,24 @@ export async function GET(request: NextRequest) {
         user.user_metadata?.name ||
         user.user_metadata?.preferred_username ||
         user.email?.split("@")[0] || "";
-      await supabase.from("user_profiles").upsert(
-        { id: user.id, display_name: displayName, profile_image: "/avatars/avatar-1.jpg" },
-        { onConflict: "id", ignoreDuplicates: true }
+      // Google avatar 저장 (없으면 기본 아바타)
+      const profileImage = user.user_metadata?.avatar_url || "/avatars/avatar-1.jpg";
+
+      // service role key로 upsert — anon key는 서버사이드에서 auth 컨텍스트 없음
+      const adminClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
+      // 이미 프로필이 있으면 display_name만 업데이트하지 않음 (사용자가 직접 수정했을 수 있음)
+      const { data: existing } = await adminClient
+        .from("user_profiles").select("id, display_name").eq("id", user.id).single();
+      if (!existing) {
+        await adminClient.from("user_profiles").insert({
+          id: user.id,
+          display_name: displayName,
+          profile_image: profileImage,
+        });
+      }
     }
   }
 
