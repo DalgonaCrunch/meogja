@@ -42,10 +42,15 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="ko" className="h-full">
       <head>
         <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icon-512.png" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="theme-color" content="#FFF9F2" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="meogja" />
+        <meta name="theme-color" content="#FF7A45" />
+        <meta name="application-name" content="meogja" />
         <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')` }} />
       </head>
       <body className="min-h-full flex flex-col" style={{ background: "var(--bg)" }}>
