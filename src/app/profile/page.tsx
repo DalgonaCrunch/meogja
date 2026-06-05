@@ -308,11 +308,11 @@ export default function ProfilePage() {
           { key: "nickname", label: "닉네임 (앱 표시명)", editable: true },
           { key: "name", label: "이름", editable: true },
           { key: "email", label: "이메일", editable: true },
-          { key: "gender", label: "성별", editable: false },
-          { key: "birthday", label: "생일", editable: false },
-          { key: "birthyear", label: "출생연도", editable: false },
-          { key: "age", label: "연령대", editable: false },
-          { key: "mobile", label: "휴대전화", editable: false },
+          { key: "gender", label: "성별", editable: true },
+          { key: "birthday", label: "생일", editable: true },
+          { key: "birthyear", label: "출생연도", editable: true },
+          { key: "age", label: "연령대", editable: true },
+          { key: "mobile", label: "휴대전화", editable: true },
         ];
 
         async function saveProfileField(key: string, value: string) {
