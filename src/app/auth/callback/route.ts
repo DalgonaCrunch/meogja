@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         user.user_metadata?.preferred_username ||
         user.email?.split("@")[0] || "";
       await supabase.from("user_profiles").upsert(
-        { id: user.id, display_name: displayName },
+        { id: user.id, display_name: displayName, profile_image: "/avatars/avatar-1.jpg" },
         { onConflict: "id", ignoreDuplicates: true }
       );
     }

@@ -102,6 +102,20 @@ export default function ProfilePage() {
   const [myProfile, setMyProfile] = useState<Record<string,string>>({});
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  const DEFAULT_AVATARS = [
+    "/avatars/avatar-1.jpg",
+    // 추가 기본 아바타는 여기에 추가
+  ];
+
+  async function selectDefaultAvatar(url: string) {
+    if (currentUser.type !== "auth") return;
+    const { error } = await getSupabase().from("user_profiles").update({ profile_image: url }).eq("id", currentUser.user.id);
+    if (!error) {
+      setMyProfile((prev) => ({ ...prev, profile_image: url }));
+      window.dispatchEvent(new CustomEvent("meogja-auth-change"));
+    }
+  }
+
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || currentUser.type !== "auth") return;
@@ -234,6 +248,19 @@ export default function ProfilePage() {
           {currentUser.type === "auth" ? "로그아웃" : "나가기"}
         </button>
       </div>
+      {/* 기본 아바타 선택 */}
+      {currentUser.type === "auth" && DEFAULT_AVATARS.length > 0 && (
+        <div className="fade-up" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>기본 이미지</span>
+          {DEFAULT_AVATARS.map((url) => (
+            <button key={url} className="tap" onClick={() => selectDefaultAvatar(url)} style={{
+              width: 44, height: 44, borderRadius: "50%", overflow: "hidden", padding: 0, border: myProfile.profile_image === url ? "3px solid var(--primary)" : "2px solid var(--border)", cursor: "pointer", background: "none",
+            }}>
+              <img src={url} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 👤 내 정보 — 수정 가능 */}
       {currentUser.type === "auth" && (() => {
