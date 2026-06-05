@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
-import InstallButton from "./InstallButton";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
@@ -364,7 +363,6 @@ export default function Home() {
           }}>
             + 모임 만들기
           </button>
-          <InstallButton />
         </div>
       </div>
 
