@@ -129,7 +129,16 @@ export default function WorldCup({ onChampion }: Props) {
       <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
         <button className="tap" onClick={() => {
           sessionStorage.setItem("meogja_preset_menus", JSON.stringify([champion]));
-          window.location.href = "/search";
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                sessionStorage.setItem("meogja_search_location", JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }));
+                window.location.href = "/search";
+              },
+              () => { window.location.href = "/search"; },
+              { timeout: 5000 }
+            );
+          } else { window.location.href = "/search"; }
         }} style={{ padding:"11px 22px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:14, cursor:"pointer" }}>
           📍 주변에서 찾기
         </button>

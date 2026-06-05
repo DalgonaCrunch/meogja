@@ -306,6 +306,21 @@ export default function Home() {
     setMenuActionMenus(menus);
   }
 
+  // 위치 먼저 확인하고 /search 이동
+  function goToSearch(menus: string[]) {
+    sessionStorage.setItem("meogja_preset_menus", JSON.stringify(menus));
+    if (!navigator.geolocation) { router.push("/search"); return; }
+    // 이미 권한 있으면 바로 좌표 저장 후 이동, 없으면 /search에서 직접 요청
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        sessionStorage.setItem("meogja_search_location", JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }));
+        router.push("/search");
+      },
+      () => { router.push("/search"); }, // 실패해도 이동 (search 페이지에서 재시도)
+      { timeout: 5000, enableHighAccuracy: false }
+    );
+  }
+
   function getTimeBasedMenus(): { label: string; emoji: string; menus: string[] } {
     const h = new Date().getHours();
     if (h >= 6 && h < 10) return { label:"아침 추천", emoji:"🌅", menus:["김밥","토스트","죽","샌드위치","베이글","계란말이","오트밀","영양밥"] };
@@ -676,10 +691,10 @@ export default function Home() {
             {/* 바로 찾기 옵션 */}
             <button className="tap" onClick={() => {
               setShowQuickGroupPicker(false);
-              sessionStorage.setItem("meogja_preset_menus", JSON.stringify([...quickSelected]));
               setQuickCatSheet(null);
+              const menus = [...quickSelected];
               setQuickSelected(new Set());
-              router.push("/search");
+              goToSearch(menus);
             }} style={{ marginTop:12, width:"100%", padding:"12px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:14, fontWeight:600, cursor:"pointer" }}>
               📍 모임 없이 바로 주변 찾기
             </button>
@@ -751,9 +766,9 @@ export default function Home() {
                 👥 모임에서 찾기
               </button>
               <button className="tap" onClick={() => {
-                sessionStorage.setItem("meogja_preset_menus", JSON.stringify(menuActionMenus));
+                const menus = menuActionMenus;
                 setMenuActionMenus([]);
-                router.push("/search");
+                goToSearch(menus);
               }} style={{ padding:"14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text)", fontSize:15, fontWeight:600, cursor:"pointer" }}>
                 📍 모임 없이 바로 주변 찾기
               </button>

@@ -29,6 +29,16 @@ function SearchContent() {
       try { setMenus(JSON.parse(raw)); } catch {}
       sessionStorage.removeItem("meogja_preset_menus");
     }
+    // 이전에 저장된 위치 있으면 즉시 사용
+    const savedLoc = sessionStorage.getItem("meogja_search_location");
+    if (savedLoc) {
+      try {
+        const loc = JSON.parse(savedLoc);
+        setLocation(loc);
+        sessionStorage.removeItem("meogja_search_location");
+        return; // 위치 이미 있으므로 재요청 불필요
+      } catch {}
+    }
     requestLocation();
   }, []);
 
@@ -40,7 +50,8 @@ function SearchContent() {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => { setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocating(false); },
-      () => { setError("위치 정보를 가져올 수 없습니다. 위치 권한을 허용해주세요."); setLocating(false); }
+      () => { setError("위치 권한을 허용해주세요.\n설정에서 위치 접근을 허용하면 주변 식당을 찾을 수 있습니다."); setLocating(false); },
+      { timeout: 8000, enableHighAccuracy: false }
     );
   }
 
@@ -49,7 +60,7 @@ function SearchContent() {
     setLoading(true);
     setError(null);
     try {
-      const query = menus[0];
+      const query = menus.join(" ");
       const res = await fetch(`/api/search?query=${encodeURIComponent(query)}&x=${location.lng}&y=${location.lat}&radius=1000`);
       if (!res.ok) throw new Error("검색 실패");
       const data = await res.json();
