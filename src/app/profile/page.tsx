@@ -205,7 +205,24 @@ export default function ProfilePage() {
 
         async function saveProfileField(key: string, value: string) {
           if (currentUser.type !== "auth") return;
-          // 닉네임 수정 시 display_name도 함께 업데이트
+
+          // 닉네임 중복 체크
+          if (key === "nickname") {
+            const trimmed = value.trim();
+            if (!trimmed) return;
+            // 다른 계정이 이미 같은 닉네임을 사용 중인지 확인
+            const { data: dupe } = await getSupabase()
+              .from("user_profiles")
+              .select("id")
+              .eq("nickname", trimmed)
+              .neq("id", currentUser.user.id)
+              .single();
+            if (dupe) {
+              alert(`"${trimmed}" 닉네임은 이미 사용 중입니다. 다른 닉네임을 입력해주세요.`);
+              return;
+            }
+          }
+
           const update: Record<string,string> = { [key]: value };
           if (key === "nickname") update.display_name = value;
           const { error } = await getSupabase().from("user_profiles").update(update).eq("id", currentUser.user.id);
