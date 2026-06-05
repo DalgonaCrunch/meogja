@@ -73,22 +73,25 @@ export async function GET(request: NextRequest) {
       userId = newUser.user.id;
     }
 
-    // user_profiles 업데이트 — 네이버에서 동의한 정보 모두 저장
-    const profileData: Record<string, string | null> = {
-      id: userId,
-      display_name: displayName,
-    };
-    if (naverUser.name) profileData.name = naverUser.name;
-    if (naverUser.email) profileData.email = naverUser.email;
-    if (naverUser.nickname) profileData.nickname = naverUser.nickname;
-    if (naverUser.profile_image) profileData.profile_image = naverUser.profile_image;
-    if (naverUser.gender) profileData.gender = naverUser.gender === "M" ? "남성" : naverUser.gender === "F" ? "여성" : naverUser.gender;
-    if (naverUser.birthday) profileData.birthday = naverUser.birthday; // MM-DD
-    if (naverUser.age) profileData.age = naverUser.age;
-    if (naverUser.mobile) profileData.mobile = naverUser.mobile;
-    if (naverUser.birthyear) profileData.birthyear = naverUser.birthyear;
+    // 기존 프로필 확인 — 첫 로그인만 저장, 이후엔 사용자 수정 유지
+    const { data: existingProfile } = await supabaseAdmin
+      .from("user_profiles").select("id, display_name").eq("id", userId).single();
 
-    await supabaseAdmin.from("user_profiles").upsert(profileData, { onConflict: "id" });
+    if (!existingProfile) {
+      // 첫 로그인: 네이버 정보로 초기 세팅
+      const profileData: Record<string, string | null> = { id: userId, display_name: displayName };
+      if (naverUser.name) profileData.name = naverUser.name;
+      if (naverUser.email) profileData.email = naverUser.email;
+      if (naverUser.nickname) profileData.nickname = naverUser.nickname;
+      if (naverUser.profile_image) profileData.profile_image = naverUser.profile_image;
+      if (naverUser.gender) profileData.gender = naverUser.gender === "M" ? "남성" : naverUser.gender === "F" ? "여성" : naverUser.gender;
+      if (naverUser.birthday) profileData.birthday = naverUser.birthday;
+      if (naverUser.age) profileData.age = naverUser.age;
+      if (naverUser.mobile) profileData.mobile = naverUser.mobile;
+      if (naverUser.birthyear) profileData.birthyear = naverUser.birthyear;
+      await supabaseAdmin.from("user_profiles").insert(profileData);
+    }
+    // 이후 로그인: 아무것도 덮어쓰지 않음 (사용자 수정 유지)
 
     // 4. 세션 생성 (magic link 방식)
     const { data: otpData } = await supabaseAdmin.auth.admin.generateLink({

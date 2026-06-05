@@ -193,8 +193,7 @@ export default function ProfilePage() {
       {/* 👤 내 정보 — 수정 가능 */}
       {currentUser.type === "auth" && (() => {
         const FIELDS: {key:string;label:string;editable:boolean}[] = [
-          { key: "display_name", label: "앱 표시 이름", editable: true },
-          { key: "nickname", label: "닉네임", editable: true },
+          { key: "nickname", label: "닉네임 (앱 표시명)", editable: true },
           { key: "name", label: "이름", editable: true },
           { key: "email", label: "이메일", editable: true },
           { key: "gender", label: "성별", editable: false },
@@ -206,13 +205,13 @@ export default function ProfilePage() {
 
         async function saveProfileField(key: string, value: string) {
           if (currentUser.type !== "auth") return;
+          // 닉네임 수정 시 display_name도 함께 업데이트
           const update: Record<string,string> = { [key]: value };
-          await getSupabase().from("user_profiles").update(update).eq("id", currentUser.user.id);
-          setMyProfile((prev) => ({ ...prev, [key]: value }));
-          // display_name이면 헤더도 갱신
-          if (key === "display_name" || key === "nickname") {
-            window.dispatchEvent(new CustomEvent("meogja-auth-change"));
-          }
+          if (key === "nickname") update.display_name = value;
+          const { error } = await getSupabase().from("user_profiles").update(update).eq("id", currentUser.user.id);
+          if (error) { alert("저장 실패: " + error.message); return; }
+          setMyProfile((prev) => ({ ...prev, ...update }));
+          window.dispatchEvent(new CustomEvent("meogja-auth-change"));
         }
 
         return (
