@@ -51,9 +51,15 @@ export default function AuthHeader() {
     });
     const handleGuestChange = () => getCurrentUser().then(applyUser);
     window.addEventListener("meogja-auth-change", handleGuestChange);
+    // PWA: Custom Tab OAuth 완료 후 복귀 시 세션 재확인
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") getCurrentUser().then(applyUser);
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       subscription.unsubscribe();
       window.removeEventListener("meogja-auth-change", handleGuestChange);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

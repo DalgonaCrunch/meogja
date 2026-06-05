@@ -19,10 +19,23 @@ function LoginContent() {
     getCurrentUser().then((u) => {
       if (u.type !== "none") router.replace(next);
     });
-    // WebView 감지 (카카오톡, 인스타그램, 라인 등 인앱브라우저)
     const ua = navigator.userAgent;
-    const webview = /KAKAOTALK|NAVER|Instagram|FBAN|FBAV|Line\/|MicroMessenger|WebView|wv\b/.test(ua);
-    setIsWebView(webview);
+    setIsWebView(/KAKAOTALK|NAVER|Instagram|FBAN|FBAV|Line\/|MicroMessenger|WebView|wv\b/.test(ua));
+
+    // PWA: Custom Tab / 외부 브라우저에서 OAuth 완료 후 돌아왔을 때 세션 감지
+    function checkSession() {
+      getCurrentUser().then((u) => {
+        if (u.type !== "none") router.replace(next);
+      });
+    }
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") checkSession();
+    });
+    window.addEventListener("focus", checkSession);
+    return () => {
+      document.removeEventListener("visibilitychange", checkSession as EventListener);
+      window.removeEventListener("focus", checkSession);
+    };
   }, [router, next]);
 
   function openInExternalBrowser() {
@@ -66,21 +79,10 @@ function LoginContent() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 32 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 24, padding: "20px 16px" }}>
       <div style={{ textAlign: "center" }}>
         <img src="/meogja-logo.jpg" alt="meogja" style={{ height: 60, width: "auto", objectFit: "contain", display: "block", margin: "0 auto 12px", borderRadius: 8 }} />
         <p style={{ color: "var(--text-2)", fontSize: 15 }}>로그인하거나 이름만 입력해서 시작하세요</p>
-      </div>
-
-      {/* 로그인 혜택 안내 */}
-      <div style={{ width: "100%", maxWidth: 360, padding: "14px 16px", borderRadius: 16, background: "var(--primary-light)", border: "1px solid var(--border)" }}>
-        <p style={{ fontFamily: "var(--font-display)", fontSize: 14, color: "var(--primary)", marginBottom: 8 }}>🔑 로그인하면 이런 게 저장돼요</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          {["❤️ 좋아하는 음식 / 못먹는 음식 저장", "👥 참여 모임 기록 유지", "📋 추천 히스토리 보관", "👤 닉네임 · 프로필 사진 설정"].map((t) => (
-            <p key={t} style={{ fontSize: 13, color: "var(--text-2)" }}>{t}</p>
-          ))}
-        </div>
-        <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 8 }}>게스트는 이 정보가 저장되지 않아요</p>
       </div>
 
       <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -149,6 +151,16 @@ function LoginContent() {
           로그인 상태 유지
         </label>
 
+        {/* 로그인 혜택 안내 — 버튼 아래 */}
+        <div style={{ padding: "12px 14px", borderRadius: 14, background: "var(--primary-light)", border: "1px solid var(--border)" }}>
+          <p style={{ fontFamily: "var(--font-display)", fontSize: 13, color: "var(--primary)", marginBottom: 6 }}>🔑 로그인하면 저장돼요</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {["❤️ 좋아하는 음식 / 못먹는 음식", "👥 참여 모임 기록", "👤 닉네임 · 프로필 사진"].map((t) => (
+              <p key={t} style={{ fontSize: 12, color: "var(--text-2)" }}>{t}</p>
+            ))}
+          </div>
+        </div>
+
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
           <span style={{ fontSize: 12, color: "var(--text-muted)" }}>또는</span>
@@ -184,9 +196,6 @@ function LoginContent() {
         )}
       </div>
 
-      <p style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", maxWidth: 300 }}>
-        로그인 없이 이용 시 공개 모임만 참여 가능합니다
-      </p>
       <p style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center" }}>
         로그인 시 <a href="/privacy" style={{ color: "var(--primary)", textDecoration: "underline" }}>개인정보처리방침</a>에 동의하는 것으로 간주합니다
       </p>
