@@ -53,7 +53,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <main style={{ flex: 1, maxWidth: 480, margin: "0 auto", width: "100%", padding: "0 0 8px" }}>
           {children}
         </main>
-        <InstallBanner />
         <BottomNav />
       </body>
     </html>
