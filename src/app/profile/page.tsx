@@ -63,6 +63,20 @@ export default function ProfilePage() {
 
   useEffect(() => {
     init();
+    // 게스트 → 로그인 전환 시 데이터 연동
+    const guestToLink = sessionStorage.getItem("meogja_link_guest");
+    if (guestToLink) {
+      sessionStorage.removeItem("meogja_link_guest");
+      getCurrentUser().then(async (u) => {
+        if (u.type === "auth") {
+          // 해당 guest_name의 멤버 기록을 새 계정으로 연결
+          await getSupabase().from("members").update({ user_id: u.user.id }).eq("guest_name", guestToLink).is("user_id", null);
+          // 게스트 계정도 연결
+          // guest_accounts에 user_id 연결 (컬럼 없으면 무시)
+          // await getSupabase().from("guest_accounts").update({ user_id: u.user.id }).eq("name", guestToLink).catch(() => {});
+        }
+      });
+    }
   }, []);
 
   async function init() {
@@ -245,6 +259,32 @@ export default function ProfilePage() {
           {currentUser.type === "auth" ? "로그아웃" : "나가기"}
         </button>
       </div>
+
+      {/* 게스트 → 로그인 전환 안내 */}
+      {currentUser.type === "guest" && (
+        <div className="fade-up" style={{ padding: "18px 16px", borderRadius: 20, background: "var(--primary-light)", border: "1.5px solid var(--primary)" }}>
+          <p style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--primary)", marginBottom: 8 }}>🔑 로그인하면 정보가 저장돼요</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 }}>
+            {["❤️ 선호/비선호 음식 저장", "👥 참여 모임 유지", "📋 추천 히스토리", "👤 프로필 사진 설정"].map((t) => (
+              <p key={t} style={{ fontSize: 13, color: "var(--text-2)" }}>{t}</p>
+            ))}
+          </div>
+          <p style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 12 }}>현재 게스트({currentUser.user.name})로 이용 중 — 데이터가 저장되지 않습니다</p>
+          <button className="tap tap-primary" onClick={() => {
+            // 현재 게스트 이름을 세션에 저장하여 로그인 후 데이터 연동
+            sessionStorage.setItem("meogja_link_guest", currentUser.user.name);
+            router.push("/login?next=/profile");
+          }} style={{
+            width: "100%", padding: "12px", borderRadius: "var(--r-pill)", border: "none",
+            background: "var(--primary)", color: "#fff",
+            fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer",
+            boxShadow: "0 6px 16px rgba(255,122,69,.25)",
+          }}>
+            로그인하고 데이터 저장하기 →
+          </button>
+        </div>
+      )}
+
       {/* 기본 아바타 선택 */}
       {currentUser.type === "auth" && (
         <div className="fade-up" style={{ display: "flex", alignItems: "center", gap: 10 }}>

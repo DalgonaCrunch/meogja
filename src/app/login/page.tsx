@@ -71,6 +71,17 @@ function LoginContent() {
         <p style={{ color: "var(--text-2)", fontSize: 15 }}>로그인하거나 이름만 입력해서 시작하세요</p>
       </div>
 
+      {/* 로그인 혜택 안내 */}
+      <div style={{ width: "100%", maxWidth: 360, padding: "14px 16px", borderRadius: 16, background: "var(--primary-light)", border: "1px solid var(--border)" }}>
+        <p style={{ fontFamily: "var(--font-display)", fontSize: 14, color: "var(--primary)", marginBottom: 8 }}>🔑 로그인하면 이런 게 저장돼요</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          {["❤️ 좋아하는 음식 / 못먹는 음식 저장", "👥 참여 모임 기록 유지", "📋 추천 히스토리 보관", "👤 닉네임 · 프로필 사진 설정"].map((t) => (
+            <p key={t} style={{ fontSize: 13, color: "var(--text-2)" }}>{t}</p>
+          ))}
+        </div>
+        <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 8 }}>게스트는 이 정보가 저장되지 않아요</p>
+      </div>
+
       <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12 }}>
         {/* WebView 경고 */}
         {isWebView && (
