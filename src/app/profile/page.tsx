@@ -230,31 +230,13 @@ export default function ProfilePage() {
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
       {/* 프로필 헤더 */}
       <div className="fade-up" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
-          {/* 프로필 사진 */}
-          <label className="tap" style={{ position: "relative", cursor: "pointer", flexShrink: 0 }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", overflow: "hidden", border: "2px solid var(--border)", background: "var(--bg-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {myProfile.profile_image
-                ? <img src={myProfile.profile_image} alt="profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <span style={{ fontSize: 28, color: "var(--text-3)" }}>👤</span>}
-            </div>
-            {currentUser.type === "auth" && (
-              <div style={{ position: "absolute", bottom: 0, right: 0, width: 20, height: 20, borderRadius: "50%", background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>
-                {uploadingPhoto ? "…" : "📷"}
-              </div>
-            )}
-            {currentUser.type === "auth" && (
-              <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: "none" }} />
-            )}
-          </label>
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {displayName || "사용자"}
-            </h1>
-            <p style={{ fontSize: 12, color: "var(--text-2)" }}>
-              {currentUser.type === "auth" ? `${currentUser.user.email}` : "게스트 이용 중"}
-            </p>
-          </div>
+        <div style={{ minWidth: 0 }}>
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {displayName || "사용자"}
+          </h1>
+          <p style={{ fontSize: 12, color: "var(--text-2)" }}>
+            {currentUser.type === "auth" ? currentUser.user.email : "게스트 이용 중"}
+          </p>
         </div>
         <button onClick={handleSignOut} style={{ padding: "7px 16px", borderRadius: "var(--r-pill)", border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-2)", fontSize: 12, fontWeight: 500, cursor: "pointer", flexShrink: 0 }}>
           {currentUser.type === "auth" ? "로그아웃" : "나가기"}
