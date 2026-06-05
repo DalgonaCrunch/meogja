@@ -50,7 +50,7 @@ export default function GroupsPage() {
 
     const [allRes, pubRes] = await Promise.all([
       getSupabase().from("groups").select("id,name,description,is_private,require_auth,requires_approval,owner_id,owner_guest_name,emoji,image_url,created_at").order("created_at", { ascending: false }),
-      getSupabase().from("groups").select("id,name,description,is_private,require_auth,requires_approval,owner_id,owner_guest_name,emoji,image_url,created_at").eq("is_private", false).eq("require_auth", false).order("created_at", { ascending: false }),
+      getSupabase().from("groups").select("id,name,description,is_private,require_auth,requires_approval,owner_id,owner_guest_name,emoji,image_url,created_at").eq("is_private", false).order("created_at", { ascending: false }),
     ]);
 
     let memberMap: Record<string, string> = {};

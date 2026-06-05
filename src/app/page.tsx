@@ -237,7 +237,7 @@ export default function Home() {
     const COLS = "id,name,description,is_private,require_auth,requires_approval,owner_id,owner_guest_name,emoji,image_url,created_at";
     const [myRes, publicRes] = await Promise.all([
       getSupabase().from("groups").select(COLS).order("created_at", { ascending: false }),
-      getSupabase().from("groups").select(COLS).eq("is_private", false).eq("require_auth", false).order("created_at", { ascending: false }).limit(20),
+      getSupabase().from("groups").select(COLS).eq("is_private", false).order("created_at", { ascending: false }).limit(20),
     ]);
     if (myRes.data) setGroups(myRes.data);
     if (publicRes.data) setAllPublicGroups(publicRes.data);
