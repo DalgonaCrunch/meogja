@@ -261,7 +261,7 @@ export default function Home() {
     }
   }
 
-  const ROULETTE_POOL = ["삼겹살","초밥","마라탕","치킨","파스타","떡볶이","순대국밥","김치찌개","불고기","라멘","갈비찜","돈카츠","우동","비빔밥","감자탕","피자","스테이크","부대찌개","칼국수","짬뽕","냉면","제육볶음","족발","양꼬치","오마카세"];
+  const ROULETTE_POOL = ["삼겹살","초밥","마라탕","치킨","파스타","떡볶이","순대국밥","김치찌개","불고기","라멘","갈비찜","돈카츠","우동","비빔밥","감자탕","피자","스테이크","부대찌개","칼국수","짬뽕","냉면","제육볶음","족발","양꼬치","오마카세","갈비","소불고기","낙지볶음","쭈꾸미","불닭","마라샹궈","규동","텐동","카라아게","야키토리","해물찜","꽃게찜","간장게장","수육","편육","보쌈","순대","떡갈비","불고기버거","BLT샌드위치","크로플","에그타르트","팥빙수","아이스크림","타코","나초","케밥","샤브샤브","훠궈","전골","탕수육","깐풍기","짜장면","유산슬","잡채","갈낙전골","해장국","설렁탕"];
 
   function spinRoulette() {
     if (rouletteRunning) return;
@@ -458,33 +458,6 @@ export default function Home() {
       {/* ── Hero ── */}
       <div className="fade-up" style={{ position:"relative", overflow:"hidden" }}>
         <img src="/meogja-brand.jpg" alt="meogja brand" style={{ width:"100%", display:"block", objectFit:"cover", maxHeight:220, objectPosition:"top center" }} />
-      </div>
-
-      {/* ── 새 모임 폼 ── */}
-      {showCreateForm && (
-        <div className="fade-up" style={{ margin: "0 16px", background: "var(--surface)", borderRadius: "var(--card-radius)", padding: "22px 20px", border: "var(--card-border)", boxShadow: "var(--card-shadow)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <span style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>새 모임 만들기</span>
-            <button onClick={() => { setShowCreateForm(false); setNewName(""); setIsPrivate(false); setNewPassword(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-2)", fontSize: 18 }}>✕</button>
-          </div>
-          <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} emoji={groupEmoji} setEmoji={setGroupEmoji} imageUrl={groupImageUrl} setImageUrl={setGroupImageUrl} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} requiresApproval={requiresApproval} setRequiresApproval={setRequiresApproval} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
-        </div>
-      )}
-
-      {/* ── 빠른 액션 ── */}
-      <div className="fade-up" style={{ padding: "0 16px" }}>
-        <button className="tap" onClick={() => {
-          if (currentUser.type === "none") { router.push("/login"); return; }
-          setShowCreateForm(true);
-        }} style={{
-          display:"flex", alignItems:"center", justifyContent:"center", gap:8, width:"100%",
-          padding:"14px", borderRadius:"var(--r-pill)", border:"none",
-          background:"var(--primary)", color:"#fff",
-          fontFamily:"var(--font-display)", fontSize:16, cursor:"pointer",
-          boxShadow:"0 6px 18px rgba(255,122,69,.3)",
-        }}>
-          + 모임 만들기
-        </button>
       </div>
 
       {/* ── 랜덤 룰렛 ── */}
@@ -698,13 +671,38 @@ export default function Home() {
         </div>
       )}
 
+      {/* ── 바로 찾기 (모임 없이) ── */}
+      {quickSelected.size > 0 && (
+        <div style={{ padding: "0 16px" }}>
+          <button className="tap" onClick={() => {
+            sessionStorage.setItem("meogja_preset_menus", JSON.stringify([...quickSelected]));
+            router.push("/search");
+          }} style={{
+            width:"100%", padding:"12px", borderRadius:"var(--r-pill)",
+            border:"1.5px solid var(--border)", background:"var(--surface)",
+            color:"var(--text)", fontSize:14, fontWeight:600, cursor:"pointer",
+          }}>
+            📍 모임 없이 바로 주변 식당 찾기
+          </button>
+        </div>
+      )}
+
       {/* ── 내 모임 — 로그인/게스트 사용자에게만 표시 ── */}
       {!loading && currentUser.type !== "none" && (
         <div className="fade-up fade-up-2" style={{ padding: "0 16px" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
             <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>내 모임</span>
-            <button className="tap" onClick={() => setShowCreateForm(true)} style={{ fontSize:12, color:"var(--text-2)", fontWeight:600, background:"none", border:"none", cursor:"pointer" }}>+ 새 모임</button>
+            <button className="tap" onClick={() => setShowCreateForm(true)} style={{ fontSize:12, color:"var(--primary)", fontWeight:700, background:"none", border:"none", cursor:"pointer" }}>+ 새 모임</button>
           </div>
+          {showCreateForm && (
+            <div className="fade-up" style={{ marginBottom:12, background:"var(--surface)", borderRadius:"var(--card-radius)", padding:"22px 20px", border:"var(--card-border)", boxShadow:"var(--card-shadow)" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+                <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>새 모임 만들기</span>
+                <button onClick={() => { setShowCreateForm(false); setNewName(""); setIsPrivate(false); setNewPassword(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--text-2)", fontSize:18 }}>✕</button>
+              </div>
+              <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} emoji={groupEmoji} setEmoji={setGroupEmoji} imageUrl={groupImageUrl} setImageUrl={setGroupImageUrl} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} requiresApproval={requiresApproval} setRequiresApproval={setRequiresApproval} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
+            </div>
+          )}
 
           {groups.length === 0 && (
             <div style={{ padding:"16px 18px", borderRadius:14, background:"var(--surface)", border:"var(--card-border)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getDeviceId } from "@/lib/auth";
 
@@ -27,6 +28,7 @@ function getTodayPair(): [string, string] {
 }
 
 export default function MenuBattle() {
+  const router = useRouter();
   const [battle, setBattle] = useState<{id:string;menu_a:string;menu_b:string} | null>(null);
   const [votes, setVotes] = useState<{a:number;b:number}>({a:0, b:0});
   const [myVote, setMyVote] = useState<"a"|"b"|null>(null);
@@ -97,7 +99,7 @@ export default function MenuBattle() {
     <div ref={cardRef} style={{ padding: "0 16px" }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
         <p style={{ fontFamily:"var(--font-display)", fontSize:16 }}>⚔️ 오늘의 배틀</p>
-        <p style={{ fontSize:12, color:"var(--text-3)" }}>매일 갱신 · {total}명 참여</p>
+        <button onClick={() => router.push("/battle")} style={{ fontSize:12, color:"var(--primary)", fontWeight:700, background:"none", border:"none", cursor:"pointer" }}>히스토리 ›</button>
       </div>
 
       <div style={{
