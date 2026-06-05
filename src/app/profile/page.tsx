@@ -8,6 +8,7 @@ import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySu
 import { THEMES, ThemeId, applyTheme, getSavedTheme } from "@/lib/theme";
 import { toast, showAlert } from "@/lib/dialog";
 import { ALL_AVATARS, DEFAULT_AVATARS } from "@/lib/mascot";
+import ImageCropModal from "@/app/ImageCropModal";
 
 function ProfileFieldRow({ fieldKey, label, value, editable, isLast, onSave }: {
   fieldKey: string; label: string; value: string; editable: boolean; isLast: boolean;
@@ -127,6 +128,7 @@ export default function ProfilePage() {
 
   const [showAllAvatars, setShowAllAvatars] = useState(false);
   const [avatarCfgs, setAvatarCfgs] = useState<Record<string, {purpose:string;object_position:string}>>({});
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   async function selectDefaultAvatar(url: string) {
     if (currentUser.type !== "auth") return;
@@ -137,30 +139,25 @@ export default function ProfilePage() {
     }
   }
 
+  async function applyProfileImage(dataUrl: string) {
+    if (currentUser.type !== "auth") return;
+    const { error } = await getSupabase().from("user_profiles").upsert({ id: currentUser.user.id, profile_image: dataUrl });
+    if (!error) {
+      setMyProfile((prev) => ({ ...prev, profile_image: dataUrl }));
+      window.dispatchEvent(new CustomEvent("meogja-auth-change"));
+    }
+    setCropSrc(null);
+    setUploadingPhoto(false);
+  }
+
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || currentUser.type !== "auth") return;
     if (file.size > 5 * 1024 * 1024) { await showAlert("5MB 이하 이미지만 가능합니다", { icon: "🖼️" }); return; }
-    setUploadingPhoto(true);
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = async () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = 200; canvas.height = 200;
-      const ctx = canvas.getContext("2d")!;
-      const size = Math.min(img.width, img.height);
-      const sx = (img.width - size) / 2, sy = (img.height - size) / 2;
-      ctx.drawImage(img, sx, sy, size, size, 0, 0, 200, 200);
-      URL.revokeObjectURL(url);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-      const { error } = await getSupabase().from("user_profiles").update({ profile_image: dataUrl }).eq("id", currentUser.user.id);
-      if (!error) {
-        setMyProfile((prev) => ({ ...prev, profile_image: dataUrl }));
-        window.dispatchEvent(new CustomEvent("meogja-auth-change"));
-      }
-      setUploadingPhoto(false);
-    };
-    img.src = url;
+    // 크롭 모달로 넘김
+    const objectUrl = URL.createObjectURL(file);
+    setCropSrc(objectUrl);
+    e.target.value = ""; // reset input
   }
   const [myPrefs, setMyPrefs] = useState<{id:string;food_name:string;preference_type:string}[]>([]);
   const [prefInput, setPrefInput] = useState("");
@@ -237,6 +234,14 @@ export default function ProfilePage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+      {cropSrc && (
+        <ImageCropModal
+          src={cropSrc}
+          title="프로필 사진 조정"
+          onClose={() => { setCropSrc(null); setUploadingPhoto(false); }}
+          onSave={(dataUrl) => applyProfileImage(dataUrl)}
+        />
+      )}
       {/* 프로필 헤더 */}
       <div className="fade-up" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
         <div style={{ display:"flex", alignItems:"center", gap:12, flex:1, minWidth:0 }}>
