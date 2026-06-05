@@ -130,6 +130,7 @@ export default function GroupPage() {
   const [pendingMembers, setPendingMembers] = useState<Member[]>([]);
 
   // 추천 탭
+  const [presetMenus, setPresetMenus] = useState<string[]>([]); // 홈에서 선택한 메뉴 프리셋
   const [selected, setSelected] = useState<string[]>([]);
   const [scoredRestaurants, setScoredRestaurants] = useState<ScoredRestaurant[]>([]);
   const [loading, setLoading] = useState(false);
@@ -173,6 +174,19 @@ export default function GroupPage() {
   const mediumCategories = selectedLarge ? getMediumCategories(selectedLarge) : [];
   const menuItems = selectedLarge && selectedMedium ? getMenuItems(selectedLarge, selectedMedium) : [];
 
+  function applyPresetMenus() {
+    const raw = sessionStorage.getItem("meogja_preset_menus");
+    if (!raw) return;
+    try {
+      const items: string[] = JSON.parse(raw);
+      if (items.length > 0) {
+        setPresetMenus(items);
+        setFilterItem(items[0]); // 첫 항목은 검색 쿼리로도 설정
+      }
+      sessionStorage.removeItem("meogja_preset_menus");
+    } catch { /* ignore */ }
+  }
+
   useEffect(() => {
     // 마지막 방문 모임 저장 (모임 탭 복귀용)
     localStorage.setItem("meogja_last_group", id);
@@ -198,15 +212,8 @@ export default function GroupPage() {
       setFilterMedium(quickCat);
       localStorage.removeItem("meogja_quick_cat");
     }
-    // 홈 인기메뉴 다중 선택 프리셋
-    const presetRaw = localStorage.getItem("meogja_preset_menus");
-    if (presetRaw) {
-      try {
-        const items: string[] = JSON.parse(presetRaw);
-        if (items.length > 0) setFilterItem(items[0]); // 첫 번째 항목으로 필터 적용
-        localStorage.removeItem("meogja_preset_menus");
-      } catch { /* ignore */ }
-    }
+    // 홈 인기메뉴 다중 선택 프리셋 (sessionStorage — 참여 후에도 유지)
+    applyPresetMenus();
   }, [id]);
 
   async function loadReviewAvgs() {
@@ -505,7 +512,10 @@ export default function GroupPage() {
     // 카테고리 필터 우선 적용
     const DEFAULT_QUERIES = ["한식", "중식", "일식", "양식", "분식", "고기", "카페"];
     let queries: string[];
-    if (filterItem) {
+    if (presetMenus.length > 0) {
+      // 홈에서 선택한 메뉴 전체 사용
+      queries = presetMenus;
+    } else if (filterItem) {
       queries = [filterItem];
     } else if (filterMedium) {
       queries = [filterMedium];
@@ -785,11 +795,18 @@ export default function GroupPage() {
   function handleJoined(memberId: string, memberName: string) {
     setMyMemberId(memberId);
     setShowJoinModal(false);
-    // 참여 후 선호도 설정으로 안내
-    setExpandedId(memberId);
-    setTab("members");
-    setShowPrefSetup(true);
     loadMembers();
+    // 홈에서 메뉴 선택 후 온 경우 → 추천 탭으로 바로 이동, 프리셋 재적용
+    const presetRaw = sessionStorage.getItem("meogja_preset_menus");
+    if (presetRaw) {
+      applyPresetMenus();
+      setTab("recommend");
+    } else {
+      // 일반 참여 → 선호도 설정 안내
+      setExpandedId(memberId);
+      setTab("members");
+      setShowPrefSetup(true);
+    }
   }
 
   return (
@@ -1125,6 +1142,28 @@ export default function GroupPage() {
               </div>
             )}
           </div>
+
+          {/* 홈 선택 메뉴 프리셋 표시 */}
+          {presetMenus.length > 0 && (
+            <div style={{ background:"var(--bg-card)", borderRadius:16, padding:"16px 18px", border:"1.5px solid var(--primary)", boxShadow:"var(--card-shadow)" }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+                <p style={{ fontSize:12, fontWeight:700, color:"var(--primary)" }}>선택한 메뉴 ({presetMenus.length}개)</p>
+                <button className="tap" onClick={() => { setPresetMenus([]); setFilterItem(""); }} style={{ fontSize:12, color:"var(--text-3)", background:"none", border:"none", cursor:"pointer" }}>초기화</button>
+              </div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
+                {presetMenus.map((m) => (
+                  <button key={m} className="tap" onClick={() => {
+                    const next = presetMenus.filter(x => x !== m);
+                    setPresetMenus(next);
+                    if (next.length === 0) setFilterItem("");
+                    else setFilterItem(next[0]);
+                  }} style={{ padding:"6px 13px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer" }}>
+                    {m} ✕
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 분위기 + 인원 설정 */}
           <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: 22, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>

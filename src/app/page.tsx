@@ -516,7 +516,7 @@ export default function Home() {
                 return myGroupList.map((g) => (
                   <button key={g.id} className="tap" onClick={() => {
                     setShowQuickGroupPicker(false);
-                    localStorage.setItem("meogja_preset_menus", JSON.stringify([...quickSelected]));
+                    sessionStorage.setItem("meogja_preset_menus", JSON.stringify([...quickSelected]));
                     setQuickCatSheet(null);
                     setQuickSelected(new Set());
                     handleEnter(g);
