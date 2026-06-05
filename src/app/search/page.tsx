@@ -50,7 +50,7 @@ function SearchContent() {
     setError(null);
     try {
       const query = menus[0];
-      const res = await fetch(`/api/search?query=${encodeURIComponent(query)}&lat=${location.lat}&lng=${location.lng}&radius=1000`);
+      const res = await fetch(`/api/search?query=${encodeURIComponent(query)}&x=${location.lng}&y=${location.lat}&radius=1000`);
       if (!res.ok) throw new Error("검색 실패");
       const data = await res.json();
       setResults(data.items || []);

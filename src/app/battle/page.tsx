@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getDeviceId } from "@/lib/auth";
 import WorldCup from "./WorldCup";
@@ -24,9 +24,12 @@ const EMOJIS: Record<string, string> = {
   순대국밥:"🍲", 설렁탕:"🍲",
 };
 
-export default function BattlePage() {
+function BattleContent() {
   const router = useRouter();
-  const [tab, setTab] = useState<"worldcup"|"battle">("worldcup");
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<"worldcup"|"battle">(
+    searchParams.get("tab") === "battle" ? "battle" : "worldcup"
+  );
   const [battles, setBattles] = useState<Battle[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,7 +63,7 @@ export default function BattlePage() {
       <div style={{ padding:"16px 16px 0", position:"sticky", top:52, background:"var(--bg)", zIndex:10, borderBottom:"1px solid var(--border)" }}>
         <h1 style={{ fontFamily:"var(--font-display)", fontSize:22, marginBottom:12 }}>🎮 게임</h1>
         <div style={{ display:"flex", gap:0 }}>
-          {([["worldcup","🏆 월드컵"],["battle","⚔️ 배틀 히스토리"]] as const).map(([t,label]) => (
+          {([["battle","⚔️ 배틀 히스토리"],["worldcup","🏆 월드컵"]] as const).map(([t,label]) => (
             <button key={t} onClick={() => setTab(t)} style={{
               flex:1, padding:"10px 0", border:"none", background:"transparent", cursor:"pointer",
               fontFamily: tab===t ? "var(--font-display)" : "inherit",
@@ -152,5 +155,13 @@ export default function BattlePage() {
       </div>
       )}
     </div>
+  );
+}
+
+export default function BattlePage() {
+  return (
+    <Suspense fallback={<div style={{ padding:40, textAlign:"center", color:"var(--text-2)" }}>로딩 중…</div>}>
+      <BattleContent />
+    </Suspense>
   );
 }

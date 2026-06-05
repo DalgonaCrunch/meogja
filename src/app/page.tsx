@@ -195,6 +195,8 @@ export default function Home() {
   const [quickSelected, setQuickSelected] = useState<Set<string>>(new Set());
   const [showQuickGroupPicker, setShowQuickGroupPicker] = useState(false);
   const [menuActionMenus, setMenuActionMenus] = useState<string[]>([]); // 공통 메뉴 액션 시트용
+  const [battleVoted, setBattleVoted] = useState(false);
+  const [showRoulettePopup, setShowRoulettePopup] = useState(false);
 
   // 홈 기능
   const [rouletteResult, setRouletteResult] = useState<string | null>(null);
@@ -216,6 +218,11 @@ export default function Home() {
     if (saved) setStarredGroups(new Set(JSON.parse(saved)));
     loadGroups();
     loadTrendingMenus();
+    // 첫 방문 시 룰렛 팝업
+    if (!sessionStorage.getItem("meogja_roulette_seen")) {
+      setShowRoulettePopup(true);
+      sessionStorage.setItem("meogja_roulette_seen", "1");
+    }
     getCurrentUser().then(async (u) => {
       setCurrentUser(u);
       if (u.type === "auth") {
@@ -462,7 +469,7 @@ export default function Home() {
     { emoji:"🍕", label:"양식", menus:["파스타","피자","스테이크","리조또","브런치","버거","샌드위치","스프","양갈비","크림파스타","토마토파스타","뇨끼"] },
     { emoji:"🍗", label:"치킨", menus:["후라이드치킨","양념치킨","간장치킨","파닭","마늘치킨","치즈치킨","순살치킨","핫윙","반반치킨","뿌링클","황금올리브","교촌"] },
     { emoji:"☕", label:"카페", menus:["아메리카노","카페라떼","케이크","크로플","에그타르트","베이글","샌드위치","와플","스콘","티라미수","마카롱","크로아상"] },
-    { emoji:"🌶️", label:"매운맛", menus:["떡볶이","마라탕","마라샹궈","낙지볶음","쭈꾸미볶음","엽기떡볶이","매운갈비찜","불닭볶음면","불닭","매운족발","불짬뽕","청양떡볶이"] },
+    { emoji:"🌶️", label:"매운맛", menus:["떡볶이","마라탕","마라샹궈","낙지볶음","쭈꾸미볶음","엽기떡볶이","매운갈비찜","불닭","매운족발","불짬뽕","청양떡볶이"] },
     { emoji:"🍰", label:"디저트", menus:["아이스크림","붕어빵","호떡","마카롱","타르트","팥빙수","츄러스","도넛","케이크","크레이프","소프트아이스크림","약과"] },
   ];
 
@@ -512,8 +519,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── 오늘의 배틀 ── */}
-      <MenuBattle />
+      {/* ── 오늘의 배틀 — 투표 전만 표시 ── */}
+      {!battleVoted && <MenuBattle onVoted={() => setBattleVoted(true)} />}
 
       {/* ── 시간대별 추천 ── */}
       {(() => {
@@ -674,6 +681,57 @@ export default function Home() {
                 ));
               })()}
             </div>
+            {/* 바로 찾기 옵션 */}
+            <button className="tap" onClick={() => {
+              setShowQuickGroupPicker(false);
+              sessionStorage.setItem("meogja_preset_menus", JSON.stringify([...quickSelected]));
+              setQuickCatSheet(null);
+              setQuickSelected(new Set());
+              router.push("/search");
+            }} style={{ marginTop:12, width:"100%", padding:"12px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:14, fontWeight:600, cursor:"pointer" }}>
+              📍 모임 없이 바로 주변 찾기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 랜덤 추천 팝업 (세션 첫 방문) ── */}
+      {showRoulettePopup && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:90, padding:"0 20px" }}>
+          <div style={{ background:"linear-gradient(135deg,#FF7A45,#FF4E88)", borderRadius:24, padding:"28px 24px 24px", width:"100%", maxWidth:360, boxShadow:"0 20px 60px rgba(255,122,69,.5)", position:"relative", animation:"sheetUp .3s both" }}>
+            <button onClick={() => setShowRoulettePopup(false)} style={{ position:"absolute", top:14, right:16, background:"rgba(255,255,255,.25)", border:"none", borderRadius:"50%", width:30, height:30, cursor:"pointer", color:"#fff", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+            <p style={{ fontFamily:"var(--font-display)", fontSize:18, color:"#fff", marginBottom:8 }}>오늘 뭐 먹지? 🎲</p>
+            {rouletteResult ? (
+              <p style={{ fontFamily:"var(--font-display)", fontSize:34, color:"#fff", marginBottom:18, textAlign:"center", animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
+                {rouletteRunning ? rouletteResult : `🍽 ${rouletteResult}!`}
+              </p>
+            ) : (
+              <p style={{ fontSize:15, color:"rgba(255,255,255,.75)", marginBottom:18 }}>랜덤으로 오늘 메뉴를 정해드려요</p>
+            )}
+            <div style={{ display:"flex", gap:10 }}>
+              <button className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
+                flex:1, padding:"13px", borderRadius:"var(--r-pill)", border:"none",
+                background: rouletteRunning ? "rgba(255,255,255,.3)" : "#fff",
+                color: rouletteRunning ? "#fff" : "var(--primary)",
+                fontFamily:"var(--font-display)", fontSize:14, fontWeight:700, cursor:rouletteRunning ? "default" : "pointer",
+              }}>
+                {rouletteRunning ? "돌리는 중…" : "🎲 돌리기"}
+              </button>
+              {rouletteResult && !rouletteRunning && (
+                <button className="tap" onClick={() => {
+                  setShowRoulettePopup(false);
+                  openMenuAction([rouletteResult]);
+                }} style={{
+                  padding:"13px 16px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.5)",
+                  background:"transparent", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer",
+                }}>
+                  찾기 →
+                </button>
+              )}
+            </div>
+            <button className="tap" onClick={() => setShowRoulettePopup(false)} style={{ marginTop:12, width:"100%", padding:"10px", borderRadius:"var(--r-pill)", border:"none", background:"rgba(255,255,255,.15)", color:"rgba(255,255,255,.7)", fontSize:13, cursor:"pointer" }}>
+              나중에
+            </button>
           </div>
         </div>
       )}

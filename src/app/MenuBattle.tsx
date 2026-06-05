@@ -27,7 +27,7 @@ function getTodayPair(): [string, string] {
   return BATTLE_PAIRS[dayOfYear % BATTLE_PAIRS.length] as [string, string];
 }
 
-export default function MenuBattle() {
+export default function MenuBattle({ onVoted }: { onVoted?: () => void }) {
   const router = useRouter();
   const [battle, setBattle] = useState<{id:string;menu_a:string;menu_b:string} | null>(null);
   const [votes, setVotes] = useState<{a:number;b:number}>({a:0, b:0});
@@ -68,7 +68,7 @@ export default function MenuBattle() {
     const { data: myVoteData } = await getSupabase()
       .from("menu_battle_votes").select("choice")
       .eq("battle_id", existing.id).eq("voter_device_id", deviceId).single();
-    if (myVoteData) setMyVote(myVoteData.choice as "a"|"b");
+    if (myVoteData) { setMyVote(myVoteData.choice as "a"|"b"); onVoted?.(); }
   }
 
   async function vote(choice: "a"|"b") {
@@ -86,6 +86,7 @@ export default function MenuBattle() {
     setVotes(prev => ({ ...prev, [choice]: prev[choice] + 1 }));
     setVoting(false);
     setShowShare(true);
+    onVoted?.();
   }
 
   if (!battle) return null;
@@ -99,7 +100,7 @@ export default function MenuBattle() {
     <div ref={cardRef} style={{ padding: "0 16px" }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
         <p style={{ fontFamily:"var(--font-display)", fontSize:16 }}>⚔️ 오늘의 배틀</p>
-        <button onClick={() => router.push("/battle")} style={{ fontSize:12, color:"var(--primary)", fontWeight:700, background:"none", border:"none", cursor:"pointer" }}>히스토리 ›</button>
+        <button onClick={() => router.push("/battle?tab=battle")} style={{ fontSize:12, color:"var(--primary)", fontWeight:700, background:"none", border:"none", cursor:"pointer" }}>히스토리 ›</button>
       </div>
 
       <div style={{
