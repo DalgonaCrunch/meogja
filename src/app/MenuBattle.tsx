@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getDeviceId } from "@/lib/auth";
+import { getFoodIconUrl } from "@/lib/foodIcons";
 
 // 매일 갱신되는 배틀 쌍 (날짜 시드로 결정)
 const BATTLE_PAIRS = [
@@ -14,13 +15,6 @@ const BATTLE_PAIRS = [
   ["비빔밥", "덮밥"], ["짜장면", "짬뽕"], ["순대국밥", "설렁탕"],
 ];
 
-const EMOJIS: Record<string, string> = {
-  치킨:"🍗", 피자:"🍕", 삼겹살:"🥓", 초밥:"🍣", 마라탕:"🌶️", 떡볶이:"🌮",
-  라멘:"🍜", 우동:"🍜", 스테이크:"🥩", 파스타:"🍝", 갈비:"🥩", 불고기:"🥩",
-  족발:"🍖", 보쌈:"🥬", 냉면:"🍜", 국수:"🍜", 부대찌개:"🍲", 김치찌개:"🍲",
-  돈카츠:"🍱", 카라아게:"🍗", 비빔밥:"🍚", 덮밥:"🍚", 짜장면:"🍜", 짬뽕:"🍜",
-  순대국밥:"🍲", 설렁탕:"🍲",
-};
 
 function getTodayPair(): [string, string] {
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
@@ -144,7 +138,9 @@ export default function MenuBattle({ onVoted }: { onVoted?: () => void }) {
                   borderRight: side === "a" ? "1px solid var(--border)" : "none",
                   transition:"background .2s",
                 }}>
-                <span style={{ fontSize:42 }}>{EMOJIS[menu] || "🍽️"}</span>
+                {getFoodIconUrl(menu)
+                  ? <img src={getFoodIconUrl(menu)!} alt={menu} style={{ width:64, height:64, objectFit:"contain" }} />
+                  : <span style={{ fontSize:42 }}>🍽️</span>}
                 <p style={{ fontFamily:"var(--font-display)", fontSize:18, color: isMine ? color : "var(--text)" }}>{menu}</p>
                 {myVote ? (
                   <div style={{ textAlign:"center" }}>

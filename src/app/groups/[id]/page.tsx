@@ -9,6 +9,7 @@ import { toast, showAlert, showConfirm, showPrompt } from "@/lib/dialog";
 import JoinModal from "./JoinModal";
 import AddFavLocationForm from "./AddFavLocationForm";
 import HistoryTab from "./tabs/HistoryTab";
+import { getFoodIconUrl } from "@/lib/foodIcons";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
 
@@ -126,7 +127,6 @@ export default function GroupPage() {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [reviewAvgs, setReviewAvgs] = useState<Record<string, number>>({});
   const [memberImages, setMemberImages] = useState<Record<string, string>>({});
-  const [foodImages, setFoodImages] = useState<Record<string, string>>({});
   const [pendingMembers, setPendingMembers] = useState<Member[]>([]);
 
   // 추천 탭
@@ -593,17 +593,6 @@ export default function GroupPage() {
     saveSession(selected, top.slice(0, 5));
     setLoading(false);
 
-    // 카테고리별 이미지 비동기 페치 (중복 제거)
-    const uniqueCategories = [...new Set(top.map((r) => {
-      const parts = r.category.split(">");
-      return parts[parts.length - 1]?.trim() || r.category;
-    }))];
-    uniqueCategories.forEach(async (cat) => {
-      if (foodImages[cat]) return;
-      const res = await fetch(`/api/food-image?query=${encodeURIComponent(cat)}`);
-      const data = await res.json();
-      if (data.url) setFoodImages((prev) => ({ ...prev, [cat]: data.url }));
-    });
   }
 
   // 멤버 관리 함수들
@@ -756,7 +745,7 @@ export default function GroupPage() {
   function renderCard(r: ScoredRestaurant, i: number, _borderColor: string) {
     const isPicked = false; // 팝업으로 표시하므로 인라인 강조 제거
     const catKey = refinedCategory(r.category);
-    const imgUrl = foodImages[catKey];
+    const imgUrl = getFoodIconUrl(catKey);
     const isFav = favorites.has(r.title);
     const hasScore = r.score > 0;
     const avg = reviewAvgs[r.title];
@@ -767,7 +756,7 @@ export default function GroupPage() {
           <div style={{ width:80, height:80, borderRadius:14, overflow:"hidden", flexShrink:0, position:"relative",
             background:"var(--bg-2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
             {imgUrl
-              ? <img src={imgUrl} alt={catKey} style={{ width:"100%", height:"100%", objectFit:"cover" }} referrerPolicy="no-referrer" />
+              ? <img src={imgUrl} alt={catKey} style={{ width:"100%", height:"100%", objectFit:"contain", padding:4 }} />
               : <span style={{ fontSize:34 }}>{categoryEmoji(r.category)}</span>}
             {hasScore && <div style={{ position:"absolute", top:5, left:5, padding:"2px 6px", borderRadius:6, background:"var(--primary)", color:"#fff", fontSize:10, fontWeight:800 }}>BEST</div>}
           </div>
@@ -859,7 +848,7 @@ export default function GroupPage() {
         const r = scoredRestaurants.find((x) => x.title === randomPick);
         if (!r) return null;
         const catKey = refinedCategory(r.category);
-        const imgUrl = foodImages[catKey];
+        const imgUrl = getFoodIconUrl(catKey);
         const avg = reviewAvgs[r.title];
         const isFav = favorites.has(r.title);
         return (
@@ -879,7 +868,7 @@ export default function GroupPage() {
                 <div style={{ display:"flex", gap:14, marginBottom:16 }}>
                   {/* 음식 사진 */}
                   <div style={{ width:80, height:80, borderRadius:16, overflow:"hidden", flexShrink:0, background:"var(--bg-2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                    {imgUrl ? <img src={imgUrl} alt={catKey} style={{ width:"100%", height:"100%", objectFit:"cover" }} referrerPolicy="no-referrer" /> : <span style={{ fontSize:36 }}>{categoryEmoji(r.category)}</span>}
+                    {imgUrl ? <img src={imgUrl} alt={catKey} style={{ width:"100%", height:"100%", objectFit:"contain", padding:4 }} /> : <span style={{ fontSize:36 }}>{categoryEmoji(r.category)}</span>}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <a href={getKakaoMapUrl(r)} target="_blank" rel="noopener noreferrer" style={{ fontFamily:"var(--font-display)", fontSize:20, color:"var(--text)", textDecoration:"none", display:"block", marginBottom:6 }}>{r.title}</a>

@@ -4,16 +4,7 @@ import { useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { getDeviceId } from "@/lib/auth";
 import { ROULETTE_POOL } from "@/lib/menus";
-
-const EMOJIS: Record<string, string> = {
-  삼겹살:"🥓",초밥:"🍣",마라탕:"🌶️",치킨:"🍗",파스타:"🍝",떡볶이:"🌮",순대국밥:"🍲",
-  김치찌개:"🍲",불고기:"🥩",라멘:"🍜",갈비찜:"🍖",돈카츠:"🍱",우동:"🍜",비빔밥:"🍚",
-  감자탕:"🍲",피자:"🍕",스테이크:"🥩",부대찌개:"🍲",칼국수:"🍜",짬뽕:"🍜",냉면:"🍜",
-  제육볶음:"🥩",족발:"🍖",양꼬치:"🍢",오마카세:"🍱",갈비:"🥩",소불고기:"🥩",짜장면:"🍜",
-  탕수육:"🍖",해장국:"🍲",설렁탕:"🍲",샤브샤브:"🍲",훠궈:"🍲",닭갈비:"🍗",
-};
-
-function emoji(m: string) { return EMOJIS[m] || "🍽️"; }
+import { getFoodIconUrl } from "@/lib/foodIcons";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -124,7 +115,12 @@ export default function WorldCup({ onChampion }: Props) {
     <div style={{ padding:"32px 20px", textAlign:"center", background:"var(--surface)", borderRadius:20, border:"var(--card-border)" }}>
       <p style={{ fontSize:48, marginBottom:12 }}>🏆</p>
       <p style={{ fontFamily:"var(--font-display)", fontSize:14, color:"var(--text-2)", marginBottom:8 }}>오늘의 최종 우승 메뉴</p>
-      <p style={{ fontFamily:"var(--font-display)", fontSize:36, color:"var(--primary)", marginBottom:6 }}>{emoji(champion)} {champion}</p>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:6 }}>
+        {getFoodIconUrl(champion)
+          ? <img src={getFoodIconUrl(champion)!} alt={champion} style={{ width:52, height:52, objectFit:"contain" }} />
+          : null}
+        <p style={{ fontFamily:"var(--font-display)", fontSize:36, color:"var(--primary)" }}>{champion}</p>
+      </div>
       <p style={{ fontSize:13, color:"var(--text-3)", marginBottom:20 }}>이 메뉴가 먹고 싶으셨군요!</p>
       <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
         <button className="tap" onClick={() => {
@@ -143,7 +139,7 @@ export default function WorldCup({ onChampion }: Props) {
           📍 주변에서 찾기
         </button>
         <button className="tap" onClick={() => {
-          const text = `🏆 메뉴 월드컵 결과\n오늘의 우승: ${emoji(champion)} ${champion}\n\nmeogja에서 해보세요 → ${window.location.origin}`;
+          const text = `🏆 메뉴 월드컵 결과\n오늘의 우승: ${champion}\n\nmeogja에서 해보세요 → ${window.location.origin}`;
           if (navigator.share) navigator.share({ title:"메뉴 월드컵", text, url: window.location.origin });
           else navigator.clipboard?.writeText(text);
         }} style={{ padding:"11px 22px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text)", fontSize:14, cursor:"pointer" }}>
@@ -209,7 +205,9 @@ export default function WorldCup({ onChampion }: Props) {
               onMouseEnter={(e) => e.currentTarget.style.background = "var(--primary-light)"}
               onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
             >
-              <span style={{ fontSize:56 }}>{emoji(menu)}</span>
+              {getFoodIconUrl(menu)
+                ? <img src={getFoodIconUrl(menu)!} alt={menu} style={{ width:90, height:90, objectFit:"contain" }} />
+                : <span style={{ fontSize:56 }}>🍽️</span>}
               <p style={{ fontFamily:"var(--font-display)", fontSize:20, color:"var(--text)" }}>{menu}</p>
             </button>
           );
