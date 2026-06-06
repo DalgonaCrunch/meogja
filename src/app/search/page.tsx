@@ -139,7 +139,7 @@ function SearchContent() {
           <div key={i} style={{ padding:"14px 16px", borderRadius:16, background:"var(--surface)", border:"var(--card-border)", boxShadow:"var(--card-shadow)" }}>
             <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10, marginBottom:6 }}>
               <p style={{ fontFamily:"var(--font-display)", fontSize:16, color:"var(--text)", flex:1 }} dangerouslySetInnerHTML={{ __html: r.title }} />
-              {r.distance && <span style={{ fontSize:12, color:"var(--text-3)", flexShrink:0 }}>{r.distance < 1000 ? `${r.distance}m` : `${(r.distance/1000).toFixed(1)}km`}</span>}
+              {r.distance && <span style={{ fontSize:12, color:"var(--text-3)", flexShrink:0 }}>{r.distance < 1000 ? `${Math.round(r.distance)}m` : `${(r.distance/1000).toFixed(1)}km`}</span>}
             </div>
             <p style={{ fontSize:12, color:"var(--text-2)", marginBottom:8 }}>{r.roadAddress || r.address}</p>
             {r.category && <span style={{ fontSize:11, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"var(--bg-2)", color:"var(--text-3)" }}>{r.category}</span>}
