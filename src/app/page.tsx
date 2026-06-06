@@ -532,7 +532,12 @@ export default function Home() {
               {rouletteRunning ? "🎲…" : "🎲 랜덤"}
             </button>
             <button className="tap" onClick={() => {
-              const aiMenu = trendingMenus[0]?.name || getTimeBasedMenus().menus[0];
+              const pool = [
+                ...trendingMenus.slice(0, 5).map(m => m.name),
+                ...getTimeBasedMenus().menus.slice(0, 4),
+              ];
+              const unique = [...new Set(pool)];
+              const aiMenu = unique[Math.floor(Math.random() * unique.length)] || "삼겹살";
               openMenuAction([aiMenu]);
             }} style={{
               flex:1, padding:"11px 4px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.4)",
@@ -541,7 +546,13 @@ export default function Home() {
             }}>
               🤖 AI추천
             </button>
-            <button className="tap" onClick={() => goToSearch([])} style={{
+            <button className="tap" onClick={() => {
+              const timeMenus = getTimeBasedMenus().menus.slice(0, 3);
+              const menus = trendingMenus.length > 0
+                ? trendingMenus.slice(0, 3).map(m => m.name)
+                : timeMenus;
+              goToSearch(menus);
+            }} style={{
               flex:1, padding:"11px 4px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.4)",
               background:"rgba(255,255,255,.15)", color:"#fff",
               fontFamily:"var(--font-display)", fontSize:13, fontWeight:700, cursor:"pointer",
