@@ -18,7 +18,7 @@ function CallbackContent() {
     async function handleCallback() {
       try {
         if (code) {
-          // 클라이언트 사이드 교환: code_verifier가 localStorage에 있어야 함
+          // PKCE 플로우 (Google, Kakao): code_verifier가 localStorage에 있어야 함
           const { data, error } = await getSupabase().auth.exchangeCodeForSession(code);
           if (error) throw error;
 
@@ -42,6 +42,9 @@ function CallbackContent() {
               });
             }
           }
+        } else {
+          // Implicit / magic-link 플로우 (Naver): URL 해시에서 세션 자동 감지
+          await getSupabase().auth.getSession();
         }
         setStatus("완료! 이동 중…");
         router.replace(next);

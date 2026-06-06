@@ -209,8 +209,15 @@ export default function JoinModal({ groupId, requiresApproval, onJoined, onClose
               </div>
             )}
             <p style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4 }}>로그인하거나 이름만 입력해서 참여하세요</p>
-            {/* 카카오 로그인 — 비즈앱 심사 후 활성화 */}
-            {/* <button onClick={handleKakao}>카카오로 로그인 후 참여</button> */}
+            <button className="tap" onClick={handleKakao} disabled={!!authLoading} style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              padding: "14px", borderRadius: "var(--r-pill)", border: "none",
+              background: "#FAE100", color: "#3A1D1D", fontFamily: "var(--font-display)", fontSize: 15, cursor: "pointer",
+              boxShadow: "0 6px 18px -8px rgba(250,225,0,.5)",
+              opacity: authLoading && authLoading !== "kakao" ? 0.5 : 1,
+            }}>
+              {authLoading === "kakao" ? "연결 중…" : <><span style={{ fontSize: 16, fontWeight: 900 }}>K</span>카카오로 로그인 후 참여</>}
+            </button>
             <button className="tap" onClick={() => {
               sessionStorage.setItem("meogja_pending_join", groupId);
               window.location.href = `/api/auth/naver?next=/groups/${groupId}`;
@@ -227,7 +234,7 @@ export default function JoinModal({ groupId, requiresApproval, onJoined, onClose
               display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
               padding: "14px", borderRadius: "var(--r-pill)", border: "1.5px solid var(--border-2)",
               background: "var(--card)", color: "var(--text)", fontSize: 14, fontWeight: 600, cursor: "pointer",
-              opacity: authLoading === "kakao" ? 0.5 : 1,
+              opacity: authLoading && authLoading !== "google" ? 0.5 : 1,
             }}>
               {authLoading === "google" ? "연결 중…" : "🔵 Google로 로그인 후 참여"}
             </button>

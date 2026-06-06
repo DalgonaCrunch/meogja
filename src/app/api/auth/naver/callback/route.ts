@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
     const { data: otpData } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email,
-      options: { redirectTo: `${appUrl}${next}` },
+      options: { redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(next)}` },
     });
 
     if (otpData?.properties?.action_link) {
