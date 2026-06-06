@@ -794,10 +794,7 @@ export default function Home() {
                 )}
               </div>
             ) : (
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18 }}>
-                <p style={{ fontSize:15, color:"rgba(255,255,255,.75)" }}>랜덤으로 오늘 메뉴를 정해드려요</p>
-                <img src="/avatars/meogja_cat_051.png" alt="" style={{ width:56, height:56, objectFit:"contain", flexShrink:0, mixBlendMode:"multiply" }} />
-              </div>
+              <p style={{ fontSize:15, color:"rgba(255,255,255,.75)", marginBottom:18 }}>랜덤으로 오늘 메뉴를 정해드려요</p>
             )}
             <div style={{ display:"flex", gap:10 }}>
               <button className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
