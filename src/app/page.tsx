@@ -531,10 +531,7 @@ export default function Home() {
             }}>
               {rouletteRunning ? "🎲…" : "🎲 랜덤 추천"}
             </button>
-            <button className="tap" onClick={() => {
-              const timeMenu = getTimeBasedMenus().menus[0];
-              goToSearch([timeMenu]);
-            }} style={{
+            <button className="tap" onClick={() => router.push("/nearby")} style={{
               flex:1, padding:"11px 8px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.4)",
               background:"rgba(255,255,255,.15)", color:"#fff",
               fontFamily:"var(--font-display)", fontSize:14, fontWeight:700, cursor:"pointer",
