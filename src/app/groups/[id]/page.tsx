@@ -178,15 +178,23 @@ export default function GroupPage() {
   const menuItems = selectedLarge && selectedMedium ? getMenuItems(selectedLarge, selectedMedium) : [];
 
   function applyPresetMenus() {
-    const raw = sessionStorage.getItem("meogja_preset_menus");
+    // meogja_preset_menus: 홈에서 세팅된 최초 값
+    // meogja_preset_group_{id}: OAuth 리로그인 후에도 유지되는 그룹별 백업
+    let raw = sessionStorage.getItem("meogja_preset_menus");
+    if (raw) {
+      // 그룹별 백업 저장 (카카오/구글 OAuth 로그인 후 재방문 대비)
+      sessionStorage.setItem(`meogja_preset_group_${id}`, raw);
+      sessionStorage.removeItem("meogja_preset_menus");
+    } else {
+      raw = sessionStorage.getItem(`meogja_preset_group_${id}`);
+    }
     if (!raw) return;
     try {
       const items: string[] = JSON.parse(raw);
       if (items.length > 0) {
         setPresetMenus(items);
-        setFilterItem(items[0]); // 첫 항목은 검색 쿼리로도 설정
+        setFilterItem(items[0]);
       }
-      sessionStorage.removeItem("meogja_preset_menus");
     } catch { /* ignore */ }
   }
 
@@ -848,13 +856,12 @@ export default function GroupPage() {
   if (!group) return <div style={{ textAlign: "center", padding: 60, color: "var(--text-muted)" }}>불러오는 중…</div>;
 
   function handleJoined(memberId: string, memberName: string) {
+    sessionStorage.removeItem(`meogja_preset_group_${id}`);
     setMyMemberId(memberId);
     setShowJoinModal(false);
     loadMembers();
-    // 홈에서 메뉴 선택 후 온 경우 → 추천 탭으로 바로 이동, 프리셋 재적용
-    const presetRaw = sessionStorage.getItem("meogja_preset_menus");
-    if (presetRaw) {
-      applyPresetMenus();
+    // 홈에서 메뉴 선택 후 온 경우 → 추천 탭으로 바로 이동
+    if (presetMenus.length > 0) {
       setTab("recommend");
     } else {
       // 일반 참여 → 선호도 설정 안내

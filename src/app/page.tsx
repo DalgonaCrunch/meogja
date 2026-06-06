@@ -761,9 +761,19 @@ export default function Home() {
             <button className="tap" onClick={() => {
               setShowQuickGroupPicker(false);
               setQuickCatSheet(null);
-              const menus = [...quickSelected];
-              setQuickSelected(new Set());
-              goToSearch(menus);
+              // quickSelected가 있으면 그걸 쓰고, 없으면 이미 sessionStorage에 저장된 preset 그대로 활용
+              if (quickSelected.size > 0) {
+                const menus = [...quickSelected];
+                setQuickSelected(new Set());
+                goToSearch(menus);
+              } else {
+                setQuickSelected(new Set());
+                // sessionStorage에 이미 preset이 있으므로 goToSearch에 빈 배열 넘기지 않음
+                try {
+                  const existing = JSON.parse(sessionStorage.getItem("meogja_preset_menus") || "[]");
+                  goToSearch(existing.length > 0 ? existing : []);
+                } catch { goToSearch([]); }
+              }
             }} style={{ marginTop:12, width:"100%", padding:"12px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:14, fontWeight:600, cursor:"pointer" }}>
               📍 모임 없이 바로 주변 찾기
             </button>
@@ -830,15 +840,9 @@ export default function Home() {
             <p style={{ fontSize:13, color:"var(--text-2)", marginBottom:18 }}>{menuActionMenus.join(", ")}</p>
             <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
               <button className="tap" onClick={() => {
-                const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
                 sessionStorage.setItem("meogja_preset_menus", JSON.stringify(menuActionMenus));
                 setMenuActionMenus([]);
-                if (currentUser.type === "none") { router.push("/login"); return; }
-                if (myGroupList.length > 0) {
-                  setShowQuickGroupPicker(true);
-                } else {
-                  setShowQuickGroupPicker(true);
-                }
+                setShowQuickGroupPicker(true);
               }} style={{ padding:"14px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer" }}>
                 👥 모임에서 찾기
               </button>
