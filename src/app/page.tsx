@@ -782,11 +782,22 @@ export default function Home() {
             <button onClick={() => setShowRoulettePopup(false)} style={{ position:"absolute", top:14, right:16, background:"rgba(255,255,255,.25)", border:"none", borderRadius:"50%", width:30, height:30, cursor:"pointer", color:"#fff", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
             <p style={{ fontFamily:"var(--font-display)", fontSize:18, color:"#fff", marginBottom:8 }}>오늘 뭐 먹지? 🎲</p>
             {rouletteResult ? (
-              <p style={{ fontFamily:"var(--font-display)", fontSize:34, color:"#fff", marginBottom:18, textAlign:"center", animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
-                {rouletteRunning ? rouletteResult : `🍽 ${rouletteResult}!`}
-              </p>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:18, animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
+                {!rouletteRunning && getFoodIconUrl(rouletteResult) && (
+                  <img src={getFoodIconUrl(rouletteResult)!} alt={rouletteResult} style={{ width:52, height:52, objectFit:"contain", flexShrink:0 }} />
+                )}
+                <p style={{ fontFamily:"var(--font-display)", fontSize:32, color:"#fff" }}>
+                  {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
+                </p>
+                {!rouletteRunning && (
+                  <img src="/avatars/meogja_cat_051.png" alt="" style={{ width:44, height:44, objectFit:"contain", flexShrink:0, mixBlendMode:"multiply", marginBottom:8 }} />
+                )}
+              </div>
             ) : (
-              <p style={{ fontSize:15, color:"rgba(255,255,255,.75)", marginBottom:18 }}>랜덤으로 오늘 메뉴를 정해드려요</p>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18 }}>
+                <p style={{ fontSize:15, color:"rgba(255,255,255,.75)" }}>랜덤으로 오늘 메뉴를 정해드려요</p>
+                <img src="/avatars/meogja_cat_051.png" alt="" style={{ width:56, height:56, objectFit:"contain", flexShrink:0, mixBlendMode:"multiply" }} />
+              </div>
             )}
             <div style={{ display:"flex", gap:10 }}>
               <button className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
