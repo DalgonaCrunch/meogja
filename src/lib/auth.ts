@@ -63,7 +63,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     const displayName = profile?.display_name || metaName || user.email?.split("@")[0] || "";
     // 프로필 행 없으면 생성 (소셜 로그인 콜백이 누락된 경우 대비)
     if (!profile) {
-      const profileImage = user.user_metadata?.avatar_url || "/avatars/avatar-1.jpg";
+      const profileImage = user.user_metadata?.avatar_url || "/mascot/avatars/cat-00.png";
       getSupabase().from("user_profiles").insert({
         id: user.id,
         display_name: displayName,

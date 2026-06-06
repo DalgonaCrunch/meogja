@@ -551,7 +551,7 @@ export default function Home() {
                     {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
                   </p>
                   {!rouletteRunning && (
-                    <img src="/avatars/meogja_cat_051.png" alt="" style={{ width:42, height:42, objectFit:"contain", flexShrink:0, pointerEvents:"none", mixBlendMode:"multiply", marginBottom:8 }} />
+                    <img src="/mascot/avatars/cat-39.png" alt="" style={{ width:42, height:42, objectFit:"contain", flexShrink:0, pointerEvents:"none", mixBlendMode:"multiply", marginBottom:8 }} />
                   )}
                 </div>
               </div>
@@ -790,7 +790,7 @@ export default function Home() {
                   {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
                 </p>
                 {!rouletteRunning && (
-                  <img src="/avatars/meogja_cat_051.png" alt="" style={{ width:44, height:44, objectFit:"contain", flexShrink:0, mixBlendMode:"multiply", marginBottom:8 }} />
+                  <img src="/mascot/avatars/cat-39.png" alt="" style={{ width:44, height:44, objectFit:"contain", flexShrink:0, mixBlendMode:"multiply", marginBottom:8 }} />
                 )}
               </div>
             ) : (

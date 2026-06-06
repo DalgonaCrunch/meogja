@@ -40,7 +40,7 @@ export default function ReportModal({ targetType, targetId, targetName, reporter
         {/* header */}
         <div style={{ padding:"14px 18px", background:"linear-gradient(135deg,#E53935,#E91E63)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <img src="/meogja_tabs/meogja_cat_074.png" alt="" style={{ width:32, height:32, objectFit:"contain" }}
+            <img src="/mascot/tabs/warning.png" alt="" style={{ width:32, height:32, objectFit:"contain" }}
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
             <span style={{ fontFamily:"var(--font-display)", fontSize:16, color:"#fff" }}>
               {targetType === "user" ? "사용자" : "모임"} 신고

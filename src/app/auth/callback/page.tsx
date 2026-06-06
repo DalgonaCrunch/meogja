@@ -29,7 +29,7 @@ function CallbackContent() {
               user.user_metadata?.name ||
               user.user_metadata?.preferred_username ||
               user.email?.split("@")[0] || "";
-            const profileImage = user.user_metadata?.avatar_url || "/avatars/avatar-1.jpg";
+            const profileImage = user.user_metadata?.avatar_url || "/mascot/avatars/cat-00.png";
 
             // user_profiles 행 없으면 생성 (RLS: USING true)
             const { data: existing } = await getSupabase()
