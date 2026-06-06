@@ -524,40 +524,22 @@ export default function Home() {
           )}
           <div style={{ display:"flex", gap:8 }}>
             <button className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
-              flex:1, padding:"11px 4px", borderRadius:"var(--r-pill)", border:"none",
+              flex:1, padding:"11px 8px", borderRadius:"var(--r-pill)", border:"none",
               background: rouletteRunning ? "rgba(255,255,255,.3)" : "#fff",
               color: rouletteRunning ? "#fff" : "var(--primary)",
-              fontFamily:"var(--font-display)", fontSize:13, fontWeight:700, cursor:rouletteRunning ? "default" : "pointer",
+              fontFamily:"var(--font-display)", fontSize:14, fontWeight:700, cursor:rouletteRunning ? "default" : "pointer",
             }}>
-              {rouletteRunning ? "🎲…" : "🎲 랜덤"}
+              {rouletteRunning ? "🎲…" : "🎲 랜덤 추천"}
             </button>
             <button className="tap" onClick={() => {
-              const pool = [
-                ...trendingMenus.slice(0, 5).map(m => m.name),
-                ...getTimeBasedMenus().menus.slice(0, 4),
-              ];
-              const unique = [...new Set(pool)];
-              const aiMenu = unique[Math.floor(Math.random() * unique.length)] || "삼겹살";
-              openMenuAction([aiMenu]);
+              const timeMenu = getTimeBasedMenus().menus[0];
+              goToSearch([timeMenu]);
             }} style={{
-              flex:1, padding:"11px 4px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.4)",
+              flex:1, padding:"11px 8px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.4)",
               background:"rgba(255,255,255,.15)", color:"#fff",
-              fontFamily:"var(--font-display)", fontSize:13, fontWeight:700, cursor:"pointer",
+              fontFamily:"var(--font-display)", fontSize:14, fontWeight:700, cursor:"pointer",
             }}>
-              🤖 AI추천
-            </button>
-            <button className="tap" onClick={() => {
-              const timeMenus = getTimeBasedMenus().menus.slice(0, 3);
-              const menus = trendingMenus.length > 0
-                ? trendingMenus.slice(0, 3).map(m => m.name)
-                : timeMenus;
-              goToSearch(menus);
-            }} style={{
-              flex:1, padding:"11px 4px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.4)",
-              background:"rgba(255,255,255,.15)", color:"#fff",
-              fontFamily:"var(--font-display)", fontSize:13, fontWeight:700, cursor:"pointer",
-            }}>
-              📍 주변
+              📍 주변 맛집
             </button>
           </div>
           {rouletteResult && !rouletteRunning && (

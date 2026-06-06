@@ -84,13 +84,24 @@ function SearchContent() {
     setLoading(true);
     setError(null);
     try {
-      const query = menus.join(" ");
-      const params = new URLSearchParams({ query, x: String(location.lng), y: String(location.lat), radius: "1000" });
-      if (location.label) params.set("location", location.label);
-      const res = await fetch(`/api/search?${params}`);
-      if (!res.ok) throw new Error("검색 실패");
-      const data = await res.json();
-      setResults(data.items || []);
+      // 메뉴마다 개별 검색 후 합치기 (중복 제거, 거리순 정렬)
+      const seen = new Set<string>();
+      const all: Restaurant[] = [];
+      await Promise.all(menus.map(async (menu) => {
+        const params = new URLSearchParams({ query: menu, x: String(location.lng), y: String(location.lat), radius: "1000" });
+        if (location.label) params.set("location", location.label);
+        try {
+          const res = await fetch(`/api/search?${params}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          (data.items || []).forEach((item: Restaurant) => {
+            const key = `${item.title}|${item.address}`;
+            if (!seen.has(key)) { seen.add(key); all.push(item); }
+          });
+        } catch { /* skip failed menu */ }
+      }));
+      all.sort((a, b) => (a.distance || 9999) - (b.distance || 9999));
+      setResults(all);
     } catch (e) {
       setError("검색 중 오류가 발생했습니다.");
     }
