@@ -200,6 +200,7 @@ export default function Home() {
   // 오늘 이미 투표했으면 배틀 카드 처음부터 숨김
   const [battleVoted, setBattleVoted] = useState<boolean>(false);
   const [showRoulettePopup, setShowRoulettePopup] = useState(false);
+  const [todayRecoIndex, setTodayRecoIndex] = useState(0);
 
   // 홈 기능
   const [rouletteResult, setRouletteResult] = useState<string | null>(null);
@@ -497,57 +498,155 @@ export default function Home() {
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
 
-      {/* ── Hero ── */}
-      <div className="fade-up" style={{ position:"relative", overflow:"hidden" }}>
-        <img src="/meogja-brand.jpg" alt="meogja brand" style={{ width:"100%", display:"block", height:"auto" }} />
-      </div>
-
-      {/* ── 랜덤 룰렛 ── */}
-      <div className="fade-up fade-up-1" style={{ padding: "0 16px" }}>
+      {/* ── 통합 Hero 카드 ── */}
+      <div className="fade-up" style={{ padding: "16px 16px 0" }}>
         <div style={{ background:"linear-gradient(135deg, #FF7A45 0%, #FF4E88 100%)", borderRadius:20, padding:"20px", boxShadow:"0 8px 24px rgba(255,122,69,.35)" }}>
-            <p style={{ fontFamily:"var(--font-display)", fontSize:15, color:"rgba(255,255,255,.85)", marginBottom:6 }}>오늘 뭐 먹지? 🎲</p>
-            {rouletteResult ? (
-              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
-                {!rouletteRunning && getFoodIconUrl(rouletteResult) && (
-                  <img src={getFoodIconUrl(rouletteResult)!} alt={rouletteResult} style={{ width:44, height:44, objectFit:"contain", flexShrink:0 }} />
-                )}
-                <div style={{ display:"flex", alignItems:"center", gap:4, minWidth:0 }}>
-                  <p style={{ fontFamily:"var(--font-display)", fontSize:28, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                    {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
-                  </p>
-                  {!rouletteRunning && (
-                    <img src="/mascot/avatars/cat-39.png" alt="" style={{ width:42, height:42, objectFit:"contain", flexShrink:0, pointerEvents:"none", mixBlendMode:"multiply", marginBottom:8 }} />
-                  )}
-                </div>
-              </div>
-            ) : (
-              <p style={{ fontSize:13, color:"rgba(255,255,255,.7)", marginBottom:12 }}>버튼 하나로 메뉴 결정!</p>
+          <div style={{ marginBottom:10 }}>
+            <p style={{ fontFamily:"var(--font-display)", fontSize:17, color:"#fff" }}>🍽️ 오늘 뭐 먹지?</p>
+            {homeLocation?.label && (
+              <p style={{ fontSize:12, color:"rgba(255,255,255,.7)", marginTop:3 }}>📍 {homeLocation.label} 기준</p>
             )}
-            <div style={{ display:"flex", gap:8 }}>
-              <button className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
-                flex:1, padding:"11px", borderRadius:"var(--r-pill)", border:"none",
-                background: rouletteRunning ? "rgba(255,255,255,.3)" : "#fff",
-                color: rouletteRunning ? "#fff" : "var(--primary)",
-                fontFamily:"var(--font-display)", fontSize:14, fontWeight:700, cursor:rouletteRunning ? "default" : "pointer",
-              }}>
-                {rouletteRunning ? "🎲 돌리는 중…" : "🎲 랜덤 추천"}
-              </button>
-              {rouletteResult && !rouletteRunning && (
-                <button className="tap" onClick={() => {
-                  openMenuAction([rouletteResult]);
-                }} style={{
-                  padding:"11px 14px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.5)",
-                  background:"transparent", color:"#fff", fontFamily:"var(--font-display)", fontSize:13, cursor:"pointer", whiteSpace:"nowrap",
-                }}>
-                  이걸로 찾기 →
-                </button>
+          </div>
+          {rouletteResult && (
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
+              {!rouletteRunning && getFoodIconUrl(rouletteResult) && (
+                <img src={getFoodIconUrl(rouletteResult)!} alt={rouletteResult} style={{ width:44, height:44, objectFit:"contain", flexShrink:0 }} />
               )}
+              <div style={{ display:"flex", alignItems:"center", gap:4, minWidth:0 }}>
+                <p style={{ fontFamily:"var(--font-display)", fontSize:28, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                  {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
+                </p>
+                {!rouletteRunning && (
+                  <img src="/mascot/avatars/cat-39.png" alt="" style={{ width:42, height:42, objectFit:"contain", flexShrink:0, pointerEvents:"none", mixBlendMode:"multiply", marginBottom:8 }} />
+                )}
+              </div>
             </div>
+          )}
+          <div style={{ display:"flex", gap:8 }}>
+            <button className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
+              flex:1, padding:"11px 4px", borderRadius:"var(--r-pill)", border:"none",
+              background: rouletteRunning ? "rgba(255,255,255,.3)" : "#fff",
+              color: rouletteRunning ? "#fff" : "var(--primary)",
+              fontFamily:"var(--font-display)", fontSize:13, fontWeight:700, cursor:rouletteRunning ? "default" : "pointer",
+            }}>
+              {rouletteRunning ? "🎲…" : "🎲 랜덤"}
+            </button>
+            <button className="tap" onClick={() => {
+              const aiMenu = trendingMenus[0]?.name || getTimeBasedMenus().menus[0];
+              openMenuAction([aiMenu]);
+            }} style={{
+              flex:1, padding:"11px 4px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.4)",
+              background:"rgba(255,255,255,.15)", color:"#fff",
+              fontFamily:"var(--font-display)", fontSize:13, fontWeight:700, cursor:"pointer",
+            }}>
+              🤖 AI추천
+            </button>
+            <button className="tap" onClick={() => goToSearch([])} style={{
+              flex:1, padding:"11px 4px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.4)",
+              background:"rgba(255,255,255,.15)", color:"#fff",
+              fontFamily:"var(--font-display)", fontSize:13, fontWeight:700, cursor:"pointer",
+            }}>
+              📍 주변
+            </button>
+          </div>
+          {rouletteResult && !rouletteRunning && (
+            <button className="tap" onClick={() => openMenuAction([rouletteResult])} style={{
+              marginTop:10, width:"100%", padding:"10px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.5)",
+              background:"transparent", color:"#fff", fontFamily:"var(--font-display)", fontSize:13, cursor:"pointer",
+            }}>
+              이걸로 찾기 →
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── 오늘의 배틀 — 투표 전만 표시 ── */}
+      {/* ── 오늘의 배틀 ── */}
       {!battleVoted && <MenuBattle onVoted={() => setBattleVoted(true)} />}
+
+      {/* ── 오늘의 추천 (Netflix 스타일) ── */}
+      {trendingMenus.length > 0 && (() => {
+        const reco = trendingMenus[todayRecoIndex % trendingMenus.length];
+        const maxCnt = trendingMenus[0]?.count || 1;
+        const matchPct = reco.count > 0
+          ? Math.min(99, Math.floor(60 + (reco.count / maxCnt) * 35))
+          : [89,87,84,82,79,77,75,72,70,67][todayRecoIndex % 10];
+        const iconUrl = getFoodIconUrl(reco.name);
+        return (
+          <div className="fade-up fade-up-1" style={{ padding:"0 16px" }}>
+            <p style={{ fontFamily:"var(--font-display)", fontSize:16, marginBottom:10 }}>🔥 지금 가장 잘 맞는 메뉴</p>
+            <div style={{ background:"var(--surface)", borderRadius:20, overflow:"hidden", border:"var(--card-border)", boxShadow:"var(--card-shadow)" }}>
+              <div style={{ display:"flex", alignItems:"center", padding:"18px 18px 14px", gap:14 }}>
+                {iconUrl
+                  ? <img src={iconUrl} alt={reco.name} style={{ width:72, height:72, objectFit:"contain", flexShrink:0 }} />
+                  : <span style={{ fontSize:56, lineHeight:1, flexShrink:0 }}>🍽️</span>}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontFamily:"var(--font-display)", fontSize:26, color:"var(--text)", marginBottom:6 }}>{reco.name}</p>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ flex:1, height:6, borderRadius:99, background:"var(--bg-2)", overflow:"hidden" }}>
+                      <div style={{ width:`${matchPct}%`, height:"100%", background:"var(--green)", borderRadius:99 }} />
+                    </div>
+                    <span style={{ fontSize:14, fontWeight:700, color:"var(--green)", flexShrink:0 }}>{matchPct}%</span>
+                    <span style={{ fontSize:12, color:"var(--text-2)", flexShrink:0 }}>일치</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:8, padding:"0 18px 18px" }}>
+                <button className="tap" onClick={() => openMenuAction([reco.name])} style={{ flex:2, padding:"11px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:14, cursor:"pointer" }}>
+                  자세히 보기 →
+                </button>
+                <button className="tap" onClick={() => setTodayRecoIndex(idx => idx + 1)} style={{ flex:1, padding:"11px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
+                  다시 ↺
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── 내 모임 (위로 올림) ── */}
+      {!loading && currentUser.type !== "none" && (
+        <div className="fade-up fade-up-2" style={{ padding: "0 16px" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+            <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>👥 내 모임</span>
+            <button className="tap" onClick={() => setShowCreateForm(true)} style={{ fontSize:12, color:"var(--primary)", fontWeight:700, background:"none", border:"none", cursor:"pointer" }}>+ 새 모임</button>
+          </div>
+          {showCreateForm && (
+            <div className="fade-up" style={{ marginBottom:12, background:"var(--surface)", borderRadius:"var(--card-radius)", padding:"22px 20px", border:"var(--card-border)", boxShadow:"var(--card-shadow)" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+                <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>새 모임 만들기</span>
+                <button onClick={() => { setShowCreateForm(false); setNewName(""); setIsPrivate(false); setNewPassword(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--text-2)", fontSize:18 }}>✕</button>
+              </div>
+              <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} emoji={groupEmoji} setEmoji={setGroupEmoji} imageUrl={groupImageUrl} setImageUrl={setGroupImageUrl} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} requiresApproval={requiresApproval} setRequiresApproval={setRequiresApproval} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
+            </div>
+          )}
+          {groups.length === 0 && (
+            <div style={{ padding:"16px 18px", borderRadius:14, background:"var(--surface)", border:"var(--card-border)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+              <p style={{ fontSize:14, color:"var(--text-2)" }}>가입한 모임이 없습니다</p>
+              <button className="tap" onClick={() => setShowCreateForm(true)} style={{ padding:"8px 16px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:13, cursor:"pointer", flexShrink:0 }}>만들기 →</button>
+            </div>
+          )}
+          {!loading && starredList.length > 0 && (
+            <div style={{ marginBottom:16 }}>
+              <p style={{ fontFamily:"var(--font-display)", fontSize:15, color:"#C77800", marginBottom:8 }}>⭐ 즐겨찾는 모임</p>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {starredList.map((group) => (
+                  <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} myMemberName={myMemberships[group.id]} isOwner={isGroupOwner(group, currentUser)} starred={true} onStar={(e) => { e.stopPropagation(); toggleStar(group.id); }} />
+                ))}
+              </div>
+            </div>
+          )}
+          {!loading && unstarredList.length > 0 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {unstarredList.map((group) => (
+                <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} myMemberName={myMemberships[group.id]} isOwner={isGroupOwner(group, currentUser)} starred={false} onStar={(e) => { e.stopPropagation(); toggleStar(group.id); }} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* loading 중 표시 */}
+      {loading && <div style={{ padding:"0 16px" }}><p style={{ color:"var(--text-2)", textAlign:"center", padding:"30px 0", fontSize:14 }}>불러오는 중…</p></div>}
 
       {/* ── 시간대별 추천 ── */}
       {(() => {
@@ -561,17 +660,15 @@ export default function Home() {
               {t.menus.map((m) => {
                 const iconUrl = getFoodIconUrl(m);
                 return (
-                <button key={m} className="tap" onClick={() => {
-                  openMenuAction([m]);
-                }} style={{
-                  flexShrink:0, padding: iconUrl ? "7px 14px 7px 10px" : "9px 16px", borderRadius:"var(--r-pill)",
-                  border:"1.5px solid var(--border)", background:"var(--surface)",
-                  color:"var(--text)", fontSize:14, fontWeight:500, cursor:"pointer", whiteSpace:"nowrap",
-                  display:"flex", alignItems:"center", gap:6,
-                }}>
-                  {iconUrl && <img src={iconUrl} alt="" style={{ width:26, height:26, objectFit:"contain" }} />}
-                  {m}
-                </button>
+                  <button key={m} className="tap" onClick={() => openMenuAction([m])} style={{
+                    flexShrink:0, padding: iconUrl ? "7px 14px 7px 10px" : "9px 16px", borderRadius:"var(--r-pill)",
+                    border:"1.5px solid var(--border)", background:"var(--surface)",
+                    color:"var(--text)", fontSize:14, fontWeight:500, cursor:"pointer", whiteSpace:"nowrap",
+                    display:"flex", alignItems:"center", gap:6,
+                  }}>
+                    {iconUrl && <img src={iconUrl} alt="" style={{ width:26, height:26, objectFit:"contain" }} />}
+                    {m}
+                  </button>
                 );
               })}
             </div>
@@ -579,29 +676,33 @@ export default function Home() {
         );
       })()}
 
-      {/* ── 오늘의 인기 메뉴 ── */}
+      {/* ── 실시간 인기 (가로 스와이프 카드) ── */}
       {trendingMenus.length > 0 && (
-        <div className="fade-up fade-up-1" style={{ padding: "0 16px" }}>
-          <p style={{ fontFamily:"var(--font-display)", fontSize:16, marginBottom:10 }}>🔥 오늘의 인기 메뉴</p>
-          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+        <div className="fade-up fade-up-1" style={{ padding:"0 16px" }}>
+          <p style={{ fontFamily:"var(--font-display)", fontSize:16, marginBottom:10 }}>📈 실시간 인기</p>
+          <div className="scroll-x" style={{ gap:10, paddingBottom:8 }}>
             {trendingMenus.slice(0,5).map((m, i) => {
               const medals = ["🥇","🥈","🥉","4위","5위"];
-              const maxCount = trendingMenus[0]?.count || 1;
-              const widths = trendingMenus.slice(0,5).map(x => x.count > 0 ? Math.round(x.count / maxCount * 100) : [100,82,68,55,44][trendingMenus.indexOf(x)] || 40);
+              const badge = i === 0 ? { label:"🔥 1등!", bg:"var(--primary-light)", color:"var(--primary)" }
+                : i === 1 ? { label:"⬆ 급상승", bg:"var(--bg-2)", color:"var(--text-2)" }
+                : null;
               const iconUrl = getFoodIconUrl(m.name);
               return (
-                <button key={m.name} className="tap" onClick={() => {
-                  openMenuAction([m.name]);
-                }} style={{
-                  display:"flex", alignItems:"center", gap:10, padding:"8px 14px",
-                  background:"var(--surface)", borderRadius:12, border:"var(--card-border)", cursor:"pointer", textAlign:"left",
+                <button key={m.name} className="tap" onClick={() => openMenuAction([m.name])} style={{
+                  flexShrink:0, width:105, display:"flex", flexDirection:"column", alignItems:"center", gap:6,
+                  padding:"14px 8px", background:"var(--surface)", borderRadius:16,
+                  border: i === 0 ? "2px solid var(--primary)" : "var(--card-border)",
+                  cursor:"pointer", boxShadow:"var(--card-shadow)", textAlign:"center",
                 }}>
-                  <span style={{ fontSize:i < 3 ? 20 : 13, fontWeight:700, width:32, flexShrink:0, textAlign:"center" }}>{medals[i]}</span>
-                  {iconUrl && <img src={iconUrl} alt="" style={{ width:32, height:32, objectFit:"contain", flexShrink:0 }} />}
-                  <span style={{ fontFamily:"var(--font-display)", fontSize:15, flex:1 }}>{m.name}</span>
-                  <div style={{ width:80, height:6, borderRadius:99, background:"var(--bg-2)", overflow:"hidden" }}>
-                    <div style={{ width:`${widths[i]}%`, height:"100%", background:`hsl(${20+i*20} 85% 56%)`, borderRadius:99 }} />
-                  </div>
+                  {iconUrl
+                    ? <img src={iconUrl} alt={m.name} style={{ width:48, height:48, objectFit:"contain" }} />
+                    : <span style={{ fontSize:36 }}>🍽️</span>}
+                  <p style={{ fontFamily:"var(--font-display)", fontSize:13, color:"var(--text)", lineHeight:1.3 }}>
+                    {medals[i]}<br/>{m.name}
+                  </p>
+                  {badge && (
+                    <span style={{ fontSize:9, padding:"2px 6px", borderRadius:"var(--r-pill)", background:badge.bg, color:badge.color, fontWeight:700 }}>{badge.label}</span>
+                  )}
                 </button>
               );
             })}
@@ -612,14 +713,13 @@ export default function Home() {
       {/* ── 메뉴 카테고리 탭 ── */}
       <div className="fade-up fade-up-1" style={{ padding: "0 16px" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-          <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>인기 메뉴 🔥</span>
+          <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>메뉴 고르기</span>
           {quickSelected.size > 0 && (
             <button className="tap" onClick={() => setQuickSelected(new Set())} style={{ fontSize:12, color:"var(--text-3)", background:"none", border:"none", cursor:"pointer" }}>선택 초기화</button>
           )}
         </div>
-        {/* 카테고리 탭 */}
         <div className="scroll-x" style={{ gap:8, paddingBottom:4 }}>
-          {MENU_CATEGORIES.map((c, idx) => {
+          {MENU_CATEGORIES.map((c) => {
             const isActive = quickCatSheet?.label === c.label;
             const catIconUrl = getFoodIconUrl(c.label);
             return (
@@ -640,8 +740,6 @@ export default function Home() {
             );
           })}
         </div>
-
-        {/* 인라인 메뉴 리스트 */}
         {quickCatSheet && (
           <div style={{ marginTop:12, padding:"14px 16px", background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)" }}>
             <p style={{ fontSize:12, color:"var(--text-3)", marginBottom:10 }}>먹고 싶은 메뉴를 선택하세요 (다중 선택 가능)</p>
@@ -696,10 +794,10 @@ export default function Home() {
                       <p style={{ fontSize:14, color:"var(--text-2)", marginBottom:16 }}>아직 가입한 모임이 없습니다</p>
                       <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
                         <button className="tap" onClick={() => {
-                        setShowQuickGroupPicker(false);
-                        if (currentUser.type === "none") { router.push("/login"); return; }
-                        setShowCreateForm(true);
-                      }} style={{ padding:"10px 20px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer" }}>모임 만들기</button>
+                          setShowQuickGroupPicker(false);
+                          if (currentUser.type === "none") { router.push("/login"); return; }
+                          setShowCreateForm(true);
+                        }} style={{ padding:"10px 20px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer" }}>모임 만들기</button>
                         <button className="tap" onClick={() => { setShowQuickGroupPicker(false); router.push("/groups"); }} style={{ padding:"10px 20px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text)", fontSize:14, fontWeight:600, cursor:"pointer" }}>모임 찾기</button>
                       </div>
                     </div>
@@ -708,7 +806,6 @@ export default function Home() {
                 return myGroupList.map((g) => (
                   <button key={g.id} className="tap" onClick={() => {
                     setShowQuickGroupPicker(false);
-                    // quickSelected가 있으면 그걸로, 없으면 menuActionMenus에서 이미 설정된 값 유지
                     if (quickSelected.size > 0) {
                       sessionStorage.setItem("meogja_preset_menus", JSON.stringify([...quickSelected]));
                     }
@@ -726,18 +823,15 @@ export default function Home() {
                 ));
               })()}
             </div>
-            {/* 바로 찾기 옵션 */}
             <button className="tap" onClick={() => {
               setShowQuickGroupPicker(false);
               setQuickCatSheet(null);
-              // quickSelected가 있으면 그걸 쓰고, 없으면 이미 sessionStorage에 저장된 preset 그대로 활용
               if (quickSelected.size > 0) {
                 const menus = [...quickSelected];
                 setQuickSelected(new Set());
                 goToSearch(menus);
               } else {
                 setQuickSelected(new Set());
-                // sessionStorage에 이미 preset이 있으므로 goToSearch에 빈 배열 넘기지 않음
                 try {
                   const existing = JSON.parse(sessionStorage.getItem("meogja_preset_menus") || "[]");
                   goToSearch(existing.length > 0 ? existing : []);
@@ -799,7 +893,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── 메뉴 액션 시트 (모임 선택 or 바로 찾기) ── */}
+      {/* ── 메뉴 액션 시트 ── */}
       {menuActionMenus.length > 0 && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:75 }}
           onClick={() => setMenuActionMenus([])}>
@@ -827,58 +921,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── 내 모임 — 로그인/게스트 사용자에게만 표시 ── */}
-      {!loading && currentUser.type !== "none" && (
-        <div className="fade-up fade-up-2" style={{ padding: "0 16px" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-            <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>내 모임</span>
-            <button className="tap" onClick={() => setShowCreateForm(true)} style={{ fontSize:12, color:"var(--primary)", fontWeight:700, background:"none", border:"none", cursor:"pointer" }}>+ 새 모임</button>
-          </div>
-          {showCreateForm && (
-            <div className="fade-up" style={{ marginBottom:12, background:"var(--surface)", borderRadius:"var(--card-radius)", padding:"22px 20px", border:"var(--card-border)", boxShadow:"var(--card-shadow)" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-                <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>새 모임 만들기</span>
-                <button onClick={() => { setShowCreateForm(false); setNewName(""); setIsPrivate(false); setNewPassword(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--text-2)", fontSize:18 }}>✕</button>
-              </div>
-              <CreateForm newName={newName} setNewName={setNewName} description={description} setDescription={setDescription} emoji={groupEmoji} setEmoji={setGroupEmoji} imageUrl={groupImageUrl} setImageUrl={setGroupImageUrl} isPrivate={isPrivate} setIsPrivate={setIsPrivate} newPassword={newPassword} setNewPassword={setNewPassword} requireAuth={requireAuth} setRequireAuth={setRequireAuth} requiresApproval={requiresApproval} setRequiresApproval={setRequiresApproval} creating={creating} onSubmit={createGroup} isLoggedIn={currentUser.type === "auth"} />
-            </div>
-          )}
-
-          {groups.length === 0 && (
-            <div style={{ padding:"16px 18px", borderRadius:14, background:"var(--surface)", border:"var(--card-border)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
-              <p style={{ fontSize:14, color:"var(--text-2)" }}>가입한 모임이 없습니다</p>
-              <button className="tap" onClick={() => setShowCreateForm(true)} style={{ padding:"8px 16px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:13, cursor:"pointer", flexShrink:0 }}>만들기 →</button>
-            </div>
-          )}
-
-        {/* ⭐ 즐겨찾는 모임 */}
-        {!loading && starredList.length > 0 && (
-          <div style={{ marginBottom:16 }}>
-            <p style={{ fontFamily:"var(--font-display)", fontSize:15, color:"#C77800", marginBottom:8 }}>⭐ 즐겨찾는 모임</p>
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              {starredList.map((group) => (
-                <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} myMemberName={myMemberships[group.id]} isOwner={isGroupOwner(group, currentUser)} starred={true} onStar={(e) => { e.stopPropagation(); toggleStar(group.id); }} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 일반 내 모임 */}
-        {!loading && unstarredList.length > 0 && (
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {unstarredList.map((group) => (
-              <GroupCard key={group.id} group={group} onClick={() => handleEnter(group)} myMemberName={myMemberships[group.id]} isOwner={isGroupOwner(group, currentUser)} starred={false} onStar={(e) => { e.stopPropagation(); toggleStar(group.id); }} />
-            ))}
-          </div>
-        )}
-
-      </div>
-      )}
-
-      {/* loading 중 표시 */}
-      {loading && <div style={{ padding:"0 16px" }}><p style={{ color:"var(--text-2)", textAlign:"center", padding:"30px 0", fontSize:14 }}>불러오는 중…</p></div>}
-
-      {/* 📍 공개 모임 추천 — 항상 표시 */}
+      {/* 📍 공개 모임 추천 */}
       {!loading && recommendPublic.length > 0 && (
         <div className="fade-up fade-up-3" style={{ padding: "0 16px" }}>
           <p style={{ fontFamily:"var(--font-display)", fontSize:15, color:"var(--text-2)", marginBottom:8 }}>📍 이런 모임은 어때요?</p>
