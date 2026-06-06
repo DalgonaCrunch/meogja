@@ -29,14 +29,22 @@ function SearchContent() {
       try { setMenus(JSON.parse(raw)); } catch {}
       sessionStorage.removeItem("meogja_preset_menus");
     }
-    // 이전에 저장된 위치 있으면 즉시 사용
-    const savedLoc = sessionStorage.getItem("meogja_search_location");
-    if (savedLoc) {
+    // search_location → home_location → 직접 요청 순으로 fallback
+    const searchLoc = sessionStorage.getItem("meogja_search_location");
+    if (searchLoc) {
       try {
-        const loc = JSON.parse(savedLoc);
+        const loc = JSON.parse(searchLoc);
         setLocation(loc);
         sessionStorage.removeItem("meogja_search_location");
-        return; // 위치 이미 있으므로 재요청 불필요
+        return;
+      } catch {}
+    }
+    const homeLoc = sessionStorage.getItem("meogja_home_location");
+    if (homeLoc) {
+      try {
+        const loc = JSON.parse(homeLoc);
+        setLocation({ lat: loc.lat, lng: loc.lng });
+        return;
       } catch {}
     }
     requestLocation();

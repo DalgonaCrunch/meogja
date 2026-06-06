@@ -17,12 +17,15 @@ export default function AuthHeader() {
   const [showIOSGuide, setShowIOSGuide] = useState(false);
   const [isWebView, setIsWebView] = useState(false);
 
+  // 위치
+  const [locationLabel, setLocationLabel] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
+
   function applyUser(u: CurrentUser) {
     setUser(u);
     if (u.type === "auth") {
       const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
       setIsAdmin(!!adminEmail && u.user.email === adminEmail);
-      // 프로필 이미지 로드
       getSupabase().from("user_profiles").select("profile_image").eq("id", u.user.id).single().then(({ data }) => {
         setProfileImage(data?.profile_image || null);
       });
@@ -32,9 +35,31 @@ export default function AuthHeader() {
     }
   }
 
+  function requestLocation() {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        let label = "현재 위치";
+        try {
+          const res = await fetch(`/api/reverse-geocode?x=${lng}&y=${lat}`);
+          const data = await res.json();
+          if (data.address) label = data.address;
+        } catch { /* fallback */ }
+        const loc = { lat, lng, label };
+        setLocationLabel(label);
+        sessionStorage.setItem("meogja_home_location", JSON.stringify(loc));
+        window.dispatchEvent(new CustomEvent("meogja-location-change", { detail: loc }));
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { timeout: 8000, enableHighAccuracy: false }
+    );
+  }
+
   useEffect(() => {
     getCurrentUser().then(applyUser);
-    // PWA 설치 감지
     if (!window.matchMedia("(display-mode: standalone)").matches) {
       const ua = navigator.userAgent;
       const ios = /iPad|iPhone|iPod/.test(ua);
@@ -56,11 +81,22 @@ export default function AuthHeader() {
     });
     const handleGuestChange = () => getCurrentUser().then(applyUser);
     window.addEventListener("meogja-auth-change", handleGuestChange);
-    // PWA: Custom Tab OAuth 완료 후 복귀 시 세션 재확인
     const handleVisibility = () => {
       if (document.visibilityState === "visible") getCurrentUser().then(applyUser);
     };
     document.addEventListener("visibilitychange", handleVisibility);
+
+    // 저장된 위치 먼저 읽기, 없으면 자동 감지
+    const saved = sessionStorage.getItem("meogja_home_location");
+    if (saved) {
+      try {
+        const loc = JSON.parse(saved);
+        if (loc.label) setLocationLabel(loc.label);
+      } catch { /* ignore */ }
+    } else {
+      requestLocation();
+    }
+
     return () => {
       subscription.unsubscribe();
       window.removeEventListener("meogja-auth-change", handleGuestChange);
@@ -82,6 +118,7 @@ export default function AuthHeader() {
       borderBottom: "1px solid var(--border)",
       maxWidth: 480, margin: "0 auto", width: "100%",
     }}>
+      {/* 메인 행 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 18px", height: 52 }}>
         {/* 로고 */}
         <button className="tap" onClick={() => router.push("/")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
@@ -89,10 +126,9 @@ export default function AuthHeader() {
         </button>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* 앱 추가 — 미설치 시만 */}
           {canInstall && (
             <button className="tap" onClick={async () => {
-              if (isWebView) { setShowIOSGuide(true); return; } // WebView도 동일 안내 (외부브라우저 안내로 확장)
+              if (isWebView) { setShowIOSGuide(true); return; }
               if (isIOS) { setShowIOSGuide(true); return; }
               if (installPrompt) {
                 (installPrompt as unknown as { prompt: () => void }).prompt();
@@ -185,6 +221,17 @@ export default function AuthHeader() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* 위치 스트립 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 16px", height: 28, borderTop: "1px solid var(--border)" }}>
+        <img src="/mascot/ui/location.png" alt="" style={{ width: 14, height: 14, objectFit: "contain", flexShrink: 0, opacity: locating ? 0.5 : 1 }} />
+        <span style={{ fontSize: 12, color: locationLabel ? "var(--text-2)" : "var(--text-3)", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {locating ? "위치 확인 중…" : locationLabel || "위치 권한을 허용해 주세요"}
+        </span>
+        <button onClick={requestLocation} disabled={locating} style={{ background: "none", border: "none", cursor: locating ? "default" : "pointer", padding: "2px 4px", fontSize: 13, color: "var(--text-3)", flexShrink: 0, lineHeight: 1 }}>
+          ↺
+        </button>
       </div>
     </header>
   );

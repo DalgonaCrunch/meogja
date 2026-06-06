@@ -206,9 +206,8 @@ export default function Home() {
   const [rouletteRunning, setRouletteRunning] = useState(false);
   const [trendingMenus, setTrendingMenus] = useState<{name:string;count:number}[]>([]);
 
-  // 현재 위치
+  // 현재 위치 (헤더에서 관리 — 여기선 읽기만)
   const [homeLocation, setHomeLocation] = useState<{lat:number;lng:number;label:string} | null>(null);
-  const [locating, setLocating] = useState(false);
 
   // 비공개 모임 입장
   const [enterTarget, setEnterTarget] = useState<Group | null>(null);
@@ -233,13 +232,16 @@ export default function Home() {
       setShowRoulettePopup(true);
       sessionStorage.setItem("meogja_roulette_seen", "1");
     }
-    // 홈에서 위치 미리 감지
+    // 헤더에서 설정된 위치 읽기
     const savedLoc = sessionStorage.getItem("meogja_home_location");
     if (savedLoc) {
       try { setHomeLocation(JSON.parse(savedLoc)); } catch { /* ignore */ }
-    } else {
-      requestHomeLocation();
     }
+    const onLocChange = (e: Event) => {
+      const loc = (e as CustomEvent).detail;
+      if (loc) setHomeLocation(loc);
+    };
+    window.addEventListener("meogja-location-change", onLocChange);
     getCurrentUser().then(async (u) => {
       setCurrentUser(u);
       if (u.type === "auth") {
@@ -258,6 +260,7 @@ export default function Home() {
         }
       }
     });
+    return () => window.removeEventListener("meogja-location-change", onLocChange);
   }, []);
 
   // 모임장 여부 확인
@@ -314,45 +317,22 @@ export default function Home() {
     }, i < 10 ? 80 : 150);
   }
 
-  function requestHomeLocation() {
-    if (!navigator.geolocation) return;
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        let label = "현재 위치";
-        try {
-          const res = await fetch(`/api/reverse-geocode?x=${lng}&y=${lat}`);
-          const data = await res.json();
-          if (data.address) label = data.address;
-        } catch { /* fallback */ }
-        const loc = { lat, lng, label };
-        setHomeLocation(loc);
-        sessionStorage.setItem("meogja_home_location", JSON.stringify(loc));
-        setLocating(false);
-      },
-      () => setLocating(false),
-      { timeout: 8000, enableHighAccuracy: false }
-    );
-  }
-
   function openMenuAction(menus: string[]) {
     setMenuActionMenus(menus);
   }
 
-  // 위치 먼저 확인하고 /search 이동
+  // 헤더에서 감지한 위치를 search_location으로 전달 후 /search 이동
   function goToSearch(menus: string[]) {
-    sessionStorage.setItem("meogja_preset_menus", JSON.stringify(menus));
-    if (!navigator.geolocation) { router.push("/search"); return; }
-    // 이미 권한 있으면 바로 좌표 저장 후 이동, 없으면 /search에서 직접 요청
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        sessionStorage.setItem("meogja_search_location", JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }));
-        router.push("/search");
-      },
-      () => { router.push("/search"); }, // 실패해도 이동 (search 페이지에서 재시도)
-      { timeout: 5000, enableHighAccuracy: false }
-    );
+    if (menus.length > 0) sessionStorage.setItem("meogja_preset_menus", JSON.stringify(menus));
+    // 이미 감지된 홈 위치를 재활용 (재감지 불필요)
+    const homeLoc = sessionStorage.getItem("meogja_home_location");
+    if (homeLoc) {
+      try {
+        const loc = JSON.parse(homeLoc);
+        sessionStorage.setItem("meogja_search_location", JSON.stringify({ lat: loc.lat, lng: loc.lng }));
+      } catch { /* ignore */ }
+    }
+    router.push("/search");
   }
 
   function getTimeBasedMenus(): { label: string; emoji: string; menus: string[] } {
@@ -520,21 +500,6 @@ export default function Home() {
       {/* ── Hero ── */}
       <div className="fade-up" style={{ position:"relative", overflow:"hidden" }}>
         <img src="/meogja-brand.jpg" alt="meogja brand" style={{ width:"100%", display:"block", height:"auto" }} />
-      </div>
-
-      {/* ── 현재 위치 ── */}
-      <div style={{ padding:"8px 16px 0" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:"var(--r-pill)", background:"var(--surface)", border:"1px solid var(--border)" }}>
-            <img src="/mascot/ui/location.png" alt="" style={{ width:18, height:18, objectFit:"contain", flexShrink:0 }} />
-            <span style={{ fontSize:13, color: homeLocation ? "var(--text)" : "var(--text-3)", flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-              {locating ? "위치 확인 중…" : homeLocation ? homeLocation.label : "위치 권한을 허용해 주세요"}
-            </span>
-          </div>
-          <button onClick={requestHomeLocation} disabled={locating} style={{ width:34, height:34, borderRadius:"var(--r-pill)", border:"1px solid var(--border)", background:"var(--surface)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>
-            {locating ? "⏳" : "🔄"}
-          </button>
-        </div>
       </div>
 
       {/* ── 랜덤 룰렛 ── */}
@@ -730,7 +695,11 @@ export default function Home() {
                     <div style={{ textAlign:"center", padding:"20px 0" }}>
                       <p style={{ fontSize:14, color:"var(--text-2)", marginBottom:16 }}>아직 가입한 모임이 없습니다</p>
                       <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
-                        <button className="tap" onClick={() => { setShowQuickGroupPicker(false); setShowCreateForm(true); }} style={{ padding:"10px 20px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer" }}>모임 만들기</button>
+                        <button className="tap" onClick={() => {
+                        setShowQuickGroupPicker(false);
+                        if (currentUser.type === "none") { router.push("/login"); return; }
+                        setShowCreateForm(true);
+                      }} style={{ padding:"10px 20px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer" }}>모임 만들기</button>
                         <button className="tap" onClick={() => { setShowQuickGroupPicker(false); router.push("/groups"); }} style={{ padding:"10px 20px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text)", fontSize:14, fontWeight:600, cursor:"pointer" }}>모임 찾기</button>
                       </div>
                     </div>
