@@ -199,7 +199,16 @@ export default function GroupPage() {
     loadFavorites();
     loadReviewAvgs();
     loadFavLocations();
-    requestAutoLocation();
+    // 홈에서 미리 감지한 위치 있으면 바로 사용
+    const homeLoc = sessionStorage.getItem("meogja_home_location");
+    if (homeLoc) {
+      try {
+        const loc = JSON.parse(homeLoc);
+        setLocation({ lat: loc.lat, lng: loc.lng, label: loc.label || "현재 위치" });
+      } catch { requestAutoLocation(); }
+    } else {
+      requestAutoLocation();
+    }
     getCurrentUser().then((u) => {
       setCurrentUser(u);
       // 로그인 후 복귀 → 참여 모달 자동 열기

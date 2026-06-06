@@ -206,6 +206,10 @@ export default function Home() {
   const [rouletteRunning, setRouletteRunning] = useState(false);
   const [trendingMenus, setTrendingMenus] = useState<{name:string;count:number}[]>([]);
 
+  // 현재 위치
+  const [homeLocation, setHomeLocation] = useState<{lat:number;lng:number;label:string} | null>(null);
+  const [locating, setLocating] = useState(false);
+
   // 비공개 모임 입장
   const [enterTarget, setEnterTarget] = useState<Group | null>(null);
   const [enterPassword, setEnterPassword] = useState("");
@@ -228,6 +232,13 @@ export default function Home() {
     if (!sessionStorage.getItem("meogja_roulette_seen")) {
       setShowRoulettePopup(true);
       sessionStorage.setItem("meogja_roulette_seen", "1");
+    }
+    // 홈에서 위치 미리 감지
+    const savedLoc = sessionStorage.getItem("meogja_home_location");
+    if (savedLoc) {
+      try { setHomeLocation(JSON.parse(savedLoc)); } catch { /* ignore */ }
+    } else {
+      requestHomeLocation();
     }
     getCurrentUser().then(async (u) => {
       setCurrentUser(u);
@@ -301,6 +312,28 @@ export default function Home() {
         setRouletteRunning(false);
       }
     }, i < 10 ? 80 : 150);
+  }
+
+  function requestHomeLocation() {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        let label = "현재 위치";
+        try {
+          const res = await fetch(`/api/reverse-geocode?x=${lng}&y=${lat}`);
+          const data = await res.json();
+          if (data.address) label = data.address;
+        } catch { /* fallback */ }
+        const loc = { lat, lng, label };
+        setHomeLocation(loc);
+        sessionStorage.setItem("meogja_home_location", JSON.stringify(loc));
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { timeout: 8000, enableHighAccuracy: false }
+    );
   }
 
   function openMenuAction(menus: string[]) {
@@ -487,6 +520,21 @@ export default function Home() {
       {/* ── Hero ── */}
       <div className="fade-up" style={{ position:"relative", overflow:"hidden" }}>
         <img src="/meogja-brand.jpg" alt="meogja brand" style={{ width:"100%", display:"block", height:"auto" }} />
+      </div>
+
+      {/* ── 현재 위치 ── */}
+      <div style={{ padding:"8px 16px 0" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:"var(--r-pill)", background:"var(--surface)", border:"1px solid var(--border)" }}>
+            <span style={{ fontSize:14 }}>📍</span>
+            <span style={{ fontSize:13, color: homeLocation ? "var(--text)" : "var(--text-3)", flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+              {locating ? "위치 확인 중…" : homeLocation ? homeLocation.label : "위치 권한을 허용해 주세요"}
+            </span>
+          </div>
+          <button onClick={requestHomeLocation} disabled={locating} style={{ width:34, height:34, borderRadius:"var(--r-pill)", border:"1px solid var(--border)", background:"var(--surface)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>
+            {locating ? "⏳" : "🔄"}
+          </button>
+        </div>
       </div>
 
       {/* ── 랜덤 룰렛 ── */}
@@ -695,7 +743,10 @@ export default function Home() {
                 return myGroupList.map((g) => (
                   <button key={g.id} className="tap" onClick={() => {
                     setShowQuickGroupPicker(false);
-                    sessionStorage.setItem("meogja_preset_menus", JSON.stringify([...quickSelected]));
+                    // quickSelected가 있으면 그걸로, 없으면 menuActionMenus에서 이미 설정된 값 유지
+                    if (quickSelected.size > 0) {
+                      sessionStorage.setItem("meogja_preset_menus", JSON.stringify([...quickSelected]));
+                    }
                     setQuickCatSheet(null);
                     setQuickSelected(new Set());
                     handleEnter(g);
