@@ -526,7 +526,7 @@ export default function Home() {
       <div style={{ padding:"8px 16px 0" }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:"var(--r-pill)", background:"var(--surface)", border:"1px solid var(--border)" }}>
-            <span style={{ fontSize:14 }}>📍</span>
+            <img src="/mascot/ui/location.png" alt="" style={{ width:18, height:18, objectFit:"contain", flexShrink:0 }} />
             <span style={{ fontSize:13, color: homeLocation ? "var(--text)" : "var(--text-3)", flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
               {locating ? "위치 확인 중…" : homeLocation ? homeLocation.label : "위치 권한을 허용해 주세요"}
             </span>
@@ -569,11 +569,7 @@ export default function Home() {
               </button>
               {rouletteResult && !rouletteRunning && (
                 <button className="tap" onClick={() => {
-                  const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
-                  if (currentUser.type === "none") { router.push("/login"); return; }
-                  sessionStorage.setItem("meogja_preset_menus", JSON.stringify([rouletteResult]));
-                  if (myGroupList.length > 0) handleEnter(myGroupList[0]);
-                  else setShowCreateForm(true);
+                  openMenuAction([rouletteResult]);
                 }} style={{
                   padding:"11px 14px", borderRadius:"var(--r-pill)", border:"2px solid rgba(255,255,255,.5)",
                   background:"transparent", color:"#fff", fontFamily:"var(--font-display)", fontSize:13, cursor:"pointer", whiteSpace:"nowrap",
