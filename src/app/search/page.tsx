@@ -19,7 +19,7 @@ function SearchContent() {
   const [menus, setMenus] = useState<string[]>([]);
   const [results, setResults] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(false);
-  const [location, setLocation] = useState<{lat:number;lng:number}|null>(null);
+  const [location, setLocation] = useState<{lat:number;lng:number;label?:string}|null>(null);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string|null>(null);
 
@@ -30,11 +30,18 @@ function SearchContent() {
       sessionStorage.removeItem("meogja_preset_menus");
     }
     // search_location → home_location → 직접 요청 순으로 fallback
+    // home_location 먼저 읽어서 label 확보
+    let homeLabel: string | undefined;
+    try {
+      const hl = sessionStorage.getItem("meogja_home_location");
+      if (hl) homeLabel = JSON.parse(hl).label;
+    } catch { /* ignore */ }
+
     const searchLoc = sessionStorage.getItem("meogja_search_location");
     if (searchLoc) {
       try {
         const loc = JSON.parse(searchLoc);
-        setLocation(loc);
+        setLocation({ lat: loc.lat, lng: loc.lng, label: homeLabel });
         sessionStorage.removeItem("meogja_search_location");
         return;
       } catch {}
@@ -43,7 +50,7 @@ function SearchContent() {
     if (homeLoc) {
       try {
         const loc = JSON.parse(homeLoc);
-        setLocation({ lat: loc.lat, lng: loc.lng });
+        setLocation({ lat: loc.lat, lng: loc.lng, label: loc.label });
         return;
       } catch {}
     }
@@ -57,7 +64,16 @@ function SearchContent() {
   function requestLocation() {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocating(false); },
+      (pos) => {
+        // home_location label 있으면 같이 전달 (API 지역명 검색용)
+        let label: string | undefined;
+        try {
+          const hl = sessionStorage.getItem("meogja_home_location");
+          if (hl) label = JSON.parse(hl).label;
+        } catch { /* ignore */ }
+        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, label });
+        setLocating(false);
+      },
       () => { setError("위치 권한을 허용해주세요.\n설정에서 위치 접근을 허용하면 주변 식당을 찾을 수 있습니다."); setLocating(false); },
       { timeout: 8000, enableHighAccuracy: false }
     );
@@ -69,7 +85,9 @@ function SearchContent() {
     setError(null);
     try {
       const query = menus.join(" ");
-      const res = await fetch(`/api/search?query=${encodeURIComponent(query)}&x=${location.lng}&y=${location.lat}&radius=1000`);
+      const params = new URLSearchParams({ query, x: String(location.lng), y: String(location.lat), radius: "1000" });
+      if (location.label) params.set("location", location.label);
+      const res = await fetch(`/api/search?${params}`);
       if (!res.ok) throw new Error("검색 실패");
       const data = await res.json();
       setResults(data.items || []);
