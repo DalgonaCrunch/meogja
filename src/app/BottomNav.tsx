@@ -4,7 +4,8 @@ import { usePathname, useRouter } from "next/navigation";
 const TABS = [
   { href: "/", img: "/mascot/tabs/home.png", label: "홈" },
   { href: "/groups", img: "/mascot/tabs/community.png", label: "모임" },
-  { href: "/battle", img: "/mascot/tabs/game.png", label: "게임" },
+  { href: "/nearby", img: "/mascot/tabs/search.png", label: "주변맛집" },
+  { href: "/play", img: "/mascot/tabs/game.png", label: "플레이" },
   { href: "/profile", img: "/mascot/tabs/profile.png", label: "내 정보" },
 ];
 
@@ -15,6 +16,7 @@ export default function BottomNav() {
   const active = (href: string) => {
     if (href === "/") return pathname === "/";
     if (href === "/groups") return pathname === "/groups" || pathname.startsWith("/groups/");
+    if (href === "/nearby") return pathname === "/nearby" || pathname === "/search";
     return pathname.startsWith(href);
   };
 

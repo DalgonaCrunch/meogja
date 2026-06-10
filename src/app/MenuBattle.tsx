@@ -104,7 +104,7 @@ export default function MenuBattle({ onVoted }: { onVoted?: () => void }) {
     <div ref={cardRef} style={{ padding: "0 16px" }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
         <p style={{ fontFamily:"var(--font-display)", fontSize:16 }}>⚔️ 오늘의 배틀</p>
-        <button onClick={() => router.push("/battle?tab=battle")} style={{ fontSize:12, color:"var(--primary)", fontWeight:700, background:"none", border:"none", cursor:"pointer" }}>히스토리 ›</button>
+        <button onClick={() => router.push("/play?tab=battle")} style={{ fontSize:12, color:"var(--primary)", fontWeight:700, background:"none", border:"none", cursor:"pointer" }}>히스토리 ›</button>
       </div>
 
       <div style={{
@@ -140,7 +140,7 @@ export default function MenuBattle({ onVoted }: { onVoted?: () => void }) {
                 }}>
                 {getFoodIconUrl(menu)
                   ? <img src={getFoodIconUrl(menu)!} alt={menu} style={{ width:64, height:64, objectFit:"contain" }} />
-                  : <span style={{ fontSize:42 }}>🍽️</span>}
+                  : <img src="/mascot/tabs/food.png" style={{width:42, height:42, objectFit:"contain"}} />}
                 <p style={{ fontFamily:"var(--font-display)", fontSize:18, color: isMine ? color : "var(--text)" }}>{menu}</p>
                 {myVote ? (
                   <div style={{ textAlign:"center" }}>
@@ -169,12 +169,10 @@ export default function MenuBattle({ onVoted }: { onVoted?: () => void }) {
       {/* 공유 버튼 */}
       {showShare && myVote && (
         <button className="tap" onClick={() => {
-          const winner = myVote === "a" ? battle.menu_a : battle.menu_b;
-          const loser = myVote === "a" ? battle.menu_b : battle.menu_a;
-          const pctMine = myVote === "a" ? pctA : pctB;
-          const text = `오늘의 배틀 결과 🍽️\n⚔️ ${battle.menu_a} vs ${battle.menu_b}\n나는 ${winner} 선택! (현재 ${pctMine}%)\n\n같이 투표해봐 → ${window.location.origin}`;
-          if (navigator.share) navigator.share({ title: "오늘의 메뉴 배틀", text, url: window.location.origin });
-          else { navigator.clipboard?.writeText(text); }
+          const url = window.location.origin;
+          const text = `⚔️ ${battle.menu_a} vs ${battle.menu_b} — 오늘의 배틀 결과는?\nmeogja에서 확인해봐요 👀`;
+          if (navigator.share) navigator.share({ title: "오늘의 메뉴 배틀 결과는?", text, url });
+          else { navigator.clipboard?.writeText(`${text}\n${url}`); }
         }} style={{
           marginTop:10, width:"100%", padding:"11px", borderRadius:"var(--r-pill)",
           border:"1.5px solid var(--primary)", background:"var(--primary-light)",

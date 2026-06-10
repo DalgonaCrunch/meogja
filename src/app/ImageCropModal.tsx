@@ -8,28 +8,34 @@ type Props = {
   onClose: () => void;
   size?: number;         // output size (default 300)
   title?: string;
+  format?: "jpeg" | "png"; // default "jpeg"
 };
 
-export default function ImageCropModal({ src, onSave, onClose, size = 300, title = "이미지 위치 조정" }: Props) {
+export default function ImageCropModal({ src, onSave, onClose, size = 300, title = "이미지 위치 조정", format = "jpeg" }: Props) {
   const PREVIEW = 240; // preview circle size in px
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [scale, setScale] = useState(1);
+  const [initScale, setInitScale] = useState(0.5);
   const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef<{ mx: number; my: number; ox: number; oy: number } | null>(null);
   const lastPinchDist = useRef<number | null>(null);
+  const scaleRef = useRef(scale);
+  useEffect(() => { scaleRef.current = scale; }, [scale]);
 
   useEffect(() => {
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.onload = () => {
       setImgSize({ w: img.width, h: img.height });
       // 초기 스케일: 짧은 쪽이 원을 꽉 채우도록
       const minDim = Math.min(img.width, img.height);
-      const initScale = PREVIEW / minDim;
-      setScale(initScale);
+      const s = PREVIEW / minDim;
+      setInitScale(s);
+      setScale(s);
       setOffset({ x: 0, y: 0 });
     };
     img.src = src;
@@ -87,8 +93,11 @@ export default function ImageCropModal({ src, onSave, onClose, size = 300, title
       const dist = Math.sqrt(dx*dx + dy*dy);
       const ratio = dist / lastPinchDist.current;
       lastPinchDist.current = dist;
-      const newScale = Math.max(0.5, Math.min(5, scale * ratio));
-      const clamped = clampOffset(offset.x, offset.y, newScale);
+      const cur = scaleRef.current;
+      const newScale = Math.max(initScale, Math.min(5, cur * ratio));
+      const newOffsetX = offset.x * (newScale / cur);
+      const newOffsetY = offset.y * (newScale / cur);
+      const clamped = clampOffset(newOffsetX, newOffsetY, newScale);
       setScale(newScale);
       setOffset(clamped);
     }
@@ -99,8 +108,10 @@ export default function ImageCropModal({ src, onSave, onClose, size = 300, title
   function onWheel(e: React.WheelEvent) {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.max(0.5, Math.min(5, scale * delta));
-    const clamped = clampOffset(offset.x, offset.y, newScale);
+    const newScale = Math.max(initScale, Math.min(5, scale * delta));
+    const newOffsetX = offset.x * (newScale / scale);
+    const newOffsetY = offset.y * (newScale / scale);
+    const clamped = clampOffset(newOffsetX, newOffsetY, newScale);
     setScale(newScale);
     setOffset(clamped);
   }
@@ -110,6 +121,7 @@ export default function ImageCropModal({ src, onSave, onClose, size = 300, title
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext("2d")!;
+    if (format === "png") ctx.clearRect(0, 0, size, size);
     // Clip to circle
     ctx.beginPath();
     ctx.arc(size/2, size/2, size/2, 0, Math.PI*2);
@@ -122,7 +134,7 @@ export default function ImageCropModal({ src, onSave, onClose, size = 300, title
     const dx = (size - sw) / 2 + offset.x * ratio;
     const dy = (size - sh) / 2 + offset.y * ratio;
     ctx.drawImage(img, dx, dy, sw, sh);
-    onSave(canvas.toDataURL("image/jpeg", 0.9));
+    onSave(format === "png" ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.9));
   }
 
   return (
@@ -162,6 +174,8 @@ export default function ImageCropModal({ src, onSave, onClose, size = 300, title
               style={{
                 width: imgSize.w * scale,
                 height: imgSize.h * scale,
+                maxWidth: "none",
+                maxHeight: "none",
                 position:"absolute",
                 left: (PREVIEW - imgSize.w * scale) / 2 + offset.x,
                 top: (PREVIEW - imgSize.h * scale) / 2 + offset.y,
@@ -174,10 +188,12 @@ export default function ImageCropModal({ src, onSave, onClose, size = 300, title
         {/* Scale slider */}
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ fontSize:12, color:"var(--text-3)" }}>축소</span>
-          <input type="range" min={0.5} max={5} step={0.05} value={scale}
+          <input type="range" min={initScale} max={Math.max(initScale * 5, 2)} step={initScale * 0.05} value={scale}
             onChange={(e) => {
               const newScale = parseFloat(e.target.value);
-              const clamped = clampOffset(offset.x, offset.y, newScale);
+              const newOffsetX = scale > 0 ? offset.x * (newScale / scale) : 0;
+              const newOffsetY = scale > 0 ? offset.y * (newScale / scale) : 0;
+              const clamped = clampOffset(newOffsetX, newOffsetY, newScale);
               setScale(newScale);
               setOffset(clamped);
             }}

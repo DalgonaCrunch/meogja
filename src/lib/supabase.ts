@@ -35,6 +35,8 @@ export type Member = {
   name: string;
   status: "approved" | "pending";
   created_at: string;
+  user_id?: string | null;
+  guest_name?: string | null;
 };
 
 export type GroupMembership = {

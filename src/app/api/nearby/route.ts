@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/rateLimit";
+import { trackApiUsage } from "@/lib/apiTracker";
 
 export async function GET(request: NextRequest) {
+  const limited = await checkRateLimit(request, "nearby", { perMinute: 10, perDay: 100 });
+  if (limited) return limited;
   const x = request.nextUrl.searchParams.get("x");
   const y = request.nextUrl.searchParams.get("y");
   const radius = request.nextUrl.searchParams.get("radius") || "1000";
@@ -39,5 +43,6 @@ export async function GET(request: NextRequest) {
     phone: d.phone,
   }));
 
+  trackApiUsage("kakao");
   return NextResponse.json({ items, total: data.meta?.total_count });
 }

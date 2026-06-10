@@ -15,6 +15,7 @@ export type CurrentUser =
   | { type: "guest"; user: GuestUser }
   | { type: "none" };
 
+// 게스트(이름만): sessionStorage → 탭 닫으면 초기화
 const GUEST_KEY = "meogja_guest";
 const DEVICE_KEY = "meogja_device_id";
 
@@ -31,21 +32,27 @@ export function getDeviceId(): string {
 
 export function getGuestUser(): GuestUser | null {
   if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(GUEST_KEY);
+  // 기존 localStorage 게스트 마이그레이션: 세션으로 이동 후 삭제
+  const oldLocal = localStorage.getItem(GUEST_KEY);
+  if (oldLocal) {
+    sessionStorage.setItem(GUEST_KEY, oldLocal);
+    localStorage.removeItem(GUEST_KEY);
+  }
+  const raw = sessionStorage.getItem(GUEST_KEY);
   if (!raw) return null;
   try { return JSON.parse(raw); } catch { return null; }
 }
 
 export function setGuestUser(name: string) {
-  localStorage.setItem(GUEST_KEY, JSON.stringify({ name }));
-  // 헤더 즉시 업데이트를 위한 커스텀 이벤트
+  // sessionStorage: 탭/브라우저 닫으면 자동 초기화
+  sessionStorage.setItem(GUEST_KEY, JSON.stringify({ name }));
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("meogja-auth-change"));
   }
 }
 
 export function clearGuestUser() {
-  localStorage.removeItem(GUEST_KEY);
+  sessionStorage.removeItem(GUEST_KEY);
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("meogja-auth-change"));
   }
@@ -59,9 +66,9 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     const metaName =
       user.user_metadata?.full_name ||
       user.user_metadata?.name ||
-      user.user_metadata?.preferred_username;
+      user.user_metadata?.preferred_username ||
+      user.user_metadata?.display_name;
     const displayName = profile?.display_name || metaName || user.email?.split("@")[0] || "";
-    // 프로필 행 없으면 생성 (소셜 로그인 콜백이 누락된 경우 대비)
     if (!profile) {
       const profileImage = user.user_metadata?.avatar_url || "/mascot/avatars/cat-00.png";
       getSupabase().from("user_profiles").insert({
@@ -79,9 +86,6 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   if (guest) return { type: "guest", user: guest };
   return { type: "none" };
 }
-
-// 네이버 로그인은 커스텀 OAuth 라우트 사용 (/api/auth/naver)
-// signInWithNaver는 직접 window.location.href 사용
 
 export async function signInWithGoogle(next?: string) {
   const callbackUrl = next

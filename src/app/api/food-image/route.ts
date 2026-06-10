@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { trackApiUsage } from "@/lib/apiTracker";
 
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("query");
@@ -17,6 +18,7 @@ export async function GET(request: NextRequest) {
 
   const data = await res.json();
   const url = data.items?.[0]?.thumbnail || null;
+  trackApiUsage("naver_image");
   return NextResponse.json({ url }, {
     headers: { "Cache-Control": "public, max-age=86400" }, // 하루 캐시
   });

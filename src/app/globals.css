@@ -57,6 +57,10 @@
 
   /* ── bottom nav height ── */
   --nav-h: 62px;
+
+  /* ── hero gradient (테마별로 override) ── */
+  --hero-gradient: linear-gradient(135deg, #FF6B1A 0%, #FF9A45 60%, #FFB347 100%);
+  --hero-shadow: rgba(255,107,26,.40);
 }
 
 *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -76,6 +80,22 @@ body {
 h1,h2,h3,h4 { font-family: var(--font-display); font-weight: 400; margin: 0; letter-spacing: -.01em; }
 button { font-family: var(--font-body); cursor: pointer; }
 ::-webkit-scrollbar { width: 0; height: 0; }
+
+/* ── 이미지 꾹눌러 팝업 방지 ── */
+img, video {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+  -webkit-context-menu: none;
+}
+
+/* ── 탭 아이콘: Tailwind preflight display:block 오버라이드 ── */
+img[src^="/mascot/tabs/"] {
+  display: inline-block;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
+}
 
 /* ── tap feedback ── */
 .tap {
@@ -105,6 +125,10 @@ button { font-family: var(--font-body); cursor: pointer; }
 @keyframes bounceIn  { 0%{ transform:scale(.8);opacity:0; } 60%{ transform:scale(1.04); } 100%{ transform:scale(1);opacity:1; } }
 @keyframes spin      { to{ transform:rotate(360deg); } }
 @keyframes growBar   { from{ width:0; } }
+@keyframes popIn     { 0%{ transform:scale(.4); opacity:0; } 70%{ transform:scale(1.15); } 100%{ transform:scale(1); opacity:1; } }
+@keyframes fadeDown  { from { opacity:0; transform:translateX(-50%) translateY(-8px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+@keyframes pulseCta  { 0%,100%{ box-shadow:0 0 0 0 rgba(255,255,255,.5); } 50%{ box-shadow:0 0 0 8px rgba(255,255,255,0); } }
+.pulse-cta { animation: pulseCta 1.4s ease-out infinite; }
 
 .fade-up   { animation: slideUp .4s cubic-bezier(.2,.8,.2,1) both; }
 .fade-up-1 { animation-delay:.06s; }

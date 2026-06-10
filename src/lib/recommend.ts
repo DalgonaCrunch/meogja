@@ -295,7 +295,7 @@ export function getRecommendations(
   preferences: FoodPreference[],
   participantIds: string[],
   count: number = 5
-): { menu: string; large: string; medium: string; score: number }[] {
+): { menu: string; large: string; medium: string; score: number; likedByIds: string[] }[] {
   const participantPrefs = preferences.filter((p) =>
     participantIds.includes(p.member_id)
   );
@@ -306,14 +306,15 @@ export function getRecommendations(
       .map((p) => p.food_name)
   );
 
-  const likeCounts: Record<string, number> = {};
+  const likesByFood: Record<string, Set<string>> = {};
   participantPrefs
     .filter((p) => p.preference_type === "like")
     .forEach((p) => {
-      likeCounts[p.food_name] = (likeCounts[p.food_name] || 0) + 1;
+      if (!likesByFood[p.food_name]) likesByFood[p.food_name] = new Set();
+      likesByFood[p.food_name].add(p.member_id);
     });
 
-  const candidates: { menu: string; large: string; medium: string; score: number }[] = [];
+  const candidates: { menu: string; large: string; medium: string; score: number; likedByIds: string[] }[] = [];
 
   for (const large of MENU_DATA) {
     if (dislikes.has(large.name)) continue;
@@ -321,12 +322,12 @@ export function getRecommendations(
       if (dislikes.has(medium.name)) continue;
       for (const menu of medium.items) {
         if (dislikes.has(menu)) continue;
-        const score =
-          likeCounts[menu] ||
-          likeCounts[medium.name] ||
-          likeCounts[large.name] ||
-          0;
-        candidates.push({ menu, large: large.name, medium: medium.name, score });
+        const likedByIds = Array.from(new Set([
+          ...(likesByFood[menu] ?? []),
+          ...(likesByFood[medium.name] ?? []),
+          ...(likesByFood[large.name] ?? []),
+        ])).filter(id => participantIds.includes(id));
+        candidates.push({ menu, large: large.name, medium: medium.name, score: likedByIds.length, likedByIds });
       }
     }
   }

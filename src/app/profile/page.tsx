@@ -1,46 +1,92 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, useRef, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentUser, signOut, CurrentUser } from "@/lib/auth";
 import { getSupabase, Group } from "@/lib/supabase";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems } from "@/lib/recommend";
 import { THEMES, ThemeId, applyTheme, getSavedTheme } from "@/lib/theme";
-import { toast, showAlert } from "@/lib/dialog";
+import { toast, showAlert, showConfirm } from "@/lib/dialog";
 import { ALL_AVATARS, DEFAULT_AVATARS } from "@/lib/mascot";
 import ImageCropModal from "@/app/ImageCropModal";
+import { usePushSubscription } from "@/lib/usePushSubscription";
 
-function ProfileFieldRow({ fieldKey, label, value, editable, isLast, onSave }: {
+const selectStyle: React.CSSProperties = {
+  flex:1, padding:"6px 10px", borderRadius:"var(--r-sm)", border:"1.5px solid var(--primary)",
+  background:"var(--bg)", fontSize:13, outline:"none", color:"var(--text)", cursor:"pointer",
+};
+
+function ProfileFieldRow({ fieldKey, label, value, editable, isLast, onSave, options, fieldType }: {
   fieldKey: string; label: string; value: string; editable: boolean; isLast: boolean;
   onSave: (key: string, val: string) => Promise<void>;
+  options?: string[];
+  fieldType?: "select" | "birthday";
 }) {
   const [editing, setEditing] = useState(false);
   const [editVal, setEditVal] = useState(value);
+  const [bdMonth, setBdMonth] = useState(() => value?.split("-")[0] || "");
+  const [bdDay, setBdDay] = useState(() => value?.split("-")[1] || "");
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
-    if (!editVal.trim()) return;
+    let val = editVal.trim();
+    if (fieldType === "birthday") {
+      if (!bdMonth || !bdDay) return;
+      val = `${bdMonth}-${bdDay}`;
+    }
+    if (!val) return;
     setSaving(true);
-    await onSave(fieldKey, editVal.trim());
+    await onSave(fieldKey, val);
     setSaving(false);
     setEditing(false);
   }
+
+  const displayValue = (() => {
+    if (!value) return "미설정";
+    if (fieldType === "birthday") {
+      const [m, d] = value.split("-");
+      return m && d ? `${parseInt(m)}월 ${parseInt(d)}일` : value;
+    }
+    return value;
+  })();
+
+  const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
+  const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0"));
 
   return (
     <div style={{ display:"flex", alignItems:"center", padding:"12px 16px", borderBottom: isLast ? "none" : "1px solid var(--border)", gap:8 }}>
       <span style={{ fontSize:12, color:"var(--text-2)", width:90, flexShrink:0, fontWeight:600 }}>{label}</span>
       {editing ? (
         <div style={{ display:"flex", gap:6, flex:1, alignItems:"center" }}>
-          <input autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setEditing(false); }}
-            style={{ flex:1, padding:"6px 10px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--primary)", background:"var(--bg)", fontSize:13, outline:"none" }} />
+          {fieldType === "select" && options ? (
+            <select autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} style={selectStyle}>
+              <option value="">선택</option>
+              {options.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          ) : fieldType === "birthday" ? (
+            <div style={{ display:"flex", gap:4, flex:1 }}>
+              <select value={bdMonth} onChange={(e) => setBdMonth(e.target.value)} style={{ ...selectStyle, flex:1 }}>
+                <option value="">월</option>
+                {months.map(m => <option key={m} value={m}>{parseInt(m)}월</option>)}
+              </select>
+              <select value={bdDay} onChange={(e) => setBdDay(e.target.value)} style={{ ...selectStyle, flex:1 }}>
+                <option value="">일</option>
+                {days.map(d => <option key={d} value={d}>{parseInt(d)}일</option>)}
+              </select>
+            </div>
+          ) : (
+            <input autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setEditing(false); }}
+              style={{ flex:1, padding:"6px 10px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--primary)", background:"var(--bg)", fontSize:13, outline:"none" }} />
+          )}
           <button className="tap" onClick={handleSave} disabled={saving} style={{ padding:"5px 12px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>
             {saving ? "…" : "저장"}
           </button>
-          <button onClick={() => { setEditing(false); setEditVal(value); }} style={{ background:"none", border:"none", color:"var(--text-2)", fontSize:16, cursor:"pointer" }}>✕</button>
+          <button onClick={() => { setEditing(false); setEditVal(value); setBdMonth(value?.split("-")[0] || ""); setBdDay(value?.split("-")[1] || ""); }} style={{ background:"none", border:"none", color:"var(--text-2)", fontSize:16, cursor:"pointer" }}>✕</button>
         </div>
       ) : (
         <>
-          <span style={{ fontSize:14, color: value ? "var(--text)" : "var(--text-3)", flex:1 }}>{value || "미설정"}</span>
+          <span style={{ fontSize:14, color: value ? "var(--text)" : "var(--text-3)", flex:1 }}>{displayValue}</span>
           {editable && (
             <button className="tap" onClick={() => { setEditVal(value); setEditing(true); }} style={{ background:"none", border:"none", color:"var(--text-3)", fontSize:14, cursor:"pointer", padding:"2px 6px" }}>✏️</button>
           )}
@@ -59,12 +105,28 @@ const FEEDBACK_CATS = [
 
 export default function ProfilePage() {
   const router = useRouter();
+  const backGuardHandlerRef = useRef<(() => void) | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser>({ type: "none" });
   const [myGroups, setMyGroups] = useState<Group[]>([]);
   const [joinedGroups, setJoinedGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [linkedProviders, setLinkedProviders] = useState<string[]>([]);
+  const [isSimpleAccount, setIsSimpleAccount] = useState(false);
+  const [linkingProvider, setLinkingProvider] = useState<string | null>(null);
+  const [showMigrateModal, setShowMigrateModal] = useState(false);
+  const [migrateProvider, setMigrateProvider] = useState<string | null>(null);
+  const [migrateReason, setMigrateReason] = useState<"conflict" | "switch">("switch");
+  const [simpleCreatedAt, setSimpleCreatedAt] = useState<string>("");
+  const [socialConflictInfo, setSocialConflictInfo] = useState<{
+    display_name: string; profile_image?: string; created_at?: string; group_count: number;
+  } | null>(null);
+  const [conflictInfoLoading, setConflictInfoLoading] = useState(false);
 
   useEffect(() => {
+    window.history.pushState({ backGuard: true }, '');
+    const onPop = () => { router.replace('/'); };
+    backGuardHandlerRef.current = onPop;
+    window.addEventListener('popstate', onPop);
     init();
     // 게스트 → 로그인 전환 시 데이터 연동
     const guestToLink = sessionStorage.getItem("meogja_link_guest");
@@ -74,12 +136,12 @@ export default function ProfilePage() {
         if (u.type === "auth") {
           // 해당 guest_name의 멤버 기록을 새 계정으로 연결
           await getSupabase().from("members").update({ user_id: u.user.id }).eq("guest_name", guestToLink).is("user_id", null);
-          // 게스트 계정도 연결
-          // guest_accounts에 user_id 연결 (컬럼 없으면 무시)
-          // await getSupabase().from("guest_accounts").update({ user_id: u.user.id }).eq("name", guestToLink).catch(() => {});
+          // 게스트로 만든 모임 owner_id 연결
+          await getSupabase().from("groups").update({ owner_id: u.user.id }).eq("owner_guest_name", guestToLink).is("owner_id", null);
         }
       });
     }
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   async function init() {
@@ -87,14 +149,28 @@ export default function ProfilePage() {
     setCurrentUser(user);
     if (user.type === "none") { router.replace("/login"); return; }
     // 아바타 설정 로드
-    const { data: cfgData } = await getSupabase().from("avatar_config").select("id,purpose,object_position");
+    const { data: cfgData } = await getSupabase().from("avatar_config").select("id,purpose,object_position,cropped_url");
     if (cfgData) {
-      const map: Record<string, {purpose:string;object_position:string}> = {};
-      cfgData.forEach((r: {id:string;purpose:string;object_position:string}) => { map[r.id] = r; });
+      const map: Record<string, {purpose:string;object_position:string;cropped_url?:string}> = {};
+      cfgData.forEach((r: {id:string;purpose:string;object_position:string;cropped_url?:string}) => { map[r.id] = r; });
       setAvatarCfgs(map);
     }
 
     if (user.type === "auth") {
+      // 간편가입 계정 여부 (pseudo email @meogja.app)
+      const { data: { user: rawUser } } = await getSupabase().auth.getUser();
+      setIsSimpleAccount(!!rawUser?.email?.endsWith("@meogja.app") || !!rawUser?.user_metadata?.simple_account);
+      setSimpleCreatedAt(rawUser?.created_at || "");
+      // 연결된 소셜 계정 로드
+      const { data: identityData } = await getSupabase().auth.getUserIdentities();
+      const providers = (identityData?.identities || []).map((i: { provider: string }) => i.provider);
+      // admin.createUser로 만든 소셜 계정은 identity가 없으므로 user_metadata.provider로 보완
+      const metaProvider = rawUser?.user_metadata?.provider;
+      if (metaProvider && metaProvider !== "email" && !providers.includes(metaProvider)) {
+        providers.push(metaProvider);
+      }
+      setLinkedProviders(providers);
+
       // 내가 만든 모임
       const { data: owned } = await getSupabase().from("groups").select("*").eq("owner_id", user.user.id).order("created_at", { ascending: false });
       if (owned) setMyGroups(owned);
@@ -116,20 +192,131 @@ export default function ProfilePage() {
     router.replace("/login");
   }
 
+  async function handleLinkSocial(provider: "google" | "kakao" | "naver") {
+    if (currentUser.type !== "auth") return;
+
+    // 소셜 연동 시작 전 back guard 해제 (OAuth redirect/history 조작이 홈으로 튕기는 현상 방지)
+    if (backGuardHandlerRef.current) {
+      window.removeEventListener('popstate', backGuardHandlerRef.current);
+      backGuardHandlerRef.current = null;
+    }
+
+    // Naver: Supabase 네이티브 미지원 → 확인 후 migrate flow 사용
+    if (provider === "naver") {
+      const ok = await showConfirm(
+        "네이버 계정으로 연동하면 현재 계정 데이터가 네이버 계정으로 이전됩니다.\n연동 후에는 네이버로만 로그인 가능해요. (간편계정 아이디/비밀번호 사용 불가)\n\n이미 다른 meogja 계정에 연결된 네이버면 연동이 차단돼요.",
+        { title: "네이버 계정 연동", confirmLabel: "연동하기" }
+      );
+      if (!ok) return;
+      localStorage.setItem("meogja_migrate_from", currentUser.user.id);
+      localStorage.setItem("meogja_migrate_keep_source", "true");
+      // signOut 불필요: Naver callback의 magic link가 세션을 교체함
+      // signOut 후 conflict 감지되면 로그아웃 상태로 /profile로 돌아오는 버그 방지
+      window.location.href = `/api/auth/naver?next=/profile&mode=migrate`;
+      return;
+    }
+
+    // Google: 확인 다이얼로그 후 linkIdentity
+    const okGoogle = await showConfirm(
+      "Google 계정으로 연동하면 현재 계정 데이터가 Google 계정으로 이전됩니다.\n연동 후에는 Google로만 로그인 가능해요. (간편계정 아이디/비밀번호 사용 불가)",
+      { title: "Google 계정 연동", confirmLabel: "연동하기" }
+    );
+    if (!okGoogle) return;
+
+    setLinkingProvider(provider);
+    localStorage.setItem("meogja_link_from", currentUser.user.id);
+    localStorage.setItem("meogja_link_provider", provider);
+    const redirectTo = `${window.location.origin}/auth/callback?mode=link`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (getSupabase().auth as any).linkIdentity({ provider, options: { redirectTo, queryParams: { prompt: "select_account" } } });
+    if (error) {
+      localStorage.removeItem("meogja_link_from");
+      localStorage.removeItem("meogja_link_provider");
+      if (error.message?.includes("already") || error.code === "identity_already_exists") {
+        await showAlert("이 Google 계정은 이미 다른 meogja 계정에 연결되어 있어요.\n연결을 원하면 해당 계정으로 로그인 후 이용해주세요.", { icon: "⚠️", title: "이미 사용 중인 계정" });
+      } else {
+        toast("연결에 실패했어요: " + (error.message || "알 수 없는 오류"));
+      }
+    }
+    setLinkingProvider(null);
+  }
+
+  async function handleMigrateToSocial(keepSourceProfile: boolean) {
+    if (currentUser.type !== "auth" || !migrateProvider) return;
+    localStorage.setItem("meogja_migrate_from", currentUser.user.id);
+    localStorage.setItem("meogja_migrate_keep_source", keepSourceProfile ? "true" : "false");
+    await signOut();
+    const redirectTo = `${window.location.origin}/auth/callback?mode=migrate`;
+    if (migrateProvider === "google") {
+      await getSupabase().auth.signInWithOAuth({ provider: "google", options: { redirectTo } });
+    } else if (migrateProvider === "naver") {
+      window.location.href = `/api/auth/naver?next=/profile&mode=migrate`;
+    }
+  }
+
   async function leaveGroup(groupId: string) {
     if (currentUser.type !== "auth") return;
     await getSupabase().from("group_memberships").delete().eq("group_id", groupId).eq("user_id", currentUser.user.id);
     setJoinedGroups((prev) => prev.filter((g) => g.id !== groupId));
   }
 
+  const [refreshingSocial, setRefreshingSocial] = useState(false);
+
+  async function refreshSocialProfile() {
+    if (currentUser.type !== "auth") return;
+    setRefreshingSocial(true);
+    const { data: { user: rawUser } } = await getSupabase().auth.getUser();
+    const meta = rawUser?.user_metadata || {};
+
+    // identity_data도 병합 (provider별 추가 필드)
+    const { data: identData } = await getSupabase().auth.getUserIdentities();
+    const identMeta = identData?.identities?.[0]?.identity_data || {};
+
+    const merged = { ...identMeta, ...meta }; // user_metadata 우선
+
+    const avatarUrl: string | null =
+      merged.avatar_url || merged.picture || merged.profile_image_url ||
+      merged.thumbnail_image_url || merged.profile?.thumbnail_image_url || null;
+
+    const fullName: string | null =
+      merged.full_name || merged.name || merged.nickname ||
+      merged.profile?.nickname || null;
+
+    const email: string | null = rawUser?.email || merged.email || null;
+    const mobile: string | null = merged.phone_number || merged.mobile || null;
+
+    const update: Record<string, string> = {};
+    if (avatarUrl) update.profile_image = avatarUrl;
+    if (fullName) { update.display_name = fullName; update.name = fullName; }
+    if (email) update.email = email;
+    if (mobile) update.mobile = mobile;
+
+    if (Object.keys(update).length > 0) {
+      const { error } = await getSupabase().from("user_profiles").upsert(
+        { id: currentUser.user.id, ...update }, { onConflict: "id" }
+      );
+      if (!error) {
+        setMyProfile(prev => ({ ...prev, ...update }));
+        window.dispatchEvent(new CustomEvent("meogja-auth-change"));
+        toast("소셜 프로필 정보를 불러왔어요!");
+      }
+    } else {
+      toast("불러올 소셜 정보가 없습니다");
+    }
+    setRefreshingSocial(false);
+  }
+
   const displayName = currentUser.type === "auth" ? currentUser.user.display_name : currentUser.type === "guest" ? currentUser.user.name : "";
   const [myProfile, setMyProfile] = useState<Record<string,string>>({});
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [profileEditMode, setProfileEditMode] = useState(false);
+  const [profileEditForm, setProfileEditForm] = useState<Record<string, string>>({});
+  const [profileSaving, setProfileSaving] = useState(false);
   const [myReports, setMyReports] = useState<{id:string;target_type:string;target_name:string;reason:string;status:string;created_at:string}[]>([]);
   const [showReports, setShowReports] = useState(false);
 
   const [showAllAvatars, setShowAllAvatars] = useState(false);
-  const [avatarCfgs, setAvatarCfgs] = useState<Record<string, {purpose:string;object_position:string}>>({});
+  const [avatarCfgs, setAvatarCfgs] = useState<Record<string, {purpose:string;object_position:string;cropped_url?:string}>>({});
   const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   async function selectDefaultAvatar(url: string) {
@@ -162,6 +349,7 @@ export default function ProfilePage() {
     e.target.value = ""; // reset input
   }
   const [myPrefs, setMyPrefs] = useState<{id:string;food_name:string;preference_type:string}[]>([]);
+  const [myFoodScores, setMyFoodScores] = useState<{food_name:string;score:number}[]>([]);
   const [prefInput, setPrefInput] = useState("");
   const [prefType, setPrefType] = useState<"like"|"dislike">("like");
   const [prefLarge, setPrefLarge] = useState("");
@@ -173,6 +361,52 @@ export default function ProfilePage() {
   useEffect(() => { setCurrentTheme(getSavedTheme()); }, []);
 
   useEffect(() => {
+    if (!showMigrateModal || migrateReason !== "conflict" || !migrateProvider) return;
+    setSocialConflictInfo(null);
+    setConflictInfoLoading(true);
+    (async () => {
+      const { data: { session } } = await getSupabase().auth.getSession();
+      const token = session?.access_token;
+      if (!token) { setConflictInfoLoading(false); return; }
+      const res = await fetch(`/api/auth/find-social-account?provider=${migrateProvider}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.found) setSocialConflictInfo(data);
+      setConflictInfoLoading(false);
+    })();
+  }, [showMigrateModal, migrateReason, migrateProvider]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("link_success") === "1") {
+      toast("소셜 계정이 연결됐어요!");
+      window.history.replaceState({}, "", "/profile");
+    } else if (params.get("migrated") === "1") {
+      toast("계정 이전 완료! 소셜 계정으로 로그인됩니다.");
+      window.history.replaceState({}, "", "/profile");
+    } else if (params.get("link_conflict") === "1") {
+      window.history.replaceState({}, "", "/profile");
+      toast("이 Google 계정은 이미 다른 meogja 계정에 연결되어 있어요.", "⚠️");
+    } else if (params.get("naver_conflict") === "1") {
+      window.history.replaceState({}, "", "/profile");
+      showAlert(
+        "이 네이버 계정은 이미 다른 meogja 계정에 연결되어 있어요.\n다른 네이버 계정으로 연동하려면 네이버에서 먼저 로그아웃 후 다시 시도해주세요.",
+        { icon: "⚠️", title: "이미 사용 중인 계정" }
+      );
+    } else if (params.get("link_error")) {
+      const errMsg = params.get("link_error") || "";
+      window.history.replaceState({}, "", "/profile");
+      const isCancelled = errMsg.toLowerCase().includes("access_denied");
+      if (!isCancelled) {
+        toast("Google 연동 실패: " + (errMsg || "다시 시도해주세요"), "⚠️");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (currentUser.type === "auth") {
       // 프로필 정보 로드
       getSupabase().from("user_profiles").select("*").eq("id", currentUser.user.id).single().then(({ data }) => {
@@ -180,6 +414,9 @@ export default function ProfilePage() {
       });
       getSupabase().from("user_food_preferences").select("*").eq("user_id", currentUser.user.id).order("preference_type").then(({ data }) => {
         if (data) setMyPrefs(data);
+      });
+      getSupabase().from("user_food_scores").select("food_name,score").eq("user_id", currentUser.user.id).order("score", { ascending: false }).limit(15).then(({ data }) => {
+        if (data) setMyFoodScores(data);
       });
       // 신고 내역
       getSupabase().from("reports").select("id,target_type,target_name,reason,status,created_at").eq("reporter_user_id", currentUser.user.id).order("created_at", { ascending: false }).then(({ data }) => {
@@ -220,6 +457,11 @@ export default function ProfilePage() {
   const [fbContent, setFbContent] = useState("");
   const [fbEmail, setFbEmail] = useState("");
   const [fbSent, setFbSent] = useState(false);
+
+  const pushUserId = currentUser.type === "auth" ? currentUser.user.id : null;
+  const { permission, subscribed, subscribe, unsubscribe } = usePushSubscription(pushUserId);
+  const [notifSupported, setNotifSupported] = useState(false);
+  useEffect(() => { setNotifSupported(typeof window !== "undefined" && "Notification" in window); }, []);
   const [fbSending, setFbSending] = useState(false);
 
   async function submitFeedback(e: FormEvent) {
@@ -270,13 +512,30 @@ export default function ProfilePage() {
               {displayName || "사용자"}
             </h1>
             <p style={{ fontSize:12, color:"var(--text-2)" }}>
-              {currentUser.type === "auth" ? currentUser.user.email : "게스트 이용 중"}
+              {currentUser.type === "auth"
+                ? (myProfile.email || (!currentUser.user.email?.endsWith("@meogja.app") ? currentUser.user.email : null) || "네이버 로그인")
+                : "게스트 이용 중"}
             </p>
           </div>
         </div>
-        <button onClick={handleSignOut} style={{ padding:"7px 16px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:12, fontWeight:500, cursor:"pointer", flexShrink:0 }}>
-          {currentUser.type === "auth" ? "로그아웃" : "나가기"}
-        </button>
+        <div style={{ display:"flex", flexDirection:"column", gap:6, alignItems:"flex-end" }}>
+          {currentUser.type === "auth" && (
+            <button className="tap" onClick={() => router.push("/messages")} style={{ padding:"7px 14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:12, fontWeight:500, cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
+              💌 쪽지함
+            </button>
+          )}
+          {notifSupported && permission !== "denied" && (
+            <button className="tap" onClick={async () => {
+              if (subscribed) { await unsubscribe(); toast("🔕 알림을 껐어요"); }
+              else { const ok = await subscribe(); if (ok) toast("🔔 알림을 켰어요!"); else toast("알림 권한을 허용해주세요"); }
+            }} style={{ padding:"7px 14px", borderRadius:"var(--r-pill)", border:`1.5px solid ${subscribed ? "var(--primary)" : "var(--border)"}`, background: subscribed ? "var(--primary-light)" : "transparent", color: subscribed ? "var(--primary)" : "var(--text-2)", fontSize:12, fontWeight:500, cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
+              {subscribed ? "🔔 알림 켜짐" : "🔕 알림 받기"}
+            </button>
+          )}
+          <button onClick={handleSignOut} style={{ padding:"7px 16px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:12, fontWeight:500, cursor:"pointer", flexShrink:0 }}>
+            {currentUser.type === "auth" ? "로그아웃" : "나가기"}
+          </button>
+        </div>
       </div>
 
       {/* 게스트 → 로그인 전환 안내 */}
@@ -292,7 +551,7 @@ export default function ProfilePage() {
           <button className="tap tap-primary" onClick={() => {
             // 현재 게스트 이름을 세션에 저장하여 로그인 후 데이터 연동
             sessionStorage.setItem("meogja_link_guest", currentUser.user.name);
-            router.push("/login?next=/profile");
+            router.replace("/login?next=/profile");
           }} style={{
             width: "100%", padding: "12px", borderRadius: "var(--r-pill)", border: "none",
             background: "var(--primary)", color: "#fff",
@@ -305,98 +564,255 @@ export default function ProfilePage() {
       )}
 
       {/* 먹자냥 아바타 선택 */}
-      {currentUser.type === "auth" && (
-        <div className="fade-up" style={{ background:"var(--surface)", borderRadius:16, padding:"16px", border:"var(--card-border)" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-            <span style={{ fontSize:13, fontWeight:700, color:"var(--text)" }}>먹자냥 아바타</span>
-            <button onClick={() => setShowAllAvatars(v => !v)} style={{ fontSize:12, color:"var(--primary)", background:"none", border:"none", cursor:"pointer" }}>
-              {showAllAvatars ? "접기" : `전체보기 (${ALL_AVATARS.length}개)`}
-            </button>
-          </div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-            {ALL_AVATARS.filter((url, i) => {
-              const id = `cat-${String(i+1).padStart(2,"0")}`;
-              const cfg = avatarCfgs[id];
-              if (cfg?.purpose === "hidden") return false;
-              if (!showAllAvatars && cfg?.purpose === "emotion") return false;
-              return true;
-            }).map((url, _, arr) => {
-              const idx = ALL_AVATARS.indexOf(url);
-              const id = `cat-${String(idx+1).padStart(2,"0")}`;
-              const cfg = avatarCfgs[id];
-              return (
-                <button key={url} className="tap" onClick={() => selectDefaultAvatar(url)} style={{
-                  width:52, height:52, borderRadius:"50%", overflow:"hidden", padding:0,
-                  border: myProfile.profile_image === url ? "3px solid var(--primary)" : "2px solid transparent",
-                  cursor:"pointer", background:"var(--bg-2)",
-                  boxShadow: myProfile.profile_image === url ? "0 0 0 2px var(--primary)" : "none",
-                }}>
-                  <img src={url} alt="avatar" style={{ width:"100%", height:"100%", objectFit:"contain", objectPosition: cfg?.object_position || "center" }} />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* 👤 내 정보 — 수정 가능 */}
       {currentUser.type === "auth" && (() => {
-        const FIELDS: {key:string;label:string;editable:boolean}[] = [
-          { key: "nickname", label: "닉네임 (앱 표시명)", editable: true },
-          { key: "name", label: "이름", editable: true },
-          { key: "email", label: "이메일", editable: true },
-          { key: "gender", label: "성별", editable: true },
-          { key: "birthday", label: "생일", editable: true },
-          { key: "birthyear", label: "출생연도", editable: true },
-          { key: "age", label: "연령대", editable: true },
-          { key: "mobile", label: "휴대전화", editable: true },
-        ];
+        const visibleAvatars = ALL_AVATARS.filter((url, i) => {
+          const id = `cat-${String(i+1).padStart(2,"0")}`;
+          const cfg = avatarCfgs[id];
+          // 설정 없으면 기본 표시, avatar 용도인 것만 선택 가능
+          return !cfg || cfg.purpose === "avatar";
+        });
+        const displayAvatars = showAllAvatars ? visibleAvatars : visibleAvatars.slice(0, 5);
+        return (
+          <div className="fade-up" style={{ background:"var(--surface)", borderRadius:16, padding:"16px", border:"var(--card-border)" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: showAllAvatars ? 12 : 8 }}>
+              <span style={{ fontSize:13, fontWeight:700, color:"var(--text)" }}>먹자냥 아바타</span>
+              <button onClick={() => setShowAllAvatars(v => !v)} style={{ fontSize:12, color:"var(--primary)", background:"none", border:"none", cursor:"pointer" }}>
+                {showAllAvatars ? "접기 ↑" : `전체보기 (${visibleAvatars.length}개) ↓`}
+              </button>
+            </div>
+            <div style={{ display:"flex", flexWrap: showAllAvatars ? "wrap" : "nowrap", gap:8, overflow: showAllAvatars ? "visible" : "hidden" }}>
+              {displayAvatars.map((url) => {
+                const idx = ALL_AVATARS.indexOf(url);
+                const id = `cat-${String(idx+1).padStart(2,"0")}`;
+                const cfg = avatarCfgs[id];
+                return (
+                  <button key={url} className="tap" onClick={() => selectDefaultAvatar(cfg?.cropped_url || url)} style={{
+                    width:52, height:52, borderRadius:"50%", overflow:"hidden", padding:0, flexShrink:0,
+                    border: (myProfile.profile_image === url || myProfile.profile_image === cfg?.cropped_url) ? "3px solid var(--primary)" : "2px solid transparent",
+                    cursor:"pointer", background:"var(--bg-2)",
+                    boxShadow: (myProfile.profile_image === url || myProfile.profile_image === cfg?.cropped_url) ? "0 0 0 2px var(--primary)" : "none",
+                  }}>
+                    <img src={cfg?.cropped_url || url} alt="avatar" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                  </button>
+                );
+              })}
+              {!showAllAvatars && visibleAvatars.length > 5 && (
+                <button onClick={() => setShowAllAvatars(true)} style={{
+                  width:52, height:52, borderRadius:"50%", flexShrink:0,
+                  border:"1.5px dashed var(--border)", background:"var(--bg-2)",
+                  color:"var(--text-3)", fontSize:11, fontWeight:700, cursor:"pointer",
+                }}>+{visibleAvatars.length - 5}</button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
-        async function saveProfileField(key: string, value: string) {
+      {/* 👤 내 정보 — 일괄 수정 */}
+      {currentUser.type === "auth" && (() => {
+        const BIRTHYEAR_OPTIONS = Array.from({ length: 2010 - 1940 + 1 }, (_, i) => String(2010 - i));
+        const GENDER_OPTIONS = ["남성","여성","기타","비공개"];
+        const AGE_OPTIONS = ["10대","20대","30대","40대","50대","60대 이상"];
+        const MBTI_OPTIONS = ["INTJ","INTP","ENTJ","ENTP","INFJ","INFP","ENFJ","ENFP","ISTJ","ISFJ","ESTJ","ESFJ","ISTP","ISFP","ESTP","ESFP"];
+        const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
+        const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0"));
+
+        function formatMobile(value: string) {
+          const digits = value.replace(/\D/g, "").slice(0, 11);
+          if (digits.length <= 3) return digits;
+          if (digits.length <= 7) return `${digits.slice(0,3)}-${digits.slice(3)}`;
+          return `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`;
+        }
+
+        function enterEditMode() {
+          setProfileEditForm({
+            nickname: myProfile.nickname || "",
+            name: myProfile.name || "",
+            email: myProfile.email || "",
+            gender: myProfile.gender || "",
+            birthday_month: myProfile.birthday?.split("-")[0] || "",
+            birthday_day: myProfile.birthday?.split("-")[1] || "",
+            birthyear: myProfile.birthyear || "",
+            age: myProfile.age || "",
+            mbti: myProfile.mbti || "",
+            mobile: myProfile.mobile || "",
+          });
+          setProfileEditMode(true);
+        }
+
+        async function saveAllFields() {
           if (currentUser.type !== "auth") return;
+          setProfileSaving(true);
 
-          // 닉네임 중복 체크
-          if (key === "nickname") {
-            const trimmed = value.trim();
-            if (!trimmed) return;
-            // 다른 계정이 이미 같은 닉네임을 사용 중인지 확인
-            const { data: dupe } = await getSupabase()
-              .from("user_profiles")
-              .select("id")
-              .eq("nickname", trimmed)
-              .neq("id", currentUser.user.id)
-              .single();
-            if (dupe) {
-              await showAlert(`"${trimmed}" 닉네임은 이미 사용 중입니다.\n다른 닉네임을 입력해주세요.`, { icon: "👤", title: "닉네임 중복" });
-              return;
+          if (profileEditForm.nickname) {
+            const trimmed = profileEditForm.nickname.trim();
+            if (trimmed && trimmed !== (myProfile.nickname || "")) {
+              const { data: dupe } = await getSupabase().from("user_profiles").select("id").eq("nickname", trimmed).neq("id", currentUser.user.id).single();
+              if (dupe) {
+                await showAlert(`"${trimmed}" 닉네임은 이미 사용 중입니다.`, { icon: "👤", title: "닉네임 중복" });
+                setProfileSaving(false);
+                return;
+              }
             }
           }
 
-          const update: Record<string,string> = { [key]: value };
-          if (key === "nickname") update.display_name = value;
-          // upsert: 행이 없을 경우 생성, 있으면 업데이트
-          const { error } = await getSupabase().from("user_profiles").upsert(
-            { id: currentUser.user.id, ...update },
-            { onConflict: "id" }
-          );
-          if (error) { await showAlert("저장에 실패했습니다.\n" + error.message, { icon: "⚠️" }); return; }
-          setMyProfile((prev) => ({ ...prev, ...update }));
-          window.dispatchEvent(new CustomEvent("meogja-auth-change"));
+          const update: Record<string, string> = {};
+          for (const key of ["nickname","name","email","gender","birthyear","age","mbti"] as const) {
+            const val = (profileEditForm[key] || "").trim();
+            if (val !== (myProfile[key] || "")) update[key] = val;
+          }
+          const mobile = profileEditForm.mobile || "";
+          if (mobile !== (myProfile.mobile || "")) update.mobile = mobile;
+          const bm = profileEditForm.birthday_month, bd = profileEditForm.birthday_day;
+          const birthday = bm && bd ? `${bm}-${bd}` : "";
+          if (birthday !== (myProfile.birthday || "")) update.birthday = birthday;
+          if (update.nickname !== undefined) update.display_name = update.nickname;
+          if (update.birthyear) {
+            const year = parseInt(update.birthyear);
+            if (!isNaN(year)) {
+              const ageNum = new Date().getFullYear() - year;
+              const decade = Math.floor(ageNum / 10) * 10;
+              update.age = decade >= 60 ? "60대 이상" : `${Math.max(10, Math.min(decade, 50))}대`;
+              setProfileEditForm(prev => ({ ...prev, age: update.age }));
+            }
+          }
+
+          if (Object.keys(update).length > 0) {
+            const { error } = await getSupabase().from("user_profiles").upsert({ id: currentUser.user.id, ...update }, { onConflict: "id" });
+            if (error) { await showAlert("저장에 실패했습니다.\n" + error.message, { icon: "⚠️" }); setProfileSaving(false); return; }
+            setMyProfile(prev => ({ ...prev, ...update }));
+            window.dispatchEvent(new CustomEvent("meogja-auth-change"));
+            toast("저장됐어요!");
+          }
+          setProfileSaving(false);
+          setProfileEditMode(false);
         }
+
+        const birthdayDisplay = (() => {
+          if (!myProfile.birthday) return "";
+          const [m, d] = myProfile.birthday.split("-");
+          return m && d ? `${parseInt(m)}월 ${parseInt(d)}일` : myProfile.birthday;
+        })();
+
+        const rowStyle: React.CSSProperties = { display:"flex", alignItems:"center", padding:"12px 16px", borderBottom:"1px solid var(--border)", gap:8 };
+        const labelStyle: React.CSSProperties = { fontSize:12, color:"var(--text-2)", width:82, flexShrink:0, fontWeight:600 };
+        const inputStyle: React.CSSProperties = { flex:1, padding:"7px 10px", borderRadius:"var(--r-sm)", border:"1.5px solid var(--border)", background:"var(--bg)", fontSize:13, outline:"none", color:"var(--text)" };
+        const selectStyle2: React.CSSProperties = { ...inputStyle, cursor:"pointer" };
 
         return (
           <div className="fade-up">
-            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
-              {myProfile.profile_image && (
-                <img src={myProfile.profile_image} alt="프로필" style={{ width:48, height:48, borderRadius:"50%", objectFit:"cover", border:"2px solid var(--border)" }} />
-              )}
-              <p style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>👤 내 정보</p>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                {myProfile.profile_image && (
+                  <img src={myProfile.profile_image} alt="프로필" style={{ width:48, height:48, borderRadius:"50%", objectFit:"cover", border:"2px solid var(--border)" }} />
+                )}
+                <p style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>👤 내 정보</p>
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                {linkedProviders.filter(p => p !== "email").length > 0 && !profileEditMode && (
+                  <button className="tap" onClick={async () => {
+                    const ok = await showConfirm("소셜 계정의 최신 정보로 초기화합니다.\n현재 닉네임·프로필 사진 등이 덮어써집니다.", { title:"정보 초기화", confirmLabel:"초기화", danger:true });
+                    if (ok) refreshSocialProfile();
+                  }} disabled={refreshingSocial} style={{ padding:"5px 12px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text-2)", fontSize:11, fontWeight:600, cursor: refreshingSocial ? "default" : "pointer", opacity: refreshingSocial ? 0.6 : 1, display:"flex", alignItems:"center", gap:4 }}>
+                    {refreshingSocial ? "불러오는 중…" : <><img src="/mascot/tabs/refresh.png" style={{width:14,height:14,objectFit:"contain",marginRight:3}}/>정보 초기화</>}
+                  </button>
+                )}
+                {!profileEditMode && (
+                  <button className="tap" onClick={enterEditMode} style={{ padding:"5px 14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--primary)", background:"transparent", color:"var(--primary)", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                    수정하기
+                  </button>
+                )}
+              </div>
             </div>
-            <div style={{ background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
-              {FIELDS.filter((f) => myProfile[f.key] || f.editable).map((f, i, arr) => (
-                <ProfileFieldRow key={f.key} fieldKey={f.key} label={f.label} value={myProfile[f.key] || ""} editable={f.editable} isLast={i === arr.length-1} onSave={saveProfileField} />
-              ))}
-            </div>
+
+            {!profileEditMode ? (
+              <div style={{ background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
+                {[
+                  { label:"닉네임", value: myProfile.nickname },
+                  { label:"이름", value: myProfile.name },
+                  { label:"이메일", value: myProfile.email },
+                  { label:"성별", value: myProfile.gender },
+                  { label:"생일", value: birthdayDisplay },
+                  { label:"출생연도", value: myProfile.birthyear },
+                  { label:"연령대", value: myProfile.age },
+                  { label:"MBTI", value: myProfile.mbti },
+                  { label:"휴대전화", value: myProfile.mobile },
+                ].map((f, i, arr) => (
+                  <div key={f.label} style={{ ...rowStyle, borderBottom: i < arr.length-1 ? "1px solid var(--border)" : "none" }}>
+                    <span style={labelStyle}>{f.label}</span>
+                    <span style={{ fontSize:14, color: f.value ? "var(--text)" : "var(--text-3)", flex:1 }}>{f.value || "미설정"}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ background:"var(--surface)", borderRadius:16, border:"1.5px solid var(--primary)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>닉네임</span>
+                  <input value={profileEditForm.nickname || ""} onChange={e => setProfileEditForm(prev => ({ ...prev, nickname: e.target.value }))} placeholder="닉네임" style={inputStyle} />
+                </div>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>이름</span>
+                  <input value={profileEditForm.name || ""} onChange={e => setProfileEditForm(prev => ({ ...prev, name: e.target.value }))} placeholder="이름" style={inputStyle} />
+                </div>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>이메일</span>
+                  <input type="email" value={profileEditForm.email || ""} onChange={e => setProfileEditForm(prev => ({ ...prev, email: e.target.value }))} placeholder="이메일" style={inputStyle} />
+                </div>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>성별</span>
+                  <select value={profileEditForm.gender || ""} onChange={e => setProfileEditForm(prev => ({ ...prev, gender: e.target.value }))} style={selectStyle2}>
+                    <option value="">선택</option>
+                    {GENDER_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>생일</span>
+                  <div style={{ display:"flex", gap:6, flex:1 }}>
+                    <select value={profileEditForm.birthday_month || ""} onChange={e => setProfileEditForm(prev => ({ ...prev, birthday_month: e.target.value }))} style={{ ...selectStyle2, flex:1 }}>
+                      <option value="">월</option>
+                      {months.map(m => <option key={m} value={m}>{parseInt(m)}월</option>)}
+                    </select>
+                    <select value={profileEditForm.birthday_day || ""} onChange={e => setProfileEditForm(prev => ({ ...prev, birthday_day: e.target.value }))} style={{ ...selectStyle2, flex:1 }}>
+                      <option value="">일</option>
+                      {days.map(d => <option key={d} value={d}>{parseInt(d)}일</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>출생연도</span>
+                  <select value={profileEditForm.birthyear || ""} onChange={e => setProfileEditForm(prev => ({ ...prev, birthyear: e.target.value }))} style={selectStyle2}>
+                    <option value="">선택</option>
+                    {BIRTHYEAR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>연령대</span>
+                  <select value={profileEditForm.age || ""} onChange={e => setProfileEditForm(prev => ({ ...prev, age: e.target.value }))} style={selectStyle2}>
+                    <option value="">선택</option>
+                    {AGE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>MBTI</span>
+                  <select value={profileEditForm.mbti || ""} onChange={e => setProfileEditForm(prev => ({ ...prev, mbti: e.target.value }))} style={selectStyle2}>
+                    <option value="">선택</option>
+                    {MBTI_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{ ...rowStyle, borderBottom:"none" }}>
+                  <span style={labelStyle}>휴대전화</span>
+                  <input type="tel" value={profileEditForm.mobile || ""} onChange={e => setProfileEditForm(prev => ({ ...prev, mobile: formatMobile(e.target.value) }))} placeholder="010-0000-0000" maxLength={13} style={inputStyle} />
+                </div>
+                <div style={{ display:"flex", gap:8, padding:"12px 16px", borderTop:"1.5px solid var(--border)" }}>
+                  <button className="tap" onClick={() => setProfileEditMode(false)} style={{ flex:1, padding:"11px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:13, cursor:"pointer" }}>
+                    취소
+                  </button>
+                  <button className="tap" onClick={saveAllFields} disabled={profileSaving} style={{ flex:2, padding:"11px", borderRadius:"var(--r-pill)", border:"none", background: profileSaving ? "var(--border)" : "var(--primary)", color: profileSaving ? "var(--text-2)" : "#fff", fontFamily:"var(--font-display)", fontSize:14, fontWeight:700, cursor: profileSaving ? "default" : "pointer" }}>
+                    {profileSaving ? "저장 중…" : "저장하기"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}
@@ -479,7 +895,10 @@ export default function ProfilePage() {
         const menuItems = prefLarge && prefMedium ? getMenuItems(prefLarge, prefMedium) : [];
         return (
           <div className="fade-up">
-            <p style={{ fontFamily: "var(--font-display)", fontSize: 17, marginBottom: 14 }}>🍴 내 기본 선호도</p>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
+              <img src="/mascot/tabs/settings.png" alt="" style={{ width:28, height:28, objectFit:"contain" }} />
+              <p style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>내 기본 선호도</p>
+            </div>
             <div style={{ background: "var(--surface)", borderRadius: 16, padding: "18px 16px", border: "var(--card-border)", boxShadow: "var(--card-shadow)", display: "flex", flexDirection: "column", gap: 14 }}>
               <p style={{ fontSize: 13, color: "var(--text-2)" }}>모임 참여 시 불러올 수 있는 내 기본 선호도입니다.</p>
               {/* 좋아함/못먹음 토글 */}
@@ -488,6 +907,25 @@ export default function ProfilePage() {
                   <button key={t} className="tap" onClick={() => setPrefType(t)} style={{ padding: "6px 18px", borderRadius: "var(--r-pill)", border: "none", fontSize: 13, fontWeight: 600, background: prefType === t ? (t === "like" ? "var(--green)" : "var(--red)") : "transparent", color: prefType === t ? "#fff" : "var(--text-2)", cursor: "pointer", transition: "all .15s" }}>{t === "like" ? "👍 좋아함" : "🚫 못먹음"}</button>
                 ))}
               </div>
+              {/* 못먹음: 재료/알레르기 프리셋 */}
+              {prefType === "dislike" && (() => {
+                const INGR_PRESETS = ["고수","땅콩","견과류","새우","조개","오징어","낙지","문어","굴","생선회","마라","청양고추","양파","버섯","파","마늘","곱창","순대","선지","내장"];
+                return (
+                  <div>
+                    <p style={{ fontSize:11, fontWeight:700, color:"var(--text-2)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:7 }}>재료 / 알레르기</p>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+                      {INGR_PRESETS.map(item => {
+                        const active = myPrefs.some(p => p.food_name === item && p.preference_type === "dislike");
+                        return (
+                          <button key={item} className="tap" onClick={() => addMyPref(item)} style={{ padding:"4px 11px", borderRadius:"var(--r-pill)", fontSize:12, fontWeight: active ? 700 : 400, border: active ? "1.5px solid var(--red)" : "1.5px solid var(--border)", background: active ? "var(--red-soft)" : "transparent", color: active ? "var(--red)" : "var(--text-2)", cursor:"pointer" }}>
+                            {active ? "✕ " : ""}{item}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
               {/* 대분류 */}
               <div>
                 <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 7 }}>대분류</p>
@@ -570,6 +1008,41 @@ export default function ProfilePage() {
         );
       })()}
 
+      {/* 내 취향 랭킹 (월드컵 누적) */}
+      {currentUser.type === "auth" && myFoodScores.length > 0 && (
+        <div className="fade-up" style={{ background:"var(--surface)", borderRadius:20, padding:"18px 16px", border:"var(--card-border)", boxShadow:"var(--card-shadow)" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
+            <p style={{ fontFamily:"var(--font-display)", fontSize:17 }}><img src="/mascot/tabs/ranking.png" style={{width:24, height:24, objectFit:"contain", marginRight:4}} />내 취향 랭킹</p>
+          </div>
+          <p style={{ fontSize:12, color:"var(--text-3)", marginBottom:14 }}>월드컵 선택 기반 · 많이 이길수록 높아져요</p>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {myFoodScores.slice(0, 10).map((item, i) => {
+              const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : null;
+              const maxScore = myFoodScores[0]?.score || 1;
+              const barPct = Math.max(4, Math.round(item.score / maxScore * 100));
+              const barColor = i === 0 ? "var(--primary)" : i === 1 ? "#FF9A6C" : i === 2 ? "#FFB899" : "var(--primary-light)";
+              return (
+                <div key={item.food_name} style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ width:24, textAlign:"center", fontSize: medal ? 16 : 12, color:"var(--text-3)", fontWeight:700, flexShrink:0 }}>
+                    {medal || `${i+1}`}
+                  </span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
+                      <span style={{ fontSize:13, fontWeight:600, color:"var(--text)" }}>{item.food_name}</span>
+                      <span style={{ fontSize:11, color:"var(--text-3)", fontWeight:600 }}>{item.score}점</span>
+                    </div>
+                    <div style={{ height:6, borderRadius:99, background:"var(--bg-2)", overflow:"hidden" }}>
+                      <div style={{ width:`${barPct}%`, height:"100%", borderRadius:99, background: barColor, transition:"width .6s" }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p style={{ fontSize:11, color:"var(--text-3)", marginTop:12, textAlign:"center" }}>월드컵을 많이 플레이할수록 정확해져요 🎮</p>
+        </div>
+      )}
+
       {/* 문의/피드백 — 접기/열기 */}
       <div className="fade-up" style={{ marginTop: 8 }}>
         <button className="tap" onClick={() => setShowFeedback((v) => !v)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: showFeedback ? 14 : 0 }}>
@@ -616,6 +1089,157 @@ export default function ProfilePage() {
           </form>
         )}</div>}
       </div>
+
+      {/* 연결된 소셜 계정 + 계정 탈퇴 */}
+      {currentUser.type === "auth" && (() => {
+        async function handleDeleteAccount() {
+          if (currentUser.type !== "auth") return;
+          const { data: ownedGroups } = await getSupabase()
+            .from("groups").select("id, name, emoji").eq("owner_id", currentUser.user.id);
+          const owned = ownedGroups || [];
+
+          let msg = "탈퇴하면 계정이 비활성화됩니다.\n리뷰·모임 기록 등은 보존됩니다.";
+          if (owned.length > 0) {
+            msg += `\n\n⚠️ 모임장인 모임 ${owned.length}개가 삭제됩니다:`;
+            msg += owned.map(g => `\n• ${g.emoji || "🍱"} ${g.name}`).join("");
+          }
+
+          const confirmed = await showConfirm(msg, { icon: "⚠️", title: "계정 탈퇴", confirmLabel: "탈퇴", danger: true });
+          if (!confirmed) return;
+
+          const session = await getSupabase().auth.getSession();
+          const token = session.data.session?.access_token;
+          if (!token) { await showAlert("로그인 세션이 만료됐습니다. 다시 로그인해주세요."); return; }
+
+          const res = await fetch("/api/auth/delete-account", { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            await showAlert(`탈퇴 처리 중 오류가 발생했습니다.\n${data.error || ""}`);
+            return;
+          }
+          await signOut();
+          router.replace("/login");
+        }
+        return (
+          <>
+            {/* 연결된 소셜 계정 */}
+            <div className="fade-up" style={{ paddingTop:16, borderTop:"1px solid var(--border)" }}>
+              <p style={{ fontFamily:"var(--font-display)", fontSize:15, marginBottom:12 }}>🔗 연결된 소셜 계정</p>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {linkedProviders.filter(p => p !== "email").map(p => (
+                  <div key={p} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px", borderRadius:12, background:"var(--bg-2)", border:"1px solid var(--border)" }}>
+                    <span style={{ fontSize:18 }}>{p === "google" ? "🔵" : p === "naver" ? "🟢" : p === "kakao" ? "🟡" : "🔗"}</span>
+                    <span style={{ fontSize:13, color:"var(--text)" }}>{p === "google" ? "Google" : p === "naver" ? "Naver" : p === "kakao" ? "Kakao" : p} 연결됨</span>
+                    <span style={{ marginLeft:"auto", fontSize:11, color:"var(--primary)", fontWeight:600 }}>✓</span>
+                  </div>
+                ))}
+                {isSimpleAccount && (
+                  <>
+                    {!linkedProviders.includes("google") && (
+                      <button className="tap" onClick={() => handleLinkSocial("google")} disabled={!!linkingProvider} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", borderRadius:12, background:"var(--surface)", border:"1.5px solid var(--border)", cursor:"pointer", textAlign:"left", opacity: linkingProvider ? 0.6 : 1 }}>
+                        <span style={{ fontSize:18 }}>🔵</span>
+                        <span style={{ fontSize:13, color:"var(--text)" }}>{linkingProvider === "google" ? "연결 중…" : "Google 계정 연결"}</span>
+                        <span style={{ marginLeft:"auto", fontSize:12, color:"var(--text-3)" }}>+</span>
+                      </button>
+                    )}
+                    {!linkedProviders.includes("naver") && (
+                      <button className="tap" onClick={() => handleLinkSocial("naver")} disabled={!!linkingProvider} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", borderRadius:12, background:"var(--surface)", border:"1.5px solid var(--border)", cursor:"pointer", textAlign:"left", opacity: linkingProvider ? 0.6 : 1 }}>
+                        <span style={{ fontSize:18 }}>🟢</span>
+                        <span style={{ fontSize:13, color:"var(--text)" }}>{linkingProvider === "naver" ? "연결 중…" : "Naver 계정 연결"}</span>
+                        <span style={{ marginLeft:"auto", fontSize:12, color:"var(--text-3)" }}>+</span>
+                      </button>
+                    )}
+                    {linkedProviders.filter(p => p !== "email").length === 0 && (
+                      <p style={{ fontSize:11, color:"var(--text-3)", marginTop:4 }}>소셜 계정을 연결하면 해당 계정으로도 로그인할 수 있어요</p>
+                    )}
+                  </>
+                )}
+                {!isSimpleAccount && linkedProviders.filter(p => p !== "email").length === 0 && (
+                  <p style={{ fontSize:12, color:"var(--text-3)" }}>연결된 소셜 계정이 없습니다</p>
+                )}
+              </div>
+            </div>
+
+            {/* 소셜 계정 충돌 모달 — 기존 소셜 계정이 있을 때만 표시 */}
+            {showMigrateModal && migrateReason === "conflict" && (() => {
+              const providerName = migrateProvider === "google" ? "Google" : migrateProvider === "naver" ? "Naver" : "소셜";
+              const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString("ko-KR", { year:"numeric", month:"short", day:"numeric" }) : "";
+              const simpleGroupCount = myGroups.length + joinedGroups.length;
+              const simpleNick = myProfile.nickname || myProfile.display_name || displayName || "나";
+              return (
+                <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:200 }} onClick={() => setShowMigrateModal(false)}>
+                  <div onClick={e => e.stopPropagation()} style={{ width:"100%", maxWidth:480, background:"var(--surface)", borderRadius:"20px 20px 0 0", padding:"24px 20px", paddingBottom:"max(24px, env(safe-area-inset-bottom, 24px))" }}>
+                    <div style={{ width:40, height:5, borderRadius:99, background:"var(--border)", margin:"0 auto 20px" }} />
+                    <p style={{ fontFamily:"var(--font-display)", fontSize:17, marginBottom:6 }}>⚠️ 이미 가입된 {providerName} 계정</p>
+                    <p style={{ fontSize:13, color:"var(--text-2)", marginBottom:4 }}>두 계정의 모임·기록은 모두 동기화됩니다.</p>
+                    <p style={{ fontSize:13, color:"var(--text)", fontWeight:600, marginBottom:16 }}>어떤 계정의 프로필 정보를 사용할까요?</p>
+
+                    <div style={{ display:"flex", gap:10, marginBottom:14 }}>
+                      {/* 현재 간편계정 카드 */}
+                      <button className="tap" onClick={() => handleMigrateToSocial(true)} style={{ flex:1, padding:"14px 12px", borderRadius:16, border:"1.5px solid var(--primary)", background:"var(--primary-light)", color:"var(--text)", cursor:"pointer", textAlign:"left", display:"flex", flexDirection:"column", gap:6 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          {myProfile.profile_image
+                            ? <img src={myProfile.profile_image} style={{ width:36, height:36, borderRadius:"50%", objectFit:"cover" }} alt="" />
+                            : <div style={{ width:36, height:36, borderRadius:"50%", background:"var(--border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>👤</div>}
+                          <div style={{ minWidth:0 }}>
+                            <p style={{ fontWeight:700, fontSize:13, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{simpleNick}</p>
+                            <p style={{ fontSize:11, color:"var(--primary)", fontWeight:600 }}>간편 계정 (현재)</p>
+                          </div>
+                        </div>
+                        {simpleCreatedAt && <p style={{ fontSize:11, color:"var(--text-2)" }}>가입 {fmtDate(simpleCreatedAt)}</p>}
+                        <p style={{ fontSize:11, color:"var(--text-2)" }}>참여 모임 {simpleGroupCount}개</p>
+                        <p style={{ fontSize:12, fontWeight:700, color:"var(--primary)", marginTop:2 }}>이 정보 사용 →</p>
+                      </button>
+
+                      {/* 소셜 계정 카드 */}
+                      <button className="tap" onClick={() => handleMigrateToSocial(false)} style={{ flex:1, padding:"14px 12px", borderRadius:16, border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text)", cursor:"pointer", textAlign:"left", display:"flex", flexDirection:"column", gap:6 }}>
+                        {conflictInfoLoading ? (
+                          <p style={{ fontSize:12, color:"var(--text-3)" }}>불러오는 중…</p>
+                        ) : socialConflictInfo ? (
+                          <>
+                            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                              {socialConflictInfo.profile_image
+                                ? <img src={socialConflictInfo.profile_image} style={{ width:36, height:36, borderRadius:"50%", objectFit:"cover" }} alt="" />
+                                : <div style={{ width:36, height:36, borderRadius:"50%", background:"var(--border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>👤</div>}
+                              <div style={{ minWidth:0 }}>
+                                <p style={{ fontWeight:700, fontSize:13, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{socialConflictInfo.display_name}</p>
+                                <p style={{ fontSize:11, color:"var(--text-2)" }}>{providerName} 계정</p>
+                              </div>
+                            </div>
+                            {socialConflictInfo.created_at && <p style={{ fontSize:11, color:"var(--text-2)" }}>가입 {fmtDate(socialConflictInfo.created_at)}</p>}
+                            <p style={{ fontSize:11, color:"var(--text-2)" }}>참여 모임 {socialConflictInfo.group_count}개</p>
+                            <p style={{ fontSize:12, fontWeight:700, color:"var(--text-2)", marginTop:2 }}>이 정보 사용 →</p>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ width:36, height:36, borderRadius:"50%", background:"var(--border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>👤</div>
+                            <p style={{ fontSize:12, fontWeight:700, color:"var(--text-2)" }}>{providerName} 계정</p>
+                            <p style={{ fontSize:12, fontWeight:700, color:"var(--text-2)", marginTop:2 }}>이 정보 사용 →</p>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <p style={{ fontSize:11, color:"var(--text-3)", textAlign:"center", marginBottom:12 }}>
+                      가입된 모임 정보는 두 계정 모두 동기화됩니다
+                    </p>
+                    <button className="tap" onClick={() => setShowMigrateModal(false)} style={{ width:"100%", padding:"11px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:13, cursor:"pointer" }}>
+                      취소
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="fade-up" style={{ paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+              <button className="tap" onClick={handleDeleteAccount} style={{ width:"100%", padding:"11px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--red)", background:"transparent", color:"var(--red)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
+                회원 탈퇴
+              </button>
+              <p style={{ fontSize:11, color:"var(--text-3)", textAlign:"center", marginTop:6 }}>탈퇴 후 계정이 비활성화됩니다 · 리뷰/기록은 보존됨</p>
+            </div>
+          </>
+        );
+      })()}
 
       {/* 신고 내역 (로그인 사용자만) */}
       {currentUser.type === "auth" && (

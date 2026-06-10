@@ -9,10 +9,11 @@ export async function GET(request: NextRequest) {
   if (!code) return NextResponse.redirect(`${appUrl}/login?error=naver_no_code`);
 
   let next = "/";
+  let callbackMode = "";
   try {
     const state = JSON.parse(Buffer.from(stateRaw || "", "base64url").toString());
     next = state.next || "/";
-    // 상대 경로만 허용
+    callbackMode = state.mode || "";
     if (!next.startsWith("/") || next.startsWith("//")) next = "/";
   } catch { /* ignore */ }
 
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const email = naverUser.email || `naver_${naverUser.id}@meogja.app`;
+    let email = naverUser.email || `naver_${naverUser.id}@meogja.app`;
     // 닉네임 우선, 없으면 이름
     const displayName = naverUser.nickname || naverUser.name || "네이버 사용자";
 
@@ -59,18 +60,33 @@ export async function GET(request: NextRequest) {
       const found = existingUsers.users.find((u) =>
         u.email === email || u.user_metadata?.naver_id === naverUser.id
       );
-      if (found) userId = found.id;
+      if (found) {
+        // 탈퇴 여부는 user_profiles.is_deleted로 확인 (banned_until은 신뢰 불가)
+        const { data: foundProfile } = await supabaseAdmin
+          .from("user_profiles").select("is_deleted").eq("id", found.id).single();
+        const isDeleted = foundProfile?.is_deleted === true;
+        if (!isDeleted) {
+          userId = found.id;
+          email = found.email || email; // suffix 이메일로 magic link 생성
+        }
+      }
     }
 
     if (!userId) {
-      // 새 유저 생성
+      // 재가입: 탈퇴 계정과 email 충돌 방지 — suffix 추가
+      let createEmail = email;
+      const emailExists = existingUsers?.users?.some(u => u.email === email);
+      if (emailExists) {
+        createEmail = `naver_${naverUser.id}_${Date.now()}@meogja.app`;
+      }
       const { data: newUser, error } = await supabaseAdmin.auth.admin.createUser({
-        email,
+        email: createEmail,
         email_confirm: true,
-        user_metadata: { full_name: displayName, naver_id: naverUser.id, provider: "naver" },
+        user_metadata: { full_name: displayName, naver_id: naverUser.id, provider: "naver", original_email: naverUser.email || null },
       });
       if (error || !newUser?.user) throw new Error("Failed to create user");
       userId = newUser.user.id;
+      email = createEmail;
     }
 
     // 기존 프로필 확인 — 첫 로그인만 저장, 이후엔 사용자 수정 유지
@@ -86,18 +102,39 @@ export async function GET(request: NextRequest) {
       if (naverUser.profile_image) profileData.profile_image = naverUser.profile_image;
       if (naverUser.gender) profileData.gender = naverUser.gender === "M" ? "남성" : naverUser.gender === "F" ? "여성" : naverUser.gender;
       if (naverUser.birthday) profileData.birthday = naverUser.birthday;
-      if (naverUser.age) profileData.age = naverUser.age;
+      if (naverUser.age) {
+        // Naver format: "20-29", "30-39", "0-9", "10-19" etc.
+        const ageNum = parseInt(naverUser.age.split("-")[0]);
+        const decade = Math.floor(ageNum / 10) * 10;
+        profileData.age = decade === 0 ? "10대 미만" : decade >= 60 ? "60대 이상" : `${decade}대`;
+      } else if (naverUser.birthyear) {
+        const year = parseInt(naverUser.birthyear);
+        const ageNum = new Date().getFullYear() - year;
+        const decade = Math.floor(ageNum / 10) * 10;
+        profileData.age = decade >= 60 ? "60대 이상" : `${Math.max(10, Math.min(decade, 50))}대`;
+      }
       if (naverUser.mobile) profileData.mobile = naverUser.mobile;
       if (naverUser.birthyear) profileData.birthyear = naverUser.birthyear;
       await supabaseAdmin.from("user_profiles").insert(profileData);
     }
     // 이후 로그인: 아무것도 덮어쓰지 않음 (사용자 수정 유지)
 
-    // 4. 세션 생성 (magic link 방식)
+    // 4. migrate 모드: 기존 Naver 계정에 이미 프로필 데이터 있으면 차단
+    // (userId가 listUsers에 이미 존재했다 = 다른 계정에서 이미 사용 중인 Naver 계정)
+    if (callbackMode === "migrate") {
+      const wasExistingUser = !!(existingUsers?.users?.find(u => u.id === userId));
+      if (wasExistingUser && existingProfile) {
+        return NextResponse.redirect(`${appUrl}/profile?naver_conflict=1`);
+      }
+    }
+
+    // 5. 세션 생성 (magic link 방식)
+    const redirectParams = new URLSearchParams({ next });
+    if (callbackMode) redirectParams.set("mode", callbackMode);
     const { data: otpData } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email,
-      options: { redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(next)}` },
+      options: { redirectTo: `${appUrl}/auth/callback?${redirectParams}` },
     });
 
     if (otpData?.properties?.action_link) {

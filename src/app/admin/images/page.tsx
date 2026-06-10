@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 import { ALL_AVATARS, TAB_ICONS, HANDSUP_POSES, POSE_WAVE, UI_LOCATION } from "@/lib/mascot";
+import ImageCropModal from "@/app/ImageCropModal";
 
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 type Purpose = "avatar" | "emotion" | "hidden";
-type Cfg = { purpose: Purpose; object_position: string; label: string };
+type Cfg = { purpose: Purpose; object_position: string; label: string; cropped_url?: string };
 type TabSection = "아바타" | "감정표현" | "제외" | "탭" | "포즈";
 
 const PURPOSE_COLOR: Record<Purpose, string> = { avatar:"var(--primary)", emotion:"#E67700", hidden:"var(--text-3)" };
@@ -21,6 +22,8 @@ export default function AdminImagesPage() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [cropTarget, setCropTarget] = useState<{id: string; url: string} | null>(null);
+  const dragWidgetRef = useRef<{ startMX: number; startMY: number; startX: number; startY: number } | null>(null);
 
   useEffect(() => {
     getCurrentUser().then((u) => {
@@ -34,7 +37,7 @@ export default function AdminImagesPage() {
     const { data } = await getSupabase().from("avatar_config").select("*");
     if (data) {
       const map: Record<string, Cfg> = {};
-      data.forEach((r: any) => { map[r.id] = { purpose: r.purpose, object_position: r.object_position || "center", label: r.label || "" }; });
+      data.forEach((r: any) => { map[r.id] = { purpose: r.purpose, object_position: r.object_position || "center", label: r.label || "", cropped_url: r.cropped_url || "" }; });
       setConfigs(map);
     }
   }
@@ -50,7 +53,9 @@ export default function AdminImagesPage() {
 
   async function save() {
     setSaving(true);
-    const items = Object.entries(configs).map(([id, cfg]) => ({ id, ...cfg }));
+    const items = Object.entries(configs).map(([id, cfg]) => ({
+      id, purpose: cfg.purpose, object_position: cfg.object_position, label: cfg.label || "", cropped_url: cfg.cropped_url || null,
+    }));
     await fetch("/api/admin/avatar-config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -139,7 +144,7 @@ export default function AdminImagesPage() {
                       border:`2.5px solid ${PURPOSE_COLOR[cfg.purpose]}`,
                       cursor:"pointer", background:"var(--bg-2)", opacity: cfg.purpose==="hidden" ? 0.3 : 1,
                     }}>
-                      <img src={url} alt={id} style={{ width:"100%", height:"100%", objectFit:"contain", objectPosition:cfg.object_position }} />
+                      <img src={cfg.cropped_url || url} alt={id} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
                     </button>
                     <button style={{ position:"absolute", bottom:-2, right:-2, width:18, height:18, borderRadius:"50%", background:"var(--text-3)", border:"none", cursor:"pointer", fontSize:9, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center" }}
                       onClick={() => setEditingId(editingId === id ? null : id)}>
@@ -187,16 +192,58 @@ export default function AdminImagesPage() {
         </div>
       )}
 
+      {/* 크롭 모달 */}
+      {cropTarget && (
+        <ImageCropModal
+          src={cropTarget.url}
+          title="이미지 위치 조정"
+          format="png"
+          size={200}
+          onClose={() => setCropTarget(null)}
+          onSave={(dataUrl) => {
+            updateCfg(cropTarget.id, { cropped_url: dataUrl });
+            setCropTarget(null);
+          }}
+        />
+      )}
+
       {/* 편집 패널 */}
       {editingId && editingUrl && editingCfg && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:80 }}
           onClick={() => setEditingId(null)}>
           <div onClick={(e) => e.stopPropagation()} style={{ background:"var(--surface)", borderRadius:"24px 24px 0 0", padding:"20px 20px 40px", width:"100%", maxWidth:480 }}>
             <div style={{ width:40, height:5, borderRadius:99, background:"var(--border)", margin:"0 auto 16px" }} />
+
+            {/* 아바타 미리보기 */}
             <div style={{ display:"flex", gap:12, alignItems:"center", marginBottom:16 }}>
-              <img src={editingUrl} alt={editingId} style={{ width:56, height:56, borderRadius:"50%", objectFit:"contain", background:"var(--bg-2)", border:"2px solid var(--border)" }} />
-              <p style={{ fontFamily:"var(--font-display)", fontSize:17 }}>{editingId}</p>
+              <div style={{ position:"relative" }}>
+                <div style={{ width:72, height:72, borderRadius:"50%", overflow:"hidden", border:"2px solid var(--border)", background:"var(--bg-2)" }}>
+                  <img
+                    src={editingCfg.cropped_url || editingUrl}
+                    alt={editingId}
+                    style={{ width:"100%", height:"100%", objectFit: editingCfg.cropped_url ? "cover" : "contain" }}
+                  />
+                </div>
+                {editingCfg.cropped_url && (
+                  <button onClick={() => updateCfg(editingId, { cropped_url: "" })} title="크롭 초기화"
+                    style={{ position:"absolute", top:-4, right:-4, width:18, height:18, borderRadius:"50%", background:"var(--red)", border:"none", cursor:"pointer", fontSize:9, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    ✕
+                  </button>
+                )}
+              </div>
+              <div>
+                <p style={{ fontFamily:"var(--font-display)", fontSize:17 }}>{editingId}</p>
+                <p style={{ fontSize:11, color:"var(--text-3)" }}>{editingCfg.cropped_url ? "크롭 적용됨" : "원본 사용 중"}</p>
+              </div>
             </div>
+
+            {/* 위치 조정 버튼 */}
+            <button className="tap" onClick={() => { setEditingId(null); setCropTarget({ id: editingId, url: editingUrl }); }} style={{
+              width:"100%", padding:"11px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--primary)",
+              background:"transparent", color:"var(--primary)", fontSize:13, fontWeight:700, cursor:"pointer", marginBottom:14,
+            }}>
+              ✂️ 이미지 위치 조정 (드래그/확대)
+            </button>
 
             <p style={{ fontSize:12, fontWeight:700, marginBottom:8 }}>용도</p>
             <div style={{ display:"flex", gap:8, marginBottom:16 }}>
@@ -207,40 +254,6 @@ export default function AdminImagesPage() {
                   color: editingCfg.purpose===p ? "#fff" : "var(--text-2)", fontSize:12, fontWeight:700, cursor:"pointer",
                 }}>{p==="avatar"?"아바타":p==="emotion"?"감정표현":"제외"}</button>
               ))}
-            </div>
-
-            <p style={{ fontSize:12, fontWeight:700, marginBottom:8 }}>이미지 미리보기 위치</p>
-            <p style={{ fontSize:11, color:"var(--text-3)", marginBottom:8 }}>슬라이더로 좌우/상하 조정</p>
-            <div style={{ display:"flex", gap:12, marginBottom:8 }}>
-              <div style={{ width:80, height:80, borderRadius:"50%", overflow:"hidden", background:"var(--bg-2)", border:"2px solid var(--border)", flexShrink:0 }}>
-                <img src={editingUrl} alt={editingId} style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:editingCfg.object_position }} />
-              </div>
-              <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
-                <div>
-                  <label style={{ fontSize:11, color:"var(--text-2)" }}>수평 (좌←→우)</label>
-                  <input type="range" min={0} max={100} step={5}
-                    value={parseInt(editingCfg.object_position?.split(" ")[0]?.replace("%","") || "50")}
-                    onChange={(e) => {
-                      const x = e.target.value;
-                      const y = editingCfg.object_position?.split(" ")[1]?.replace("%","") || "50";
-                      updateCfg(editingId, { object_position: `${x}% ${y}%` });
-                    }}
-                    style={{ width:"100%", accentColor:"var(--primary)" }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize:11, color:"var(--text-2)" }}>수직 (위↑↓아래)</label>
-                  <input type="range" min={0} max={100} step={5}
-                    value={parseInt(editingCfg.object_position?.split(" ")[1]?.replace("%","") || "50")}
-                    onChange={(e) => {
-                      const x = editingCfg.object_position?.split(" ")[0]?.replace("%","") || "50";
-                      const y = e.target.value;
-                      updateCfg(editingId, { object_position: `${x}% ${y}%` });
-                    }}
-                    style={{ width:"100%", accentColor:"var(--primary)" }}
-                  />
-                </div>
-              </div>
             </div>
 
             {editingCfg.purpose === "emotion" && (

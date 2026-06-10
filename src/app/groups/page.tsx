@@ -42,6 +42,10 @@ export default function GroupsPage() {
 
   useEffect(() => {
     init();
+    window.history.pushState({ backGuard: true }, '');
+    const onPop = () => { router.replace('/'); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   async function init() {

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/rateLimit";
+import { trackApiUsage } from "@/lib/apiTracker";
 
 export async function GET(request: NextRequest) {
+  const limited = await checkRateLimit(request, "search-kakao", { perMinute: 10, perDay: 100 });
+  if (limited) return limited;
+
   const query = request.nextUrl.searchParams.get("query");
   const x = request.nextUrl.searchParams.get("x");
   const y = request.nextUrl.searchParams.get("y");
@@ -47,5 +52,6 @@ export async function GET(request: NextRequest) {
     distance: d.distance ? parseInt(d.distance) : null,
   }));
 
+  trackApiUsage("kakao");
   return NextResponse.json({ items });
 }

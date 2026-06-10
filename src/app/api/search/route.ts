@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/rateLimit";
+import { trackApiUsage } from "@/lib/apiTracker";
 
-// 네이버 Local Search API는 좌표 기반 반경 필터 미지원 (전국 검색)
-// 대신 location 파라미터(지역명)를 쿼리에 포함해 근처 결과 유도
 export async function GET(request: NextRequest) {
+  const limited = await checkRateLimit(request, "search", { perMinute: 10, perDay: 100 });
+  if (limited) return limited;
+
   const query = request.nextUrl.searchParams.get("query");
   const x = request.nextUrl.searchParams.get("x"); // longitude (decimal degrees)
   const y = request.nextUrl.searchParams.get("y"); // latitude (decimal degrees)
@@ -63,6 +66,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  trackApiUsage("naver_search");
   return NextResponse.json({ items });
 }
 
