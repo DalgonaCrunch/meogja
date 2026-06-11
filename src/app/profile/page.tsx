@@ -10,6 +10,7 @@ import { toast, showAlert, showConfirm } from "@/lib/dialog";
 import { ALL_AVATARS, DEFAULT_AVATARS } from "@/lib/mascot";
 import ImageCropModal from "@/app/ImageCropModal";
 import { usePushSubscription } from "@/lib/usePushSubscription";
+import { BADGES, BADGE_MAP, RARITY_COLOR } from "@/lib/badges";
 
 const selectStyle: React.CSSProperties = {
   flex:1, padding:"6px 10px", borderRadius:"var(--r-sm)", border:"1.5px solid var(--primary)",
@@ -183,6 +184,18 @@ export default function ProfilePage() {
         const { data: joined } = await getSupabase().from("groups").select("*").in("id", groupIds).order("created_at", { ascending: false });
         if (joined) setJoinedGroups(joined.filter((g) => g.owner_id !== user.user.id));
       }
+
+      // 뱃지 체크 (백그라운드)
+      const { data: { session } } = await getSupabase().auth.getSession();
+      if (session?.access_token) {
+        fetch("/api/badges/check", { method: "POST", headers: { Authorization: `Bearer ${session.access_token}` } })
+          .then(r => r.json())
+          .then(data => {
+            setEarnedBadges(data.allBadges || []);
+            if (data.newBadges?.length > 0) setNewBadges(data.newBadges);
+          })
+          .catch(() => {});
+      }
     }
     setLoading(false);
   }
@@ -282,7 +295,10 @@ export default function ProfilePage() {
       merged.full_name || merged.name || merged.nickname ||
       merged.profile?.nickname || null;
 
-    const email: string | null = rawUser?.email || merged.email || null;
+    const rawEmail = rawUser?.email || merged.email || null;
+    const realEmail = rawEmail && !rawEmail.endsWith("@meogja.app") ? rawEmail : null;
+    const originalEmail = meta?.original_email && !String(meta.original_email).endsWith("@meogja.app") ? String(meta.original_email) : null;
+    const email: string | null = realEmail || originalEmail || null;
     const mobile: string | null = merged.phone_number || merged.mobile || null;
 
     const update: Record<string, string> = {};
@@ -308,6 +324,9 @@ export default function ProfilePage() {
 
   const displayName = currentUser.type === "auth" ? currentUser.user.display_name : currentUser.type === "guest" ? currentUser.user.name : "";
   const [myProfile, setMyProfile] = useState<Record<string,string>>({});
+  const [earnedBadges, setEarnedBadges] = useState<{badge_id:string;earned_at:string}[]>([]);
+  const [newBadges, setNewBadges] = useState<string[]>([]);
+  const [showBadgeSelect, setShowBadgeSelect] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [profileEditMode, setProfileEditMode] = useState(false);
   const [profileEditForm, setProfileEditForm] = useState<Record<string, string>>({});
@@ -409,8 +428,22 @@ export default function ProfilePage() {
   useEffect(() => {
     if (currentUser.type === "auth") {
       // 프로필 정보 로드
-      getSupabase().from("user_profiles").select("*").eq("id", currentUser.user.id).single().then(({ data }) => {
-        if (data) setMyProfile(data);
+      getSupabase().from("user_profiles").select("*").eq("id", currentUser.user.id).single().then(async ({ data }) => {
+        if (data) {
+          setMyProfile(data);
+          // 이전에 저장된 가짜 이메일(naver_xxx@meogja.app) 자동 복구
+          if (data.email?.endsWith("@meogja.app")) {
+            const { data: { user: rawUser } } = await getSupabase().auth.getUser();
+            const originalEmail = rawUser?.user_metadata?.original_email;
+            if (originalEmail && !String(originalEmail).endsWith("@meogja.app")) {
+              await getSupabase().from("user_profiles").update({ email: originalEmail }).eq("id", currentUser.user.id);
+              setMyProfile(prev => ({ ...prev, email: originalEmail }));
+            } else {
+              await getSupabase().from("user_profiles").update({ email: null }).eq("id", currentUser.user.id);
+              setMyProfile(prev => ({ ...prev, email: "" }));
+            }
+          }
+        }
       });
       getSupabase().from("user_food_preferences").select("*").eq("user_id", currentUser.user.id).order("preference_type").then(({ data }) => {
         if (data) setMyPrefs(data);
@@ -508,12 +541,22 @@ export default function ProfilePage() {
             </label>
           )}
           <div style={{ minWidth:0 }}>
-            <h1 style={{ fontFamily:"var(--font-display)", fontSize:22, marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {displayName || "사용자"}
-            </h1>
+            <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap", marginBottom:2 }}>
+              <h1 style={{ fontFamily:"var(--font-display)", fontSize:22, margin:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {displayName || "사용자"}
+              </h1>
+              {myProfile.active_badge_id && BADGE_MAP[myProfile.active_badge_id] && (() => {
+                const b = BADGE_MAP[myProfile.active_badge_id];
+                return (
+                  <span style={{ fontSize:12, fontWeight:700, color:RARITY_COLOR[b.rarity], background:"var(--bg-2)", border:"1.5px solid var(--border)", borderRadius:"var(--r-pill)", padding:"2px 8px", display:"flex", alignItems:"center", gap:3, whiteSpace:"nowrap" }}>
+                    {b.emoji} {b.name}
+                  </span>
+                );
+              })()}
+            </div>
             <p style={{ fontSize:12, color:"var(--text-2)" }}>
               {currentUser.type === "auth"
-                ? (myProfile.email || (!currentUser.user.email?.endsWith("@meogja.app") ? currentUser.user.email : null) || "네이버 로그인")
+                ? ((myProfile.email && !myProfile.email.endsWith("@meogja.app") ? myProfile.email : null) || (!currentUser.user.email?.endsWith("@meogja.app") ? currentUser.user.email : null) || "네이버 로그인")
                 : "게스트 이용 중"}
             </p>
           </div>
@@ -562,6 +605,79 @@ export default function ProfilePage() {
           </button>
         </div>
       )}
+
+      {/* 🏅 뱃지 */}
+      {currentUser.type === "auth" && earnedBadges.length > 0 && (() => {
+        const earnedSet = new Set(earnedBadges.map(b => b.badge_id));
+        const activeBadge = myProfile.active_badge_id ? BADGE_MAP[myProfile.active_badge_id] : null;
+
+        async function setActiveBadge(badgeId: string | null) {
+          if (currentUser.type !== "auth") return;
+          const newId = badgeId === myProfile.active_badge_id ? null : badgeId;
+          const { error } = await getSupabase().from("user_profiles").update({ active_badge_id: newId }).eq("id", currentUser.user.id);
+          if (!error) {
+            setMyProfile(prev => ({ ...prev, active_badge_id: newId || "" }));
+            toast(newId ? `${BADGE_MAP[newId]?.name} 뱃지를 대표로 설정했어요!` : "대표 뱃지를 해제했어요");
+          }
+          setShowBadgeSelect(false);
+        }
+
+        return (
+          <div className="fade-up" style={{ background:"var(--surface)", borderRadius:16, padding:"16px", border:"var(--card-border)" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+              <span style={{ fontSize:13, fontWeight:700, color:"var(--text)" }}>🏅 내 뱃지 ({earnedSet.size}/{BADGES.length})</span>
+              <button onClick={() => setShowBadgeSelect(v => !v)} style={{ fontSize:12, color:"var(--primary)", background:"none", border:"none", cursor:"pointer" }}>
+                {showBadgeSelect ? "접기 ↑" : "대표 뱃지 설정 ↓"}
+              </button>
+            </div>
+
+            {/* 현재 대표 뱃지 */}
+            {activeBadge && !showBadgeSelect && (
+              <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", borderRadius:12, background:"var(--bg-2)", border:`1.5px solid ${RARITY_COLOR[activeBadge.rarity]}` }}>
+                <span style={{ fontSize:22 }}>{activeBadge.emoji}</span>
+                <div>
+                  <p style={{ fontSize:13, fontWeight:700, color:RARITY_COLOR[activeBadge.rarity] }}>{activeBadge.name}</p>
+                  <p style={{ fontSize:11, color:"var(--text-3)" }}>{activeBadge.desc}</p>
+                </div>
+                <span style={{ marginLeft:"auto", fontSize:11, color:"var(--text-3)" }}>대표</span>
+              </div>
+            )}
+
+            {/* 뱃지 선택 그리드 */}
+            {showBadgeSelect && (
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:8 }}>
+                {BADGES.map(badge => {
+                  const has = earnedSet.has(badge.id);
+                  const isActive = myProfile.active_badge_id === badge.id;
+                  return (
+                    <button key={badge.id} onClick={() => has && setActiveBadge(badge.id)} disabled={!has} style={{
+                      display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"10px 4px",
+                      borderRadius:14, border: isActive ? `2px solid ${RARITY_COLOR[badge.rarity]}` : "1.5px solid var(--border)",
+                      background: isActive ? "var(--primary-light)" : has ? "var(--surface)" : "var(--bg-2)",
+                      opacity: has ? 1 : 0.35, cursor: has ? "pointer" : "default",
+                    }}>
+                      <span style={{ fontSize:24, filter: has ? "none" : "grayscale(1)" }}>{badge.emoji}</span>
+                      <span style={{ fontSize:10, fontWeight:700, color: isActive ? RARITY_COLOR[badge.rarity] : "var(--text)", textAlign:"center", lineHeight:1.2 }}>{badge.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 신규 획득 알림 */}
+            {newBadges.length > 0 && (
+              <div style={{ marginTop:10, padding:"10px 14px", borderRadius:12, background:"var(--green-soft)", border:"1.5px solid var(--green)", display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:20 }}>🎉</span>
+                <div style={{ flex:1 }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:"var(--green)" }}>새 뱃지 획득!</p>
+                  <p style={{ fontSize:12, color:"var(--text-2)" }}>{newBadges.map(id => BADGE_MAP[id]?.name).filter(Boolean).join(", ")}</p>
+                </div>
+                <button onClick={() => setNewBadges([])} style={{ background:"none", border:"none", color:"var(--text-3)", fontSize:16, cursor:"pointer" }}>✕</button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 먹자냥 아바타 선택 */}
       {currentUser.type === "auth" && (() => {
@@ -628,7 +744,7 @@ export default function ProfilePage() {
           setProfileEditForm({
             nickname: myProfile.nickname || "",
             name: myProfile.name || "",
-            email: myProfile.email || "",
+            email: (myProfile.email?.endsWith("@meogja.app") ? "" : myProfile.email) || "",
             gender: myProfile.gender || "",
             birthday_month: myProfile.birthday?.split("-")[0] || "",
             birthday_day: myProfile.birthday?.split("-")[1] || "",
@@ -730,7 +846,7 @@ export default function ProfilePage() {
                 {[
                   { label:"닉네임", value: myProfile.nickname },
                   { label:"이름", value: myProfile.name },
-                  { label:"이메일", value: myProfile.email },
+                  { label:"이메일", value: myProfile.email?.endsWith("@meogja.app") ? null : myProfile.email },
                   { label:"성별", value: myProfile.gender },
                   { label:"생일", value: birthdayDisplay },
                   { label:"출생연도", value: myProfile.birthyear },

@@ -1,0 +1,1 @@
+ALTER TABLE group_decisions ADD COLUMN IF NOT EXISTS vote_id UUID REFERENCES menu_votes(id) ON DELETE SET NULL;

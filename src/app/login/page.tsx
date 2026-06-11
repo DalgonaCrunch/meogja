@@ -273,28 +273,24 @@ function LoginContent() {
           {loadingProvider === "google" ? "연결 중…" : "Google로 로그인"}
         </button>
 
-        {/* ③ 네이버 로그인 (테스터만 가능) */}
+        {/* ③ 네이버 로그인 */}
         {showNaver && (
-          <div style={{ position: "relative" }}>
-            <button onClick={(e) => {
-              const btn = e.currentTarget;
-              btn.innerHTML = '<span style="display:flex;align-items:center;gap:8px;justify-content:center">⏳ 네이버 연결 중…</span>';
-              btn.style.opacity = "0.7";
-              sessionStorage.setItem("meogja_pending_join", "");
-              const nextParam = encodeURIComponent(next);
-              setTimeout(() => { window.location.href = `/api/auth/naver?next=${nextParam}`; }, 100);
-            }} style={{
-              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-              padding: "14px 24px", borderRadius: 100,
-              background: "#03C75A", border: "none", color: "#fff",
-              fontSize: 15, fontWeight: 700, cursor: "pointer",
-              opacity: 0.6,
-            }}>
-              <span style={{ fontSize: 18, fontWeight: 900 }}>N</span>
-              네이버로 로그인
-            </button>
-            <span style={{ position: "absolute", top: -7, right: 14, background: "#E53935", color: "#fff", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 99 }}>테스터만 가능</span>
-          </div>
+          <button onClick={(e) => {
+            const btn = e.currentTarget;
+            btn.innerHTML = '<span style="display:flex;align-items:center;gap:8px;justify-content:center">⏳ 네이버 연결 중…</span>';
+            btn.style.opacity = "0.7";
+            sessionStorage.setItem("meogja_pending_join", "");
+            const nextParam = encodeURIComponent(next);
+            setTimeout(() => { window.location.href = `/api/auth/naver?next=${nextParam}`; }, 100);
+          }} style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+            padding: "14px 24px", borderRadius: 100,
+            background: "#03C75A", border: "none", color: "#fff",
+            fontSize: 15, fontWeight: 700, cursor: "pointer",
+          }}>
+            <span style={{ fontSize: 18, fontWeight: 900 }}>N</span>
+            네이버로 로그인
+          </button>
         )}
 
         {/* ④ 카카오 로그인 (심사 중) */}

@@ -326,22 +326,19 @@ export default function JoinModal({ groupId, requiresApproval, onJoined, onClose
                 <span style={{ position: "absolute", top: -7, right: 14, background: "#E53935", color: "#fff", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 99 }}>심사 중 · 준비 중</span>
               </div>
 
-              {/* 네이버 (테스터만) */}
-              <div style={{ position: "relative" }}>
-                <button className="tap" onClick={() => {
-                  sessionStorage.setItem("meogja_pending_join", groupId);
-                  window.location.href = `/api/auth/naver?next=/groups/${groupId}`;
-                }} disabled={!!authLoading} style={{
-                  width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                  padding: "14px", borderRadius: "var(--r-pill)", border: "none",
-                  background: "#03C75A", color: "#fff", fontFamily: "var(--font-display)", fontSize: 15,
-                  cursor: "pointer", opacity: 0.6,
-                }}>
-                  <span style={{ fontSize: 16, fontWeight: 900 }}>N</span>
-                  네이버로 로그인
-                </button>
-                <span style={{ position: "absolute", top: -7, right: 14, background: "#E53935", color: "#fff", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 99 }}>테스터만 가능</span>
-              </div>
+              {/* 네이버 */}
+              <button className="tap" onClick={() => {
+                sessionStorage.setItem("meogja_pending_join", groupId);
+                window.location.href = `/api/auth/naver?next=/groups/${groupId}`;
+              }} disabled={!!authLoading} style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                padding: "14px", borderRadius: "var(--r-pill)", border: "none",
+                background: "#03C75A", color: "#fff", fontFamily: "var(--font-display)", fontSize: 15,
+                cursor: "pointer",
+              }}>
+                <span style={{ fontSize: 16, fontWeight: 900 }}>N</span>
+                네이버로 로그인
+              </button>
 
               {/* Google */}
               <button className="tap" onClick={handleGoogle} disabled={!!authLoading} style={{

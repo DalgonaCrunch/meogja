@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
+import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
 
 type Restaurant = {
   title: string;
@@ -44,6 +45,7 @@ function SearchContent() {
   const [patMenu, setPatMenu] = useState<Record<string, number>>({});
   const [myGroups, setMyGroups] = useState<{id:string;name:string;emoji:string|null;image_url:string|null}[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [placeClicks, setPlaceClicks] = useState<Record<string, number>>({});
 
   useEffect(() => {
     getSupabase().from("meal_pats").select("restaurant_name,menu").eq("status", "open")
@@ -180,6 +182,7 @@ function SearchContent() {
       }));
       all.sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
       setResults(all);
+      if (all.length) fetchPlaceClickStats(all.map(r => (r.title || "").replace(/<[^>]*>/g, ""))).then(setPlaceClicks);
       // 상위 10개 식당 이미지 비동기 fetch
       all.slice(0, 10).forEach(async (item) => {
         const name = (item.title || "").replace(/<[^>]*>/g, "");
@@ -375,11 +378,16 @@ function SearchContent() {
                       );
                       return null;
                     })()}
+                    {getClickCount(name, placeClicks) >= 5 && (
+                      <span style={{ fontSize:11, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"#FFF0E0", color:"#D65000", fontWeight:700 }}>
+                        🔥 많이 찾아봤어요
+                      </span>
+                    )}
                   </div>
                   <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                    <a href={kakaoHref} target="_blank" rel="noopener noreferrer" style={{ padding:"5px 12px", borderRadius:8, background:"#FAE100", color:"#3A1D1D", fontSize:12, fontWeight:700, textDecoration:"none" }}>카카오맵</a>
-                    <a href={naverHref} target="_blank" rel="noopener noreferrer" style={{ padding:"5px 12px", borderRadius:8, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>네이버맵</a>
-                    <a href={googleHref} target="_blank" rel="noopener noreferrer" style={{ padding:"5px 12px", borderRadius:8, background:"#4285F4", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>구글맵</a>
+                    <a href={kakaoHref} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(name)} style={{ padding:"5px 12px", borderRadius:8, background:"#FAE100", color:"#3A1D1D", fontSize:12, fontWeight:700, textDecoration:"none" }}>카카오맵</a>
+                    <a href={naverHref} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(name)} style={{ padding:"5px 12px", borderRadius:8, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>네이버맵</a>
+                    <a href={googleHref} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(name)} style={{ padding:"5px 12px", borderRadius:8, background:"#4285F4", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>구글맵</a>
                   </div>
                   <button className="tap" onClick={() => { setFindGroupModal(r); setGroupNameInput(`${name} 같이 먹어요`); }} style={{
                     marginTop:6, width:"100%", padding:"8px", borderRadius:10, border:"none",

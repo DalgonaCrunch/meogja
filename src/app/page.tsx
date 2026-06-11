@@ -10,6 +10,7 @@ import MenuBattle from "./MenuBattle";
 import { MENU_CATEGORIES, MEAL_POOL, ROULETTE_POOL } from "@/lib/menus";
 import { getFoodIconUrl } from "@/lib/foodIcons";
 import { getTimeSlot, TIME_FOODS, getAgeGroupFoods, getWeatherFoods, WeatherCondition } from "@/lib/foodRecommend";
+import TourGuide, { TOUR_KEY } from "@/components/TourGuide";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
@@ -219,6 +220,7 @@ export default function Home() {
   // 홈 기능
   const [rouletteResult, setRouletteResult] = useState<string | null>(null);
   const [rouletteRunning, setRouletteRunning] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const CAT_IMGS = ["cat-39","cat-02","cat-15","cat-19","cat-24","cat-40","cat-38","cat-07"];
   const [catImg, setCatImg] = useState("cat-39");
   const [trendingMenus, setTrendingMenus] = useState<{name:string;count:number}[]>([]);
@@ -265,6 +267,13 @@ export default function Home() {
       setShowRoulettePopup(true);
       sessionStorage.setItem("meogja_roulette_seen", "1");
     }
+    // 첫 방문 시 온보딩 투어
+    try {
+      if (!localStorage.getItem(TOUR_KEY)) {
+        setTimeout(() => setShowTour(true), 1200);
+      }
+    } catch {}
+
     // 헤더에서 설정된 위치 읽기
     const savedLoc = sessionStorage.getItem("meogja_home_location");
     if (savedLoc) {
@@ -647,7 +656,7 @@ export default function Home() {
             </div>
           )}
           <div style={{ display:"flex", gap:8 }}>
-            <button className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
+            <button data-tour-id="tour-roulette" className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
               flex: rouletteResult && !rouletteRunning ? "0 0 auto" : 1,
               padding: rouletteResult && !rouletteRunning ? "11px 16px" : "11px 8px",
               borderRadius:"var(--r-pill)", border:"none",
@@ -704,6 +713,7 @@ export default function Home() {
           ...trendingMenus.filter(m => ROULETTE_POOL.includes(m.name)).map(m => m.name),
         ]);
         const algoRanked = Array.from(candidateSet)
+          .filter(name => !ROULETTE_CATEGORY_EXCLUDE.has(name))
           .filter(name => !homeDislikedFoods.some(d => name.includes(d) || d.includes(name)))
           .map(name => {
           const timeScore = timeScoreMap.get(name) || 0;
@@ -741,7 +751,7 @@ export default function Home() {
 
         return (
           <div className="fade-up fade-up-1">
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 16px", marginBottom:10 }}>
+            <div data-tour-id="tour-ranking" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 16px", marginBottom:10 }}>
               <div>
                 <p style={{ fontFamily:"var(--font-display)", fontSize:16 }}><img src="/mascot/tabs/hot.png" style={{width:24, height:24, objectFit:"contain", marginRight:4, position:"relative", top:3}} />지금 가장 잘 맞는 메뉴</p>
                 <p style={{ fontSize:12, color:"var(--text-2)", marginTop:2 }}>{subtitle}</p>
@@ -790,7 +800,7 @@ export default function Home() {
         <div className="fade-up fade-up-2" style={{ padding: "0 16px" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
             <span style={{ fontFamily:"var(--font-display)", fontSize:17 }}>👥 내 모임</span>
-            <button className="tap" onClick={() => setShowCreateForm(true)} style={{ fontSize:12, color:"var(--primary)", fontWeight:700, background:"none", border:"none", cursor:"pointer" }}>+ 새 모임</button>
+            <button data-tour-id="tour-group-btn" className="tap" onClick={() => setShowCreateForm(true)} style={{ fontSize:12, color:"var(--primary)", fontWeight:700, background:"none", border:"none", cursor:"pointer" }}>+ 새 모임</button>
           </div>
           {showCreateForm && (
             <div className="fade-up" style={{ marginBottom:12, background:"var(--surface)", borderRadius:"var(--card-radius)", padding:"22px 20px", border:"var(--card-border)", boxShadow:"var(--card-shadow)" }}>
@@ -1200,6 +1210,9 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* 온보딩 투어 */}
+      {showTour && <TourGuide onDone={() => setShowTour(false)} />}
     </div>
   );
 }

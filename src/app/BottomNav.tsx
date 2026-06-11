@@ -33,7 +33,7 @@ export default function BottomNav() {
       {TABS.map((t) => {
         const isActive = active(t.href);
         return (
-          <button key={t.href} className="tap" onClick={() => router.push(t.href)} style={{
+          <button key={t.href} className="tap" onClick={() => router.push(t.href)} data-tour-id={t.href === "/play" ? "tour-nav-play" : undefined} style={{
             flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
             background: "none", border: "none", cursor: "pointer", padding: "6px 0",
             opacity: isActive ? 1 : 0.45,

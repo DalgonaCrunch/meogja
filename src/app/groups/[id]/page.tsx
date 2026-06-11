@@ -15,6 +15,7 @@ import VoteTab from "./tabs/VoteTab";
 import PatTab from "./tabs/PatTab";
 import { getFoodIconUrl } from "@/lib/foodIcons";
 import ReportModal from "@/components/ReportModal";
+import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
 
@@ -147,7 +148,17 @@ export default function GroupPage() {
   // 즐겨찾는 지역
   const [favLocations, setFavLocations] = useState<{id:string;name:string;address:string;lat:number|null;lng:number|null}[]>([]);
   const [showAddLocation, setShowAddLocation] = useState(false);
-  const [tab, setTab] = useState<"recommend" | "history" | "members" | "chat" | "vote" | "pat">("recommend");
+  const [tab, setTab] = useState<"recommend" | "history" | "members" | "chat" | "vote" | "pat">(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search).get("tab");
+      if (p === "pat" || p === "chat" || p === "vote" || p === "history" || p === "members") return p;
+    }
+    return "recommend";
+  });
+  const [initialPatId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("pat");
+    return null;
+  });
   const [chatUnread, setChatUnread] = useState(0);
   const [voteActive, setVoteActive] = useState(0);
   // 오늘의 결정
@@ -171,6 +182,7 @@ export default function GroupPage() {
   const [myAgeField, setMyAgeField] = useState<string | undefined>(undefined);
   const [selected, setSelected] = useState<string[]>([]);
   const [scoredRestaurants, setScoredRestaurants] = useState<ScoredRestaurant[]>([]);
+  const [placeClicks, setPlaceClicks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const EMPTY_CATS = ["cat-31","cat-16","cat-32"];
@@ -836,7 +848,9 @@ export default function GroupPage() {
       if (a.distance !== null && b.distance !== null) return a.distance - b.distance;
       return b.score - a.score;
     });
-    setScoredRestaurants(scored.slice(0, 15));
+    const sliced = scored.slice(0, 15);
+    setScoredRestaurants(sliced);
+    if (sliced.length) fetchPlaceClickStats(sliced.map(r => r.title)).then(setPlaceClicks);
     setLoading(false);
     setHasSearched(true);
   }
@@ -937,6 +951,7 @@ export default function GroupPage() {
     setSortBy("distance");
     const top = scored.slice(0, 15);
     setScoredRestaurants(top);
+    if (top.length) fetchPlaceClickStats(top.map(r => r.title)).then(setPlaceClicks);
     saveSession(selected, top.slice(0, 5));
     setLoading(false);
     setHasSearched(true);
@@ -1149,6 +1164,11 @@ export default function GroupPage() {
     return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
   }
 
+  function getGoogleMapUrl(r: ScoredRestaurant): string {
+    const q = r.address ? `${r.title} ${r.address.split(" ").slice(0, 3).join(" ")}` : r.title;
+    return `https://www.google.com/maps/search/?q=${encodeURIComponent(q)}&hl=ko`;
+  }
+
   function getKakaoMapUrl(r: ScoredRestaurant): string {
     // Kakao API: link = place.map.kakao.com 직접 링크
     if (r.link && r.link.includes("place.map.kakao")) return r.link;
@@ -1202,18 +1222,27 @@ export default function GroupPage() {
             </div>
             {r.address && <p style={{ fontSize:11.5, color:"var(--text-3)", margin:"0 0 4px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.address}</p>}
             {hasScore && (
-              <div style={{ fontSize:11.5, color:"var(--primary)", fontWeight:600, marginBottom:6 }}>💛 모임 선호도 높음</div>
+              <div style={{ fontSize:11.5, color:"var(--primary)", fontWeight:600, marginBottom:4 }}>💛 모임 선호도 높음</div>
+            )}
+            {getClickCount(r.title, placeClicks) >= 5 && (
+              <div style={{ fontSize:11.5, color:"#D65000", fontWeight:700, marginBottom:6 }}>🔥 많이 찾아봤어요</div>
             )}
             <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
               <a href={getKakaoMapUrl(r)} target="_blank" rel="noopener noreferrer"
+                onClick={() => trackPlaceClick(r.title)}
                 style={{ padding:"5px 12px", borderRadius:8, background:"#FAE100", color:"#3A1D1D", fontSize:12, fontWeight:700, textDecoration:"none" }}>카카오맵</a>
               <a href={getNaverMapUrl(r)} target="_blank" rel="noopener noreferrer"
+                onClick={() => trackPlaceClick(r.title)}
                 style={{ padding:"5px 12px", borderRadius:8, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>네이버맵</a>
+              <a href={getGoogleMapUrl(r)} target="_blank" rel="noopener noreferrer"
+                onClick={() => trackPlaceClick(r.title)}
+                style={{ padding:"5px 12px", borderRadius:8, background:"#4285F4", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>구글맵</a>
               {r.link && r.link.startsWith("http") && (() => {
                 const sns = getSnsInfo(r.link);
                 if (!sns) return null;
                 return (
                   <a href={r.link} target="_blank" rel="noopener noreferrer"
+                    onClick={() => trackPlaceClick(r.title)}
                     style={{ padding:"5px 12px", borderRadius:8, background:sns.bg, color:sns.color, fontSize:12, fontWeight:700, textDecoration:"none", border: sns.bg === "var(--bg-2)" ? "1px solid var(--border)" : "none" }}>
                     {sns.label}
                   </a>
@@ -1329,11 +1358,14 @@ export default function GroupPage() {
                     {isFav ? "★ 즐겨찾기" : "☆ 즐겨찾기"}
                   </button>
                   <a href={getKakaoMapUrl(r)} target="_blank" rel="noopener noreferrer"
-                    onClick={() => fetch("/api/food-stats", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ food_name: r.category?.split(">")?.[0]?.trim() || r.title, event_type:"restaurant_click" }) })}
+                    onClick={() => { trackPlaceClick(r.title); fetch("/api/food-stats", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ food_name: r.category?.split(">")?.[0]?.trim() || r.title, event_type:"restaurant_click" }) }); }}
                     style={{ flex:1, padding:"10px", borderRadius:12, background:"#FAE100", color:"#3A1D1D", fontSize:13, fontWeight:800, textDecoration:"none", textAlign:"center" }}>카카오맵</a>
                   <a href={getNaverMapUrl(r)} target="_blank" rel="noopener noreferrer"
-                    onClick={() => fetch("/api/food-stats", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ food_name: r.category?.split(">")?.[0]?.trim() || r.title, event_type:"restaurant_click" }) })}
+                    onClick={() => { trackPlaceClick(r.title); fetch("/api/food-stats", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ food_name: r.category?.split(">")?.[0]?.trim() || r.title, event_type:"restaurant_click" }) }); }}
                     style={{ flex:1, padding:"10px", borderRadius:12, background:"#03C75A", color:"#fff", fontSize:13, fontWeight:800, textDecoration:"none", textAlign:"center" }}>네이버맵</a>
+                  <a href={getGoogleMapUrl(r)} target="_blank" rel="noopener noreferrer"
+                    onClick={() => trackPlaceClick(r.title)}
+                    style={{ flex:1, padding:"10px", borderRadius:12, background:"#4285F4", color:"#fff", fontSize:13, fontWeight:800, textDecoration:"none", textAlign:"center" }}>구글맵</a>
                 </div>
                 <button className="tap" onClick={() => {
                   const list = sortedRestaurants;
@@ -1807,6 +1839,9 @@ export default function GroupPage() {
                 localStorage.setItem(`meogja_chat_read_${id}`, now);
                 setChatUnread(0);
               }
+              if (t === "vote") {
+                setVoteActive(0);
+              }
             }} style={{
               flex:1, padding:"12px 0", border:"none", fontSize:14, fontWeight:700,
               background:"transparent", cursor:"pointer", transition:"all .15s",
@@ -1896,9 +1931,11 @@ export default function GroupPage() {
             const slot = getTimeSlot();
             const timeInfo = TIME_FOODS[slot];
             const ageInfo = getAgeGroupFoods(myAgeField);
+            const EXCLUDE = new Set(["한식","양식","일식","중식","고기","해산물","카페","베이커리","디저트","야식","분식","술안주","파인다이닝","덮밥","이탈리안"]);
+            const filterFoods = (arr: string[]) => arr.filter(f => !EXCLUDE.has(f));
             const hints = ageInfo
-              ? [...new Set([...ageInfo.foods.slice(0,3), ...timeInfo.foods.slice(0,3)])].slice(0,5)
-              : timeInfo.foods.slice(0,5);
+              ? [...new Set([...filterFoods(ageInfo.foods).slice(0,3), ...filterFoods(timeInfo.foods).slice(0,3)])].slice(0,5)
+              : filterFoods(timeInfo.foods).slice(0,5);
             return (
               <div style={{ background:"var(--surface)", borderRadius:16, padding:"14px 16px", border:"var(--card-border)", boxShadow:"var(--card-shadow)" }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
@@ -2510,6 +2547,8 @@ export default function GroupPage() {
           myMemberId={myMemberId}
           myMemberName={ownerName && isOwner ? ownerName : members.find(m => m.id === myMemberId)?.name || "멤버"}
           isOwner={isOwner || isAdmin}
+          initialExpandId={initialPatId}
+          currentUserId={currentUser.type === "auth" ? currentUser.user.id : null}
         />
       )}
 
