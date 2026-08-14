@@ -16,6 +16,7 @@ import PatTab from "./tabs/PatTab";
 import { getFoodIconUrl } from "@/lib/foodIcons";
 import ReportModal from "@/components/ReportModal";
 import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
+import LoadingCat from "@/components/LoadingCat";
 
 const MEMBER_COLORS = ["#F4631E","#3D7A5A","#6B5CE7","#E7975C","#2E86AB","#C94040","#7B8C42","#A35CB0"];
 
@@ -1279,7 +1280,7 @@ export default function GroupPage() {
     }
   });
 
-  if (!group) return <div style={{ textAlign: "center", padding: 60, color: "var(--text-muted)" }}>불러오는 중…</div>;
+  if (!group) return <LoadingCat padding="60px 0" />;
 
   function handleJoined(memberId: string, memberName: string) {
     sessionStorage.removeItem(`meogja_preset_group_${id}`);
@@ -1693,7 +1694,7 @@ export default function GroupPage() {
             {/* 내 모임 멤버 탭 */}
             {inviteTab === "crossGroup" && (
               <div style={{ overflowY:"auto", flex:1, padding:"4px 0 calc(20px + env(safe-area-inset-bottom, 0px))" }}>
-                {loadingCross && <div style={{ textAlign:"center", padding:"30px 0", color:"var(--text-2)" }}>불러오는 중…</div>}
+                {loadingCross && <LoadingCat padding="30px 0" size={56} />}
                 {!loadingCross && crossGroupData.length === 0 && (
                   <div style={{ textAlign:"center", padding:"30px 0", color:"var(--text-2)" }}>
                     <p style={{ fontSize:28, marginBottom:8 }}>👥</p>
@@ -2420,6 +2421,9 @@ export default function GroupPage() {
               )}
             </div>
           )}
+
+          {/* 검색 중 */}
+          {loading && <LoadingCat text="먹자냥이 찾는 중…" padding="32px 0" />}
 
           {/* 검색 결과 없음 */}
           {!loading && scoredRestaurants.length === 0 && hasSearched && (

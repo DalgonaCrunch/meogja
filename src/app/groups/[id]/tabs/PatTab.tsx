@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
+import LoadingCat from "@/components/LoadingCat";
 
 type MealPat = {
   id: string;
@@ -224,7 +225,7 @@ export default function PatTab({
         </div>
       )}
 
-      {loading && <div style={{ textAlign:"center", padding:"40px 0", color:"var(--text-2)" }}>로딩 중…</div>}
+      {loading && <LoadingCat />}
 
       {!loading && open.length === 0 && (
         <div style={{ textAlign:"center", padding:"40px 16px" }}>

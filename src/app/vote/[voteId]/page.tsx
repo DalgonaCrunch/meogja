@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
+import LoadingCat from "@/components/LoadingCat";
 
 type VoteRestaurant = { title: string; address: string; category: string; };
 type VoteData = { id: string; title: string; restaurants: VoteRestaurant[]; created_by: string; created_at: string; };
@@ -68,7 +69,7 @@ export default function VotePage() {
 
   const maxVotes = Math.max(...Object.values(tally), 0);
 
-  if (loading) return <div style={{ textAlign: "center", padding: 60, color: "var(--text-muted)" }}>로딩 중…</div>;
+  if (loading) return <LoadingCat padding="60px 0" />;
   if (!vote) return <div style={{ textAlign: "center", padding: 60, color: "var(--text-muted)" }}>투표를 찾을 수 없습니다</div>;
 
   return (

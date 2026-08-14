@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithGoogle, signInWithKakao, setGuestUser, getCurrentUser } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 import { toast } from "@/lib/dialog";
+import LoadingCat from "@/components/LoadingCat";
 
 function LoginContent() {
   const router = useRouter();
@@ -375,7 +376,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div style={{ textAlign: "center", padding: 60, color: "var(--text-2)" }}>로딩 중…</div>}>
+    <Suspense fallback={<LoadingCat padding="60px 0" />}>
       <LoginContent />
     </Suspense>
   );

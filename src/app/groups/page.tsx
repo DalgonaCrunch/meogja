@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import { toast, showAlert, showPrompt } from "@/lib/dialog";
+import LoadingCat from "@/components/LoadingCat";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
@@ -109,7 +110,7 @@ export default function GroupsPage() {
           onFocus={(e) => e.target.style.borderColor = "var(--primary)"} onBlur={(e) => e.target.style.borderColor = "var(--border)"} />
       </div>
 
-      {loading && <p style={{ textAlign:"center", padding:40, color:"var(--text-2)", fontSize:14 }}>불러오는 중…</p>}
+      {loading && <LoadingCat text="모임 불러오는 중…" />}
 
       {!loading && (
         <div style={{ padding:"16px", display:"flex", flexDirection:"column", gap:20 }}>

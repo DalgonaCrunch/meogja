@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
 import { HANDSUP_POSES, POSE_WAVE } from "@/lib/mascot";
+import LoadingCat from "@/components/LoadingCat";
 
 interface ChatMessage {
   id: string;
@@ -199,7 +200,7 @@ export default function ChatTab({ groupId, groupName, groupImageUrl, groupEmoji,
   const isSticker = (content: string) => content.startsWith("[sticker:");
   const stickerSrc = (content: string) => content.slice(9, -1);
 
-  if (loading) return <div style={{ padding:32, textAlign:"center", color:"var(--text-2)" }}>불러오는 중…</div>;
+  if (loading) return <LoadingCat />;
 
   return (
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, display:"flex", flexDirection:"column", background:"var(--bg)", zIndex:100 }}>

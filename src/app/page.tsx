@@ -11,6 +11,7 @@ import { MENU_CATEGORIES, MEAL_POOL, ROULETTE_POOL } from "@/lib/menus";
 import { getFoodIconUrl } from "@/lib/foodIcons";
 import { getTimeSlot, TIME_FOODS, getAgeGroupFoods, getWeatherFoods, WeatherCondition } from "@/lib/foodRecommend";
 import TourGuide, { TOUR_KEY } from "@/components/TourGuide";
+import LoadingCat from "@/components/LoadingCat";
 
 const GROUP_EMOJIS = ['🍱','🍜','🍗','🍕','🍣','🥘','🌮','🍻','🥗','🍰'];
 
@@ -843,7 +844,7 @@ export default function Home() {
       )}
 
       {/* loading 중 표시 */}
-      {loading && <div style={{ padding:"0 16px" }}><p style={{ color:"var(--text-2)", textAlign:"center", padding:"30px 0", fontSize:14 }}>불러오는 중…</p></div>}
+      {loading && <LoadingCat text="모임 불러오는 중…" padding="24px 0" />}
 
       {/* ── 앱 사용자 메뉴 랭킹 ── */}
       {homeSettings.show_trending_bar && trendingMenus.length > 0 && (

@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { trackPlaceClick } from "@/lib/placeClicks";
 import { getFoodIconUrl } from "@/lib/foodIcons";
 import { toast } from "@/lib/dialog";
+import LoadingCat from "@/components/LoadingCat";
 
 interface VoteOption { name: string; emoji?: string; address?: string; category?: string; }
 interface MenuVote {
@@ -186,7 +187,7 @@ export default function VoteTab({ groupId, isOwnerOrAdmin, onDecide }: { groupId
     });
   }
 
-  if (loading) return <div style={{ padding:32, textAlign:"center", color:"var(--text-2)" }}>불러오는 중…</div>;
+  if (loading) return <LoadingCat />;
 
   return (
     <div style={{ padding:"12px 16px", display:"flex", flexDirection:"column", gap:16 }}>

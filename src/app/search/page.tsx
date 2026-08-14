@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
 import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
+import LoadingCat from "@/components/LoadingCat";
 
 type Restaurant = {
   title: string;
@@ -259,7 +260,7 @@ function SearchContent() {
       )}
 
       {locating && (
-        <div style={{ textAlign:"center", padding:"40px 0", color:"var(--text-2)" }}>📍 위치 확인 중…</div>
+        <LoadingCat text="📍 위치 확인 중…" />
       )}
 
       {error && (
@@ -270,7 +271,7 @@ function SearchContent() {
       )}
 
       {loading && (
-        <div style={{ textAlign:"center", padding:"40px 0", color:"var(--text-2)" }}>🔍 검색 중…</div>
+        <LoadingCat text="먹자냥이 찾는 중…" />
       )}
 
       {!loading && results.length === 0 && location && !error && (
@@ -291,7 +292,7 @@ function SearchContent() {
             <p style={{ fontFamily:"var(--font-display)", fontSize:17, marginBottom:4 }}>🍽️ 같이 먹을 사람 구하기</p>
             <p style={{ fontSize:12, color:"var(--text-2)", marginBottom:16 }}>{(findGroupModal.title || "").replace(/<[^>]*>/g, "")}</p>
             {loadingGroups ? (
-              <div style={{ textAlign:"center", padding:"10px 0", color:"var(--text-2)", fontSize:13 }}>모임 불러오는 중…</div>
+              <LoadingCat text="모임 불러오는 중…" size={48} padding="8px 0" />
             ) : myGroups.length > 0 ? (
               <div style={{ marginBottom:12 }}>
                 <p style={{ fontSize:11, fontWeight:700, color:"var(--text-2)", marginBottom:8 }}>👥 내 모임에서 찾기</p>
@@ -408,7 +409,7 @@ function SearchContent() {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div style={{ padding:40, textAlign:"center", color:"var(--text-2)" }}>로딩 중…</div>}>
+    <Suspense fallback={<LoadingCat padding="60px 0" />}>
       <SearchContent />
     </Suspense>
   );

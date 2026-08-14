@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
+import LoadingCat from "@/components/LoadingCat";
 
 interface DMMessage {
   id: string;
@@ -226,7 +227,7 @@ function MessagesInner() {
       {/* 대화 목록 */}
       {!activeThread && (
         <div style={{ flex:1, overflowY:"auto" }}>
-          {loading && <p style={{ padding:32, textAlign:"center", color:"var(--text-2)" }}>불러오는 중…</p>}
+          {loading && <LoadingCat />}
           {!loading && threads.length === 0 && (
             <div style={{ padding:"48px 24px", textAlign:"center" }}>
               <p style={{ fontSize:40, marginBottom:12 }}>💌</p>

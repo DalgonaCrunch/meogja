@@ -7,6 +7,7 @@ import { getDeviceId } from "@/lib/auth";
 import { MBTI_FOOD, MBTI_LIST, randomMbtiFoods } from "@/lib/foodRecommend";
 import { getFoodIconUrl } from "@/lib/foodIcons";
 import WorldCup from "./WorldCup";
+import LoadingCat from "@/components/LoadingCat";
 
 type Battle = {
   id: string;
@@ -182,7 +183,7 @@ function BattleContent() {
         </div>
       )}
 
-      {tab === "battle" && loading && <div style={{ textAlign:"center", padding:40, color:"var(--text-2)" }}>불러오는 중…</div>}
+      {tab === "battle" && loading && <LoadingCat />}
       {tab === "battle" && !loading && (
 
       <div style={{ padding:"12px 16px", display:"flex", flexDirection:"column", gap:12 }}>
@@ -477,7 +478,7 @@ function BattleContent() {
           </div>
           <p style={{ fontSize:12, color:"var(--text-3)", marginTop:-8 }}>월드컵 우승·선택 + 검색 + 클릭 종합 점수</p>
 
-          {rankLoading && <div style={{ textAlign:"center", padding:"40px 0", color:"var(--text-2)" }}>🔍 집계 중…</div>}
+          {rankLoading && <LoadingCat text="🔍 집계 중…" />}
 
           {!rankLoading && ranking.length === 0 && (
             <div style={{ textAlign:"center", padding:"40px 0", color:"var(--text-2)" }}>
@@ -602,7 +603,7 @@ function BattleContent() {
 
 export default function BattlePage() {
   return (
-    <Suspense fallback={<div style={{ padding:40, textAlign:"center", color:"var(--text-2)" }}>로딩 중…</div>}>
+    <Suspense fallback={<LoadingCat padding="60px 0" />}>
       <BattleContent />
     </Suspense>
   );

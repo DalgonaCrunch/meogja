@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
 import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
+import LoadingCat from "@/components/LoadingCat";
 
 type Place = {
   title: string;
@@ -62,6 +63,7 @@ function NearbyContent() {
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [usedRadius, setUsedRadius] = useState<number>(1000);
   const [expandedRadius, setExpandedRadius] = useState(false);
+  const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     getSupabase().from("meal_pats").select("restaurant_name,menu").eq("status", "open")
@@ -160,6 +162,7 @@ function NearbyContent() {
   }
 
   async function fetchNearby(x: number, y: number, sortBy: string, provider?: string) {
+    setCoords({ x, y });
     setLoading(true);
     setError(null);
     setExpandedRadius(false);
@@ -198,6 +201,12 @@ function NearbyContent() {
       setError(e instanceof Error ? e.message : "주변 식당을 불러올 수 없습니다.");
     }
     setLoading(false);
+  }
+
+  // 현재 기준 위치로 목록만 다시 조회 (위치 재감지 없음)
+  function refresh() {
+    if (!coords || loading || locating) return;
+    fetchNearby(coords.x, coords.y, sort, searchProvider);
   }
 
   function handleSortChange(newSort: "distance" | "accuracy") {
@@ -274,6 +283,17 @@ function NearbyContent() {
           <h1 style={{ fontFamily:"var(--font-display)", fontSize:18, margin:0 }}>주변 맛집</h1>
           {locationLabel && <p style={{ fontSize:12, color:"var(--text-2)", margin:0 }}>📍 {locationLabel} 기준 {usedRadius >= 1000 ? `${usedRadius / 1000}km` : `${usedRadius}m`}</p>}
         </div>
+        <button className="tap" onClick={refresh} disabled={loading || locating || !coords} aria-label="다시 찾기" style={{
+          display:"flex", alignItems:"center", gap:5, flexShrink:0,
+          padding:"7px 13px", borderRadius:"var(--r-pill)",
+          border:"1.5px solid var(--primary)", background:"transparent",
+          color:"var(--primary)", fontSize:12.5, fontWeight:700,
+          cursor: loading || locating || !coords ? "default" : "pointer",
+          opacity: loading || locating || !coords ? .45 : 1,
+        }}>
+          <span style={{ display:"inline-block", fontSize:13, animation: loading ? "spin .8s linear infinite" : "none" }}>↻</span>
+          다시 찾기
+        </button>
       </div>
 
       {/* 정렬 탭 */}
@@ -292,9 +312,7 @@ function NearbyContent() {
 
       {/* 상태 */}
       {(loading || locating) && (
-        <div style={{ textAlign:"center", padding:"60px 0", color:"var(--text-2)" }}>
-          <p style={{ fontSize:14 }}>{locating ? "📍 위치 확인 중…" : "🔍 주변 식당 검색 중…"}</p>
-        </div>
+        <LoadingCat text={locating ? "📍 위치 확인 중…" : "먹자냥이 찾는 중…"} padding="52px 0" />
       )}
       {error && !loading && (
         <div style={{ margin:"16px", padding:"14px 16px", borderRadius:12, background:"#FFF4CC", border:"1.5px solid #F5A623", color:"#7A5A00", fontSize:14 }}>
@@ -332,7 +350,7 @@ function NearbyContent() {
             <p style={{ fontFamily:"var(--font-display)", fontSize:17, marginBottom:4 }}>🍽️ 같이 먹을 사람 구하기</p>
             <p style={{ fontSize:12, color:"var(--text-2)", marginBottom:16 }}>{findGroupModal.title} · {catShort(findGroupModal.category)}</p>
             {loadingGroups ? (
-              <div style={{ textAlign:"center", padding:"10px 0", color:"var(--text-2)", fontSize:13 }}>모임 불러오는 중…</div>
+              <LoadingCat text="모임 불러오는 중…" size={48} padding="8px 0" />
             ) : myGroups.length > 0 ? (
               <div style={{ marginBottom:12 }}>
                 <p style={{ fontSize:11, fontWeight:700, color:"var(--text-2)", marginBottom:8 }}>👥 내 모임에서 찾기</p>
@@ -464,7 +482,7 @@ function NearbyContent() {
 
 export default function NearbyPage() {
   return (
-    <Suspense fallback={<div style={{ padding:40, textAlign:"center", color:"var(--text-2)" }}>로딩 중…</div>}>
+    <Suspense fallback={<LoadingCat padding="60px 0" />}>
       <NearbyContent />
     </Suspense>
   );

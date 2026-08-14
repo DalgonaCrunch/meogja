@@ -32,3 +32,9 @@ export const HANDSUP_POSES = Array.from({ length: 7 }, (_, i) => `/mascot/poses/
 
 // UI 아이콘
 export const UI_LOCATION = "/mascot/ui/location.png";
+
+// 로딩 화면에서 랜덤으로 등장하는 먹자냥
+export const LOADING_CATS = [1, 8, 15, 30].map(avatarUrl);
+export function randomLoadingCat() {
+  return LOADING_CATS[Math.floor(Math.random() * LOADING_CATS.length)];
+}

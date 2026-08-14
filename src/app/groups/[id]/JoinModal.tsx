@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser, setGuestUser, signInWithGoogle, signInWithKakao, getDeviceId, CurrentUser } from "@/lib/auth";
 import { toast } from "@/lib/dialog";
+import LoadingCat from "@/components/LoadingCat";
 
 type Props = {
   groupId: string;
@@ -214,7 +215,7 @@ export default function JoinModal({ groupId, requiresApproval, onJoined, onClose
         </div>
 
         {step === "loading" && (
-          <div style={{ textAlign: "center", padding: "30px 0", color: "var(--muted)" }}>로딩 중…</div>
+          <LoadingCat padding="30px 0" size={56} />
         )}
 
         {step === "pending" && (
