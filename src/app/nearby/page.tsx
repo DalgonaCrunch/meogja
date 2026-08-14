@@ -126,6 +126,19 @@ function NearbyContent() {
       });
   }, []);
 
+  // 헤더에서 위치를 바꾸면 목록도 다시 불러오기
+  useEffect(() => {
+    const onLocChange = (e: Event) => {
+      const loc = (e as CustomEvent).detail;
+      if (!loc) return;
+      if (loc.label) setLocationLabel(loc.label);
+      fetchNearby(loc.lng, loc.lat, sort, searchProvider);
+    };
+    window.addEventListener("meogja-location-change", onLocChange);
+    return () => window.removeEventListener("meogja-location-change", onLocChange);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sort, searchProvider]);
+
   function requestLocation(provider?: string) {
     if (!navigator.geolocation) { setError("이 브라우저는 위치 기능을 지원하지 않습니다."); setLoading(false); return; }
     setLocating(true);

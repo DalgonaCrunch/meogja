@@ -8,6 +8,7 @@ import { getCurrentUser, CurrentUser, getGuestUser } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 
 interface NotifThread { userId: string; name: string; image: string | null; count: number; lastMsg: string; }
+interface GeoPlace { name: string; address: string; lat: number; lng: number; }
 
 export default function AuthHeader() {
   const router = useRouter();
@@ -31,6 +32,11 @@ export default function AuthHeader() {
   // 위치
   const [locationLabel, setLocationLabel] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const [showLocSheet, setShowLocSheet] = useState(false);
+  const [locQuery, setLocQuery] = useState("");
+  const [locResults, setLocResults] = useState<GeoPlace[]>([]);
+  const [locSearching, setLocSearching] = useState(false);
+  const [locSearched, setLocSearched] = useState(false);
 
   async function loadNotifs(userId: string) {
     const { data } = await getSupabase()
@@ -81,6 +87,13 @@ export default function AuthHeader() {
     }
   }
 
+  // 위치 확정 — 자동 감지·수동 선택 공통 경로
+  function applyLocation(loc: { lat: number; lng: number; label: string }) {
+    setLocationLabel(loc.label);
+    sessionStorage.setItem("meogja_home_location", JSON.stringify(loc));
+    window.dispatchEvent(new CustomEvent("meogja-location-change", { detail: loc }));
+  }
+
   function requestLocation() {
     if (!navigator.geolocation) return;
     setLocating(true);
@@ -93,15 +106,41 @@ export default function AuthHeader() {
           const data = await res.json();
           if (data.address) label = data.address;
         } catch { /* fallback */ }
-        const loc = { lat, lng, label };
-        setLocationLabel(label);
-        sessionStorage.setItem("meogja_home_location", JSON.stringify(loc));
-        window.dispatchEvent(new CustomEvent("meogja-location-change", { detail: loc }));
+        applyLocation({ lat, lng, label });
         setLocating(false);
       },
       () => setLocating(false),
       { timeout: 8000, enableHighAccuracy: false }
     );
+  }
+
+  function openLocSheet() {
+    setLocQuery("");
+    setLocResults([]);
+    setLocSearched(false);
+    setShowLocSheet(true);
+  }
+
+  async function searchLocation() {
+    const q = locQuery.trim();
+    if (!q || locSearching) return;
+    setLocSearching(true);
+    try {
+      const res = await fetch(`/api/geocode?query=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      setLocResults(data.places || []);
+    } catch {
+      setLocResults([]);
+    } finally {
+      setLocSearched(true);
+      setLocSearching(false);
+    }
+  }
+
+  function selectLocation(place: GeoPlace) {
+    applyLocation({ lat: place.lat, lng: place.lng, label: place.name });
+    setShowLocSheet(false);
+    toast(`${place.name} 기준으로 바꿨어요`, "📍");
   }
 
   useEffect(() => {
@@ -226,6 +265,70 @@ export default function AuthHeader() {
             ))
           )}
         </div>
+      </div>
+    </>,
+    document.body
+  ) : null;
+
+  const locationSheet = showLocSheet && typeof document !== "undefined" ? createPortal(
+    <>
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.5)", zIndex:9996 }}
+        onClick={() => setShowLocSheet(false)} />
+      <div style={{
+        position:"fixed", bottom:0, left:0, right:0,
+        background:"var(--surface)", borderRadius:"24px 24px 0 0",
+        padding:"20px 22px", paddingBottom:"max(32px, env(safe-area-inset-bottom, 20px))",
+        maxWidth:480, margin:"0 auto", maxHeight:"80vh", overflowY:"auto",
+        zIndex:9997, animation:"sheetUp .3s both",
+      }}>
+        <div style={{ width:40, height:5, borderRadius:99, background:"var(--border)", margin:"0 auto 18px" }} />
+        <p style={{ fontFamily:"var(--font-display)", fontSize:18, marginBottom:4 }}>📍 어디서 먹을까요?</p>
+        <p style={{ fontSize:12.5, color:"var(--text-2)", marginBottom:16, lineHeight:1.6 }}>
+          동네·역·건물 이름을 넣으면 그 근처로 찾아줄게요
+        </p>
+
+        <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+          <input
+            value={locQuery}
+            autoFocus
+            onChange={e => setLocQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") searchLocation(); }}
+            placeholder="예) 강남역, 판교 아브뉴프랑"
+            style={{ flex:1, minWidth:0, padding:"11px 14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--bg)", fontSize:14, outline:"none", boxSizing:"border-box", color:"var(--text)" }}
+          />
+          <button className="tap" onClick={searchLocation} disabled={!locQuery.trim() || locSearching}
+            style={{ padding:"11px 18px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:14, cursor:"pointer", flexShrink:0, opacity: !locQuery.trim() || locSearching ? .5 : 1 }}>
+            {locSearching ? "…" : "찾기"}
+          </button>
+        </div>
+
+        {locResults.length > 0 && (
+          <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
+            {locResults.map((p, i) => (
+              <button key={i} className="tap" onClick={() => selectLocation(p)}
+                style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 13px", borderRadius:12, border:"1.5px solid var(--border)", background:"var(--bg)", cursor:"pointer", textAlign:"left" }}>
+                <span style={{ fontSize:18, flexShrink:0 }}>📍</span>
+                <span style={{ flex:1, minWidth:0 }}>
+                  <span style={{ display:"block", fontFamily:"var(--font-display)", fontSize:14.5, color:"var(--text)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</span>
+                  {p.address && <span style={{ display:"block", fontSize:11.5, color:"var(--text-3)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.address}</span>}
+                </span>
+                <span style={{ color:"var(--text-3)", fontSize:16, flexShrink:0 }}>›</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {locSearched && !locSearching && locResults.length === 0 && (
+          <div style={{ textAlign:"center", padding:"20px 0 16px" }}>
+            <img src="/mascot/avatars/cat-31.png" alt="" style={{ width:64, height:64, objectFit:"contain", marginBottom:8, mixBlendMode:"multiply" }} />
+            <p style={{ fontSize:13, color:"var(--text-2)" }}>못 찾았어요. 다른 이름으로 해볼까요?</p>
+          </div>
+        )}
+
+        <button className="tap" onClick={() => { setShowLocSheet(false); requestLocation(); }}
+          style={{ width:"100%", padding:"12px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--primary)", background:"transparent", color:"var(--primary)", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+          🛰️ 지금 내 위치로 다시 찾기
+        </button>
       </div>
     </>,
     document.body
@@ -426,18 +529,22 @@ export default function AuthHeader() {
         </div>
       </div>
 
-      {/* 위치 스트립 */}
+      {/* 위치 스트립 — 탭하면 직접 입력, ↺는 자동 재감지 */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 16px", height: 28, borderTop: "1px solid var(--border)" }}>
-        <img src="/mascot/ui/location.png" alt="" style={{ width: 14, height: 14, objectFit: "contain", flexShrink: 0, opacity: locating ? 0.5 : 1 }} />
-        <span style={{ fontSize: 12, color: locationLabel ? "var(--text-2)" : "var(--text-3)", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {locating ? "위치 확인 중…" : locationLabel || "위치 권한을 허용해 주세요"}
-        </span>
-        <button onClick={requestLocation} disabled={locating} style={{ background: "none", border: "none", cursor: locating ? "default" : "pointer", padding: "2px 4px", fontSize: 13, color: "var(--text-3)", flexShrink: 0, lineHeight: 1 }}>
+        <button onClick={openLocSheet} style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0, background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left", height: "100%" }}>
+          <img src="/mascot/ui/location.png" alt="" style={{ width: 14, height: 14, objectFit: "contain", flexShrink: 0, opacity: locating ? 0.5 : 1 }} />
+          <span style={{ fontSize: 12, color: locationLabel ? "var(--text-2)" : "var(--text-3)", flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {locating ? "위치 확인 중…" : locationLabel || "위치를 정해 주세요"}
+          </span>
+          <span style={{ fontSize: 11, color: "var(--primary)", fontWeight: 700, flexShrink: 0 }}>바꾸기</span>
+        </button>
+        <button onClick={requestLocation} disabled={locating} aria-label="현재 위치로 다시 찾기" style={{ background: "none", border: "none", cursor: locating ? "default" : "pointer", padding: "2px 4px", fontSize: 13, color: "var(--text-3)", flexShrink: 0, lineHeight: 1 }}>
           ↺
         </button>
       </div>
     </header>
     {notifPanel}
+    {locationSheet}
     {installGuidePanel}
     </>
   );
