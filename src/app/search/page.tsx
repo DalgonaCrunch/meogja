@@ -163,7 +163,7 @@ function SearchContent() {
       const all: Restaurant[] = [];
       const apiEndpoint = searchProvider === "naver" ? "/api/search" : searchProvider === "google" ? "/api/search-google" : "/api/search-kakao";
       await Promise.all(menus.map(async (menu) => {
-        const params = new URLSearchParams({ query: menu, x: String(location.lng), y: String(location.lat), radius: "1000" });
+        const params = new URLSearchParams({ query: menu, x: String(location.lng), y: String(location.lat), radius: "1000", size: "15" });
         if (location.label) params.set("location", location.label);
         try {
           const res = await fetch(`${apiEndpoint}?${params}`);
@@ -183,8 +183,8 @@ function SearchContent() {
       all.sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
       setResults(all);
       if (all.length) fetchPlaceClickStats(all.map(r => (r.title || "").replace(/<[^>]*>/g, ""))).then(setPlaceClicks);
-      // 상위 10개 식당 이미지 비동기 fetch
-      all.slice(0, 10).forEach(async (item) => {
+      // 상위 15개 식당 이미지 비동기 fetch (결과 개수와 맞춤)
+      all.slice(0, 15).forEach(async (item) => {
         const name = (item.title || "").replace(/<[^>]*>/g, "");
         if (!name) return;
         try {

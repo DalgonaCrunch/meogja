@@ -11,6 +11,8 @@ export async function GET(request: NextRequest) {
   const y = request.nextUrl.searchParams.get("y");
   const radius = request.nextUrl.searchParams.get("radius") || "1000";
   const location = request.nextUrl.searchParams.get("location"); // 지역명 (네이버 방식 fallback)
+  // 카카오 size 허용 범위 1~15. 미지정 시 5 (모임 추천 화면 기존 동작 유지)
+  const size = Math.min(15, Math.max(1, parseInt(request.nextUrl.searchParams.get("size") || "5") || 5));
 
   if (!query) return NextResponse.json({ error: "query required" }, { status: 400 });
 
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
 
   const params = new URLSearchParams({
     query: searchQuery,
-    size: "5",
+    size: String(size),
     sort: x && y ? "distance" : "accuracy",
   });
 

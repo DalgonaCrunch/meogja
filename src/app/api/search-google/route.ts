@@ -54,8 +54,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // 구글 maxResultCount 허용 범위 1~20. 미지정 시 5
+  const size = Math.min(20, Math.max(1, parseInt(request.nextUrl.searchParams.get("size") || "5") || 5));
+
   const textQuery = `${query} 맛집`;
-  const body: Record<string, unknown> = { textQuery, languageCode: "ko", maxResultCount: 5 };
+  const body: Record<string, unknown> = { textQuery, languageCode: "ko", maxResultCount: size };
 
   if (x && y) {
     body.locationBias = {
