@@ -280,7 +280,7 @@ function NearbyContent() {
       <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", borderBottom:"1px solid var(--border)" }}>
         <button onClick={() => router.back()} style={{ background:"none", border:"none", fontSize:20, cursor:"pointer", color:"var(--text)", flexShrink:0 }}>←</button>
         <div style={{ flex:1, minWidth:0 }}>
-          <h1 style={{ fontFamily:"var(--font-display)", fontSize:18, margin:0 }}>주변 맛집</h1>
+          <h1 style={{ fontFamily:"var(--font-display)", fontSize:18, margin:0 }}>주변 맛집 찾기</h1>
           {locationLabel && <p style={{ fontSize:12, color:"var(--text-2)", margin:0 }}>📍 {locationLabel} 기준 {usedRadius >= 1000 ? `${usedRadius / 1000}km` : `${usedRadius}m`}</p>}
         </div>
         <button className="tap" onClick={refresh} disabled={loading || locating || !coords} aria-label="다시 찾기" style={{

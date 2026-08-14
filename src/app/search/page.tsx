@@ -47,6 +47,8 @@ function SearchContent() {
   const [myGroups, setMyGroups] = useState<{id:string;name:string;emoji:string|null;image_url:string|null}[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [placeClicks, setPlaceClicks] = useState<Record<string, number>>({});
+  const [usedRadius, setUsedRadius] = useState<number>(1000);
+  const [expandedRadius, setExpandedRadius] = useState(false);
 
   useEffect(() => {
     getSupabase().from("meal_pats").select("restaurant_name,menu").eq("status", "open")
@@ -175,29 +177,41 @@ function SearchContent() {
     if (!location || menus.length === 0) return;
     setLoading(true);
     setError(null);
+    setExpandedRadius(false);
     try {
-      // 메뉴마다 개별 검색 후 합치기 (중복 제거, 거리순 정렬)
-      const seen = new Set<string>();
-      const all: Restaurant[] = [];
       const apiEndpoint = searchProvider === "naver" ? "/api/search" : searchProvider === "google" ? "/api/search-google" : "/api/search-kakao";
-      await Promise.all(menus.map(async (menu) => {
-        const params = new URLSearchParams({ query: menu, x: String(location.lng), y: String(location.lat), radius: "1000", size: "15" });
-        if (location.label) params.set("location", location.label);
-        try {
-          const res = await fetch(`${apiEndpoint}?${params}`);
-          if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.error || "검색 실패");
+      // 결과가 하나도 없으면 반경을 넓혀 재시도 (주변 맛집 페이지와 동일한 규칙)
+      const RADII = [1000, 2000, 3000];
+      let all: Restaurant[] = [];
+      let finalRadius = 1000;
+      for (const radius of RADII) {
+        // 메뉴마다 개별 검색 후 합치기 (중복 제거, 거리순 정렬)
+        const seen = new Set<string>();
+        const round: Restaurant[] = [];
+        await Promise.all(menus.map(async (menu) => {
+          const params = new URLSearchParams({ query: menu, x: String(location.lng), y: String(location.lat), radius: String(radius), size: "15" });
+          if (location.label) params.set("location", location.label);
+          try {
+            const res = await fetch(`${apiEndpoint}?${params}`);
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || "검색 실패");
+            }
+            const data = await res.json();
+            (data.items || []).forEach((item: Restaurant) => {
+              const key = `${item.title}|${item.address}`;
+              if (!seen.has(key)) { seen.add(key); round.push(item); }
+            });
+          } catch (err) {
+            throw err;
           }
-          const data = await res.json();
-          (data.items || []).forEach((item: Restaurant) => {
-            const key = `${item.title}|${item.address}`;
-            if (!seen.has(key)) { seen.add(key); all.push(item); }
-          });
-        } catch (err) {
-          throw err;
-        }
-      }));
+        }));
+        all = round;
+        finalRadius = radius;
+        if (round.length > 0) break;
+      }
+      setUsedRadius(finalRadius);
+      setExpandedRadius(finalRadius > 1000);
       all.sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
       setResults(all);
       if (all.length) fetchPlaceClickStats(all.map(r => (r.title || "").replace(/<[^>]*>/g, ""))).then(setPlaceClicks);
@@ -266,8 +280,8 @@ function SearchContent() {
       <div style={{ display:"flex", alignItems:"center", gap:12 }}>
         <button onClick={() => router.back()} style={{ background:"none", border:"none", fontSize:20, cursor:"pointer", color:"var(--text)", flexShrink:0 }}>←</button>
         <div style={{ flex:1, minWidth:0 }}>
-          <h1 style={{ fontFamily:"var(--font-display)", fontSize:18, margin:0 }}>주변 식당 찾기</h1>
-          {location?.label && <p style={{ fontSize:12, color:"var(--text-2)", margin:0, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>📍 {location.label} 기준 1km</p>}
+          <h1 style={{ fontFamily:"var(--font-display)", fontSize:18, margin:0 }}>주변 맛집 찾기</h1>
+          {location?.label && <p style={{ fontSize:12, color:"var(--text-2)", margin:0, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>📍 {location.label} 기준 {usedRadius >= 1000 ? `${usedRadius / 1000}km` : `${usedRadius}m`}</p>}
         </div>
         <button className="tap" onClick={refresh} disabled={loading || locating || !location} aria-label="다시 찾기" style={{
           display:"flex", alignItems:"center", gap:5, flexShrink:0,
@@ -303,6 +317,15 @@ function SearchContent() {
 
       {loading && (
         <LoadingCat text="먹자냥이 찾는 중…" />
+      )}
+
+      {expandedRadius && results.length > 0 && (
+        <div style={{ padding:"10px 14px", borderRadius:12, background:"var(--primary-light)", border:"1.5px solid var(--primary)", display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:18 }}>🔍</span>
+          <p style={{ fontSize:13, color:"var(--primary)", fontWeight:600, margin:0 }}>
+            1km 내 결과 없어 {usedRadius / 1000}km 범위로 확장했어요
+          </p>
+        </div>
       )}
 
       {!loading && results.length === 0 && location && !error && (
