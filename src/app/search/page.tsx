@@ -135,6 +135,23 @@ function SearchContent() {
     if (menus.length > 0 && location && providerReady) search();
   }, [menus, location, providerReady]);
 
+  // 헤더에서 위치를 바꾸면 기준 위치 갱신 → 위 effect가 자동 재검색
+  useEffect(() => {
+    const onLocChange = (e: Event) => {
+      const loc = (e as CustomEvent).detail;
+      if (!loc) return;
+      setLocation({ lat: loc.lat, lng: loc.lng, label: loc.label });
+    };
+    window.addEventListener("meogja-location-change", onLocChange);
+    return () => window.removeEventListener("meogja-location-change", onLocChange);
+  }, []);
+
+  // 같은 기준 위치로 결과만 다시 조회
+  function refresh() {
+    if (!location || loading || locating) return;
+    search();
+  }
+
   function requestLocation() {
     if (!navigator.geolocation) { setError("이 브라우저는 위치 기능을 지원하지 않습니다."); return; }
     setLocating(true);
@@ -247,8 +264,22 @@ function SearchContent() {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16, padding:"16px" }}>
       <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-        <button onClick={() => router.back()} style={{ background:"none", border:"none", fontSize:20, cursor:"pointer", color:"var(--text)" }}>←</button>
-        <h1 style={{ fontFamily:"var(--font-display)", fontSize:20 }}>주변 식당 찾기</h1>
+        <button onClick={() => router.back()} style={{ background:"none", border:"none", fontSize:20, cursor:"pointer", color:"var(--text)", flexShrink:0 }}>←</button>
+        <div style={{ flex:1, minWidth:0 }}>
+          <h1 style={{ fontFamily:"var(--font-display)", fontSize:18, margin:0 }}>주변 식당 찾기</h1>
+          {location?.label && <p style={{ fontSize:12, color:"var(--text-2)", margin:0, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>📍 {location.label} 기준 1km</p>}
+        </div>
+        <button className="tap" onClick={refresh} disabled={loading || locating || !location} aria-label="다시 찾기" style={{
+          display:"flex", alignItems:"center", gap:5, flexShrink:0,
+          padding:"7px 13px", borderRadius:"var(--r-pill)",
+          border:"1.5px solid var(--primary)", background:"transparent",
+          color:"var(--primary)", fontSize:12.5, fontWeight:700,
+          cursor: loading || locating || !location ? "default" : "pointer",
+          opacity: loading || locating || !location ? .45 : 1,
+        }}>
+          <span style={{ display:"inline-block", fontSize:13, animation: loading ? "spin .8s linear infinite" : "none" }}>↻</span>
+          다시 찾기
+        </button>
       </div>
 
       {menus.length > 0 && (
