@@ -533,10 +533,17 @@ export default function AuthHeader() {
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 16px", height: 28, borderTop: "1px solid var(--border)" }}>
         <button onClick={openLocSheet} style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0, background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left", height: "100%" }}>
           <img src="/mascot/ui/location.png" alt="" style={{ width: 14, height: 14, objectFit: "contain", flexShrink: 0, opacity: locating ? 0.5 : 1 }} />
-          <span style={{ fontSize: 12, color: locationLabel ? "var(--text-2)" : "var(--text-3)", flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span style={{ fontSize: 12, color: locationLabel ? "var(--text-2)" : "var(--text-3)", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {locating ? "위치 확인 중…" : locationLabel || "위치를 정해 주세요"}
           </span>
-          <span style={{ fontSize: 11, color: "var(--primary)", fontWeight: 700, flexShrink: 0 }}>바꾸기</span>
+          <span style={{
+            fontSize: 10.5, fontWeight: 700, color: "var(--primary)", flexShrink: 0,
+            border: "1.2px solid var(--primary)", borderRadius: "var(--r-pill)",
+            padding: "2px 8px", lineHeight: 1.4, whiteSpace: "nowrap",
+          }}>
+            위치 변경
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }} />
         </button>
         <button onClick={requestLocation} disabled={locating} aria-label="현재 위치로 다시 찾기" style={{ background: "none", border: "none", cursor: locating ? "default" : "pointer", padding: "2px 4px", fontSize: 13, color: "var(--text-3)", flexShrink: 0, lineHeight: 1 }}>
           ↺

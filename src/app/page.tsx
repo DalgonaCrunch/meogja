@@ -967,7 +967,29 @@ export default function Home() {
               <p style={{ fontFamily:"var(--font-display)", fontSize:18 }}>어느 모임에서 찾을까요?</p>
               <button onClick={() => setShowQuickGroupPicker(false)} style={{ background:"var(--bg-2)", border:"none", borderRadius:"50%", width:30, height:30, cursor:"pointer", color:"var(--text-2)", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>✕</button>
             </div>
-            <p style={{ fontSize:13, color:"var(--text-2)", marginBottom:16 }}>{[...quickSelected].join(", ")}</p>
+            <p style={{ fontSize:13, color:"var(--text-2)", marginBottom:14 }}>{[...quickSelected].join(", ")}</p>
+            <button className="tap" onClick={() => {
+              setShowQuickGroupPicker(false);
+              setQuickCatSheet(null);
+              if (quickSelected.size > 0) {
+                const menus = [...quickSelected];
+                setQuickSelected(new Set());
+                goToSearch(menus);
+              } else {
+                setQuickSelected(new Set());
+                try {
+                  const existing = JSON.parse(sessionStorage.getItem("meogja_preset_menus") || "[]");
+                  goToSearch(existing.length > 0 ? existing : []);
+                } catch { goToSearch([]); }
+              }
+            }} style={{ flexShrink:0, width:"100%", padding:"13px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer" }}>
+              📍 모임 없이 바로 주변 찾기
+            </button>
+            <div style={{ display:"flex", alignItems:"center", gap:8, margin:"14px 0 12px", flexShrink:0 }}>
+              <div style={{ flex:1, height:1, background:"var(--border)" }} />
+              <span style={{ fontSize:11, color:"var(--text-3)" }}>또는 모임에서 찾기</span>
+              <div style={{ flex:1, height:1, background:"var(--border)" }} />
+            </div>
             <div style={{ overflowY:"auto", flex:1, display:"flex", flexDirection:"column", gap:10 }}>
               {(() => {
                 const myGroupList = groups.filter(g => myMemberships[g.id] !== undefined || isGroupOwner(g, currentUser));
@@ -1006,23 +1028,6 @@ export default function Home() {
                 ));
               })()}
             </div>
-            <button className="tap" onClick={() => {
-              setShowQuickGroupPicker(false);
-              setQuickCatSheet(null);
-              if (quickSelected.size > 0) {
-                const menus = [...quickSelected];
-                setQuickSelected(new Set());
-                goToSearch(menus);
-              } else {
-                setQuickSelected(new Set());
-                try {
-                  const existing = JSON.parse(sessionStorage.getItem("meogja_preset_menus") || "[]");
-                  goToSearch(existing.length > 0 ? existing : []);
-                } catch { goToSearch([]); }
-              }
-            }} style={{ marginTop:12, width:"100%", padding:"12px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:14, fontWeight:600, cursor:"pointer" }}>
-              📍 모임 없이 바로 주변 찾기
-            </button>
           </div>
         </div>
       )}
@@ -1089,18 +1094,18 @@ export default function Home() {
             <p style={{ fontSize:13, color:"var(--text-2)", marginBottom:18 }}>{menuActionMenus.join(", ")}</p>
             <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
               <button className="tap" onClick={() => {
-                sessionStorage.setItem("meogja_preset_menus", JSON.stringify(menuActionMenus));
-                setMenuActionMenus([]);
-                setShowQuickGroupPicker(true);
-              }} style={{ padding:"14px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer" }}>
-                👥 모임에서 찾기
-              </button>
-              <button className="tap" onClick={() => {
                 const menus = menuActionMenus;
                 setMenuActionMenus([]);
                 goToSearch(menus);
-              }} style={{ padding:"14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text)", fontSize:15, fontWeight:600, cursor:"pointer" }}>
+              }} style={{ padding:"14px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer" }}>
                 📍 모임 없이 바로 주변 찾기
+              </button>
+              <button className="tap" onClick={() => {
+                sessionStorage.setItem("meogja_preset_menus", JSON.stringify(menuActionMenus));
+                setMenuActionMenus([]);
+                setShowQuickGroupPicker(true);
+              }} style={{ padding:"14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text)", fontSize:15, fontWeight:600, cursor:"pointer" }}>
+                👥 모임에서 찾기
               </button>
             </div>
           </div>
