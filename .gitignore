@@ -48,3 +48,6 @@ run_telegrambot.sh
 
 # claude code
 .claude/
+
+# bkit 세션 텔레메트리(감사 로그·세션 기록) — 저장소에 올릴 것이 아니다
+.bkit/
