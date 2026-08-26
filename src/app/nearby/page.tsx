@@ -6,6 +6,7 @@ import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
 import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
 import LoadingCat from "@/components/LoadingCat";
+import NearbyMap from "@/components/NearbyMap";
 
 type Place = {
   title: string;
@@ -64,6 +65,8 @@ function NearbyContent() {
   const [usedRadius, setUsedRadius] = useState<number>(1000);
   const [expandedRadius, setExpandedRadius] = useState(false);
   const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
+  const [view, setView] = useState<"list" | "map">("list");
+  const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
   useEffect(() => {
     getSupabase().from("meal_pats").select("restaurant_name,menu").eq("status", "open")
@@ -188,6 +191,7 @@ function NearbyContent() {
       setUsedRadius(finalRadius);
       setExpandedRadius(finalRadius > 1000);
       setPlaces(items);
+      setPickedIdx(null);
       if (items.length) fetchPlaceClickStats(items.map(i => i.title)).then(setPlaceClicks);
       items.slice(0, 10).forEach(async (pl) => {
         if (images[pl.title]) return;
@@ -296,8 +300,8 @@ function NearbyContent() {
         </button>
       </div>
 
-      {/* 정렬 탭 */}
-      <div style={{ display:"flex", gap:8, padding:"12px 16px 0" }}>
+      {/* 정렬 탭 + 목록/지도 전환 */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, padding:"12px 16px 0" }}>
         {(["distance", "accuracy"] as const).map(s => (
           <button key={s} onClick={() => handleSortChange(s)} style={{
             padding:"7px 16px", borderRadius:"var(--r-pill)", fontSize:13, fontWeight:600, cursor:"pointer",
@@ -308,6 +312,22 @@ function NearbyContent() {
             {s === "distance" ? "📍 거리순" : "⭐ 정확도순"}
           </button>
         ))}
+        <div style={{ flex:1 }} />
+        {/* 목록 ↔ 지도. 한 번에 하나만 켜진 것이 보이게 묶어 둔다 */}
+        <div style={{ display:"flex", background:"var(--bg-2)", borderRadius:"var(--r-pill)", padding:3, gap:2, flexShrink:0 }}>
+          {([["list","목록","☰"],["map","지도","🗺️"]] as const).map(([v, label, icon]) => (
+            <button key={v} className="tap" onClick={() => setView(v)} aria-pressed={view === v} style={{
+              display:"flex", alignItems:"center", gap:4,
+              padding:"5px 11px", borderRadius:"var(--r-pill)", border:"none", cursor:"pointer",
+              fontSize:12.5, fontWeight:700,
+              background: view === v ? "var(--surface)" : "transparent",
+              color: view === v ? "var(--primary)" : "var(--text-3)",
+              boxShadow: view === v ? "0 1px 3px rgba(0,0,0,.12)" : "none",
+            }}>
+              <span style={{ fontSize:13 }}>{icon}</span>{label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 상태 */}
@@ -396,7 +416,67 @@ function NearbyContent() {
         </div>
       )}
 
-      {!loading && places.length > 0 && (
+      {/* 지도 보기 — 현재 위치와 식당들이 어디쯤인지 한눈에 */}
+      {!loading && !error && view === "map" && places.length > 0 && (
+        <div style={{ padding:"12px 16px 0" }}>
+          <NearbyMap
+            places={places}
+            center={coords}
+            getEmoji={(p) => FOOD_EMOJIS[categoryKey(p.category)] || "🍽️"}
+            selectedIndex={pickedIdx}
+            onSelect={setPickedIdx}
+            height="min(58vh, 460px)"
+          />
+          {/* 고른 가게 — 목록 카드의 핵심만 추린 형태 */}
+          {pickedIdx !== null && places[pickedIdx] && (() => {
+            const p = places[pickedIdx];
+            const ck = categoryKey(p.category);
+            const imgUrl = images[p.title] || FOOD_ICONS[ck];
+            const hasRealImg = !!images[p.title];
+            return (
+              <div style={{ marginTop:10, background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
+                <div style={{ display:"flex", gap:12, padding:"12px 14px" }}>
+                  <div style={{ width:64, height:64, borderRadius:14, overflow:"hidden", flexShrink:0, background:"var(--bg-2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    {imgUrl
+                      ? <img src={imgUrl} alt={ck} referrerPolicy="no-referrer"
+                          style={{ width:"100%", height:"100%", objectFit: hasRealImg ? "cover" : "contain", padding: hasRealImg ? 0 : 5 }} />
+                      : <img src="/mascot/tabs/food.png" alt="" style={{ width:40, height:40, objectFit:"contain" }} />}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:6, marginBottom:4 }}>
+                      <span style={{ fontFamily:"var(--font-display)", fontSize:16, lineHeight:1.3 }}>{p.title}</span>
+                      <button onClick={() => setPickedIdx(null)} aria-label="닫기"
+                        style={{ background:"none", border:"none", fontSize:16, color:"var(--text-3)", cursor:"pointer", flexShrink:0, lineHeight:1 }}>✕</button>
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8, flexWrap:"wrap" }}>
+                      {p.category && (
+                        <span style={{ fontSize:11, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"var(--bg-2)", color:"var(--text-3)" }}>{catShort(p.category)}</span>
+                      )}
+                      {p.distance !== null && <span style={{ fontSize:11.5, color:"var(--text-3)" }}>📍 {fmtDist(p.distance)}</span>}
+                    </div>
+                    {p.address && <p style={{ fontSize:11.5, color:"var(--text-3)", margin:"0 0 8px" }}>{p.address}</p>}
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                      <a href={kakaoUrl(p)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
+                        style={{ padding:"5px 12px", borderRadius:8, background:"#FAE100", color:"#3A1D1D", fontSize:12, fontWeight:700, textDecoration:"none" }}>카카오맵</a>
+                      <a href={naverUrl(p)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
+                        style={{ padding:"5px 12px", borderRadius:8, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>네이버맵</a>
+                      <a href={googleUrl(p)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
+                        style={{ padding:"5px 12px", borderRadius:8, background:"#4285F4", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>구글맵</a>
+                    </div>
+                    <button className="tap" onClick={() => { setFindGroupModal(p); setGroupNameInput(`${p.title} 같이 먹어요`); }} style={{
+                      marginTop:6, width:"100%", padding:"8px", borderRadius:10, border:"none",
+                      background:"var(--primary)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer",
+                      display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                    }}>🍽️ 같이 먹을 사람 구하기</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {!loading && view === "list" && places.length > 0 && (
         <div style={{ display:"flex", flexDirection:"column", gap:10, padding:"12px 16px 0" }}>
           {places.map((p, i) => {
             const ck = categoryKey(p.category);
