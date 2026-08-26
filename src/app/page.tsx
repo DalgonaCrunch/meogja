@@ -225,8 +225,9 @@ export default function Home() {
   // 홈 기능
   const [rouletteResult, setRouletteResult] = useState<string | null>(null);
   const [rouletteRunning, setRouletteRunning] = useState(false);
-  /* 디저트 랜덤은 따로 돈다 — 한 끼 추천에 디저트가 섞이면 "오늘 뭐 먹지" 가 아니게 된다 */
-  const [dessertRoulette, setDessertRoulette] = useState(false);
+  /* 식사 / 디저트 두 갈래. **모드**로 들고 있어야 다시 뽑기에도 유지된다
+     (예전에는 "디저트로 뽑기" 를 한 번 누르는 방식이라, 새로고침하면 식사로 돌아갔다). */
+  const [rouletteMode, setRouletteMode] = useState<"meal" | "dessert">("meal");
   const [showTour, setShowTour] = useState(false);
   const CAT_IMGS = ["cat-39","cat-02","cat-15","cat-19","cat-24","cat-40","cat-38","cat-07"];
   const [catImg, setCatImg] = useState("cat-39");
@@ -419,9 +420,9 @@ export default function Home() {
     }
   }
 
-  function spinRoulette(dessert = false) {
+  function spinRoulette(mode: "meal" | "dessert" = rouletteMode) {
     if (rouletteRunning) return;
-    setDessertRoulette(dessert);
+    setRouletteMode(mode);
     setRouletteRunning(true);
     setRouletteResult(null);
 
@@ -439,7 +440,7 @@ export default function Home() {
     /* 🔴 시간대·날씨·트렌드 목록에는 디저트와 음료가 섞여 있다(오후 = 버블티·빙수…).
        한 끼를 고르는 자리이므로 걸러낸다 — 점심에 마카롱이 나오면 안 된다.
        디저트를 뽑고 싶을 때는 아래 '디저트로 뽑기' 로 따로 돌린다. */
-    const wantDessert = dessert;
+    const wantDessert = mode === "dessert";
     let pool = wantDessert
       ? CAFE_DESSERT_POOL.filter(n => !homeHardDislikes.has(n))
       : Array.from(rCandidates)
@@ -665,8 +666,25 @@ export default function Home() {
       {/* ── 통합 Hero 카드 ── */}
       {homeSettings.show_roulette && <div className="fade-up" style={{ padding: "16px 16px 0" }}>
         <div style={{ background:"var(--hero-gradient)", borderRadius:20, padding:"20px", boxShadow:"0 8px 24px var(--hero-shadow)" }}>
-          <div style={{ marginBottom:10 }}>
-            <p style={{ fontFamily:"var(--font-display)", fontSize:17, color:"#fff" }}><img src="/mascot/tabs/food.png" style={{width:28, height:28, objectFit:"contain", marginRight:5, position:"relative", top:5}} />오늘 뭐 먹지?</p>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+            <p style={{ flex:1, minWidth:0, fontFamily:"var(--font-display)", fontSize:17, color:"#fff" }}>
+              {rouletteMode === "dessert"
+                ? <><span style={{ fontSize:24, marginRight:6, position:"relative", top:3 }}>🍰</span>디저트 뭐 먹지?</>
+                : <><img src="/mascot/tabs/food.png" alt="" style={{width:28, height:28, objectFit:"contain", marginRight:5, position:"relative", top:5}} />오늘 뭐 먹지?</>}
+            </p>
+            {/* 식사 ↔ 디저트. 고른 갈래가 다시 뽑기에도 유지된다 */}
+            <div style={{ display:"flex", background:"rgba(255,255,255,.18)", borderRadius:"var(--r-pill)", padding:3, gap:2, flexShrink:0 }}>
+              {([["meal","🍚 식사"],["dessert","🍰 디저트"]] as const).map(([m, label]) => (
+                <button key={m} className="tap" aria-pressed={rouletteMode === m}
+                  onClick={() => { if (rouletteMode !== m) { setRouletteMode(m); setRouletteResult(null); } }}
+                  style={{
+                    padding:"5px 11px", borderRadius:"var(--r-pill)", border:"none", cursor:"pointer",
+                    fontSize:12.5, fontWeight:800,
+                    background: rouletteMode === m ? "#fff" : "transparent",
+                    color: rouletteMode === m ? "var(--primary)" : "rgba(255,255,255,.9)",
+                  }}>{label}</button>
+              ))}
+            </div>
           </div>
           {rouletteResult && (
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, animation: rouletteRunning ? "none" : "sheetUp .3s both" }}>
@@ -674,7 +692,8 @@ export default function Home() {
                 <img src={getFoodIconUrl(rouletteResult)!} alt={rouletteResult} style={{ width:44, height:44, objectFit:"contain", flexShrink:0 }} />
               )}
               <div style={{ display:"flex", alignItems:"center", gap:4, minWidth:0 }}>
-                <p style={{ fontFamily:"var(--font-display)", fontSize:28, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                {/* data-testid: 확인 스크립트가 결과를 정확히 집어야 한다(다른 문구를 잡으면 검사가 헛돈다) */}
+                <p data-testid="roulette-result" style={{ fontFamily:"var(--font-display)", fontSize:28, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
                   {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
                 </p>
                 {!rouletteRunning && (
@@ -684,7 +703,10 @@ export default function Home() {
             </div>
           )}
           <div style={{ display:"flex", gap:8 }}>
-            <button data-tour-id="tour-roulette" className="tap" onClick={() => spinRoulette(false)} disabled={rouletteRunning} style={{
+            <button data-tour-id="tour-roulette" className="tap" onClick={() => spinRoulette()} disabled={rouletteRunning}
+              /* 결과가 나오면 버튼이 아이콘만 남는다 — 읽어 줄 이름이 없으면 스크린리더도,
+                 확인 스크립트도 이 버튼을 못 찾는다 */
+              aria-label={rouletteMode === "dessert" ? "디저트 다시 뽑기" : "메뉴 다시 뽑기"} style={{
               flex: rouletteResult && !rouletteRunning ? "0 0 auto" : 1,
               padding: rouletteResult && !rouletteRunning ? "11px 16px" : "11px 8px",
               borderRadius:"var(--r-pill)", border:"none",
@@ -692,7 +714,7 @@ export default function Home() {
               color:"#fff",
               fontFamily:"var(--font-display)", fontSize:14, fontWeight:700, cursor:rouletteRunning ? "default" : "pointer",
             }}>
-              {rouletteRunning ? <><img src="/mascot/tabs/dice.png" style={{width:28,height:28,objectFit:"contain",marginRight:4,position:"relative",top:6}}/>…</> : rouletteResult ? <img src="/mascot/tabs/refresh.png" style={{width:28,height:28,objectFit:"contain",position:"relative",top:6}}/> : <><img src="/mascot/tabs/dice.png" style={{width:28,height:28,objectFit:"contain",marginRight:4,position:"relative",top:6}}/>랜덤 추천</>}
+              {rouletteRunning ? <><img src="/mascot/tabs/dice.png" style={{width:28,height:28,objectFit:"contain",marginRight:4,position:"relative",top:6}}/>…</> : rouletteResult ? <img src="/mascot/tabs/refresh.png" style={{width:28,height:28,objectFit:"contain",position:"relative",top:6}}/> : <><img src="/mascot/tabs/dice.png" style={{width:28,height:28,objectFit:"contain",marginRight:4,position:"relative",top:6}}/>{rouletteMode === "dessert" ? "디저트 뽑기" : "랜덤 추천"}</>}
             </button>
             {rouletteResult && !rouletteRunning && (
               <button className="tap pulse-cta" onClick={() => openMenuAction([rouletteResult])} style={{
@@ -715,12 +737,7 @@ export default function Home() {
               🔗 결과 공유하기
             </button>
           )}
-          {/* 디저트는 따로 뽑는다 — 한 끼 랜덤에 섞으면 점심에 마카롱이 나온다 */}
-          <button className="tap" onClick={() => spinRoulette(true)} disabled={rouletteRunning}
-            style={{ marginTop:8, background:"none", border:"none", color:"rgba(255,255,255,.9)",
-              fontSize:12.5, fontWeight:700, cursor:rouletteRunning ? "default" : "pointer", textDecoration:"underline" }}>
-            🍰 디저트로 뽑기
-          </button>
+
         </div>
       </div>}
 
@@ -1094,7 +1111,7 @@ export default function Home() {
               <p style={{ fontSize:15, color:"rgba(255,255,255,.75)", marginBottom:18 }}>랜덤으로 오늘 메뉴를 정해드려요</p>
             )}
             <div style={{ display:"flex", gap:10 }}>
-              <button className="tap" onClick={() => spinRoulette(false)} disabled={rouletteRunning} style={{
+              <button className="tap" onClick={() => spinRoulette()} disabled={rouletteRunning} style={{
                 flex:1, padding:"13px", borderRadius:"var(--r-pill)", border:"none",
                 background: rouletteRunning ? "rgba(255,255,255,.3)" : "#fff",
                 color: rouletteRunning ? "#fff" : "var(--primary)",
