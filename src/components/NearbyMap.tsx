@@ -17,11 +17,18 @@ export type MapPlace = {
    전역 any 를 두면 오타가 런타임까지 살아남는다. 쓰는 만큼만 적는다. */
 type KLatLng = { getLat(): number; getLng(): number };
 type KBounds = { extend(ll: KLatLng): void; isEmpty(): boolean };
+type KPoint = { x: number; y: number };
+type KProjection = {
+  containerPointFromCoords(ll: KLatLng): KPoint;
+  coordsFromContainerPoint(pt: KPoint): KLatLng;
+};
 type KMap = {
   setBounds(b: KBounds, ...padding: number[]): void;
   setCenter(ll: KLatLng): void;
   getCenter(): KLatLng;
   setLevel(level: number): void;
+  getLevel(): number;
+  getProjection(): KProjection;
   relayout(): void;
 };
 type KOverlay = {
@@ -31,6 +38,8 @@ type KOverlay = {
 type KEventTarget = KMap;
 type KakaoMaps = {
   load(cb: () => void): void;
+  /** 화면 좌표 객체. 평범한 {x,y} 를 넘기면 SDK 안에서 터진다(실측) */
+  Point: new (x: number, y: number) => KPoint;
   event: {
     addListener(target: KEventTarget, type: string, handler: () => void): void;
     removeListener(target: KEventTarget, type: string, handler: () => void): void;
@@ -129,6 +138,43 @@ function makeMarkerEl(emoji: string, label: string, active: boolean): HTMLElemen
   return wrap;
 }
 
+/* 겹친 마커를 하나로 묶어 보여주는 동그라미. 누르면 그 안으로 확대해 들어간다. */
+function makeClusterEl(count: number, emoji: string): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer;";
+
+  const bubble = document.createElement("div");
+  bubble.style.cssText = [
+    "width:46px", "height:46px", "border-radius:50%",
+    "display:flex", "flex-direction:column", "align-items:center", "justify-content:center",
+    "background:#fff", "border:2.5px solid var(--primary)",
+    "box-shadow:0 3px 10px rgba(0,0,0,.24)",
+    "line-height:1",
+  ].join(";");
+
+  const top = document.createElement("div");
+  top.textContent = emoji;
+  top.style.cssText = "font-size:14px;";
+  const num = document.createElement("div");
+  num.textContent = String(count);
+  num.style.cssText = "font-size:12.5px;font-weight:800;color:var(--primary);margin-top:1px;";
+  bubble.appendChild(top);
+  bubble.appendChild(num);
+
+  const name = document.createElement("div");
+  name.textContent = `${count}곳`;
+  name.style.cssText = [
+    "margin-top:3px", "font-size:11px", "font-weight:700",
+    "padding:2px 7px", "border-radius:99px",
+    "background:rgba(255,255,255,.94)", "color:var(--text, #333)",
+    "box-shadow:0 1px 4px rgba(0,0,0,.18)",
+  ].join(";");
+
+  wrap.appendChild(bubble);
+  wrap.appendChild(name);
+  return wrap;
+}
+
 function makeMeEl(): HTMLElement {
   const wrap = document.createElement("div");
   wrap.style.cssText = "position:relative;width:22px;height:22px;";
@@ -179,6 +225,13 @@ export default function NearbyMap({
      사용자가 확대·이동해 둔 화면이 매번 원위치로 튕긴다. */
   const fittedRef = useRef<string>("");
   const [loaded, setLoaded] = useState<"loading" | "ready" | "error">("loading");
+  /* 줌·이동이 끝나면 다시 뭉쳐야 한다(겹침은 화면 픽셀 기준이라 줌에 따라 달라진다).
+     화면이 실제로 바뀐 횟수를 세어 마커 그리기 effect 를 다시 돌린다. */
+  const [epoch, setEpoch] = useState(0);
+  /* 더 확대할 수 없을 만큼 붙어 있는 자리를 눌렀을 때, 그 안의 가게들을 동그랗게
+     펼쳐 보여준다. 어느 화면 상태에서 펼친 것인지(epoch) 같이 들고 있어서
+     지도를 움직이면 저절로 접힌다. */
+  const [spread, setSpread] = useState<{ members: number[]; epoch: number } | null>(null);
 
   const appkey = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
   // 키가 없는 것은 상태 변화가 아니라 처음부터 정해진 사실이다 — 계산해서 쓴다
@@ -227,20 +280,92 @@ export default function NearbyMap({
       bounds.extend(pos);
     }
 
+    /* ── 겹치는 마커 뭉치기 ────────────────────────────────────────
+       이름표가 92px 이나 되므로 가까운 마커끼리는 이름이 서로를 덮는다.
+       겹침은 지구 위 거리가 아니라 **화면 픽셀** 문제다 — 줌마다 달라진다.
+       그래서 화면 좌표로 바꿔 놓고 가까운 것끼리 묶는다. 고른 가게는 절대
+       묶지 않는다(눌러서 보고 있는 것이 사라지면 안 된다). */
+    const CLUSTER_PX = 62;
+    const proj = map.getProjection();
+    type Spot = { i: number; pos: KLatLng; pt: KPoint };
+    const spots: Spot[] = [];
     places.forEach((p, i) => {
       const lat = parseFloat(p.mapy);
       const lng = parseFloat(p.mapx);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return; // 좌표 없는 항목은 지도에서 뺀다
       const pos = new maps.LatLng(lat, lng);
-      const active = selectedIndex === i;
-      const el = makeMarkerEl(getEmoji(p), p.title, active);
-      el.addEventListener("click", () => onSelect(active ? null : i));
+      bounds.extend(pos);
+      spots.push({ i, pos, pt: proj.containerPointFromCoords(pos) });
+    });
+
+    const groups: Spot[][] = [];
+    for (const sp of spots) {
+      if (sp.i === selectedIndex) { groups.push([sp]); continue; }  // 고른 것은 홀로
+      const near = groups.find(g =>
+        g[0].i !== selectedIndex &&
+        Math.hypot(g[0].pt.x - sp.pt.x, g[0].pt.y - sp.pt.y) < CLUSTER_PX);
+      if (near) near.push(sp); else groups.push([sp]);
+    }
+
+    groups.forEach((g) => {
+      if (g.length === 1) {
+        const { i, pos } = g[0];
+        const p = places[i];
+        const active = selectedIndex === i;
+        const el = makeMarkerEl(getEmoji(p), p.title, active);
+        el.addEventListener("click", () => onSelect(active ? null : i));
+        const ov = new maps.CustomOverlay({
+          position: pos, content: el, yAnchor: 1, zIndex: active ? 10 : 2,
+        });
+        ov.setMap(map);
+        overlaysRef.current.push(ov);
+        return;
+      }
+      const head = g[0];
+
+      /* 이 자리를 펼쳐 보라고 한 상태면 가게들을 동그랗게 벌려 놓는다.
+         (같은 건물에 여러 곳이 있으면 더 확대해도 안 갈라진다 — 그때 쓸 수 있는
+         유일한 출구다. 화면 좌표로 벌린 뒤 좌표로 되돌린다.) */
+      const spreading = spread && spread.epoch === epoch && spread.members.includes(head.i);
+      if (spreading) {
+        const R = 58;
+        g.forEach((sp, k) => {
+          const a = (2 * Math.PI * k) / g.length - Math.PI / 2;
+          const pos = proj.coordsFromContainerPoint(new maps.Point(
+            head.pt.x + Math.cos(a) * R,
+            head.pt.y + Math.sin(a) * R,
+          ));
+          const p = places[sp.i];
+          const active = selectedIndex === sp.i;
+          const el = makeMarkerEl(getEmoji(p), p.title, active);
+          el.addEventListener("click", () => onSelect(active ? null : sp.i));
+          const ov = new maps.CustomOverlay({ position: pos, content: el, yAnchor: 1, zIndex: active ? 10 : 4 });
+          ov.setMap(map);
+          overlaysRef.current.push(ov);
+        });
+        return;
+      }
+
+      // 여러 곳이 겹친 자리 — 개수를 보여준다. 누르면 확대하고, 더 못 하면 펼친다
+      const el = makeClusterEl(g.length, getEmoji(places[head.i]));
+      el.addEventListener("click", () => {
+        const lv = map.getLevel();
+        if (lv > 1) {
+          const gb = new maps.LatLngBounds();
+          g.forEach(sp => gb.extend(sp.pos));
+          if (!gb.isEmpty()) map.setBounds(gb, 80, 60, 60, 60);
+          if (map.getLevel() >= lv) map.setLevel(Math.max(1, lv - 1)); // 한 점이면 bounds 로는 안 변한다
+          setEpoch(e => e + 1);
+          return;
+        }
+        // 최대 확대인데도 붙어 있다 → 동그랗게 펼친다
+        setSpread({ members: g.map(sp => sp.i), epoch });
+      });
       const ov = new maps.CustomOverlay({
-        position: pos, content: el, yAnchor: 1, zIndex: active ? 10 : 2,
+        position: head.pos, content: el, yAnchor: 1, zIndex: 3,
       });
       ov.setMap(map);
       overlaysRef.current.push(ov);
-      bounds.extend(pos);
     });
 
     // 목록이나 기준 위치가 실제로 바뀌었을 때만 화면을 다시 맞춘다(선택은 제외)
@@ -252,26 +377,31 @@ export default function NearbyMap({
       fittedRef.current = fitKey;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, places, center, selectedIndex]);
+  }, [status, places, center, selectedIndex, epoch, spread]);
 
-  /* 콜백이 바뀌어도 리스너를 다시 달지 않게 최신 것을 담아 둔다 */
+  /* 콜백이 바뀌어도 리스너를 다시 달지 않게 최신 것을 담아 둔다
+     (렌더 중에 ref 를 건드리면 안 된다 — effect 에서 갈아 끼운다) */
   const onMovedRef = useRef(onMoved);
-  onMovedRef.current = onMoved;
+  useEffect(() => { onMovedRef.current = onMoved; }, [onMoved]);
 
   // ── 지도를 밀거나 줌을 바꾸면 그 중심을 알린다 ("이 지역에서 다시 찾기")
   useEffect(() => {
     if (status !== "ready" || !mapRef.current || !window.kakao) return;
     const maps = window.kakao.maps;
     const map = mapRef.current;
-    const notify = () => {
+    /* 밀어서 옮긴 것은 부모에 알린다("이 지역에서 다시 찾기"). 줌은 알리지 않는다 —
+       클러스터를 눌러 확대하는 것까지 "옮겼다" 로 세면 다시 찾기가 계속 뜬다. */
+    const onDrag = () => {
       const c = map.getCenter();
       onMovedRef.current?.({ x: c.getLng(), y: c.getLat() });
+      setEpoch((e) => e + 1);
     };
-    maps.event.addListener(map, "dragend", notify);
-    maps.event.addListener(map, "zoom_changed", notify);
+    const onZoom = () => setEpoch((e) => e + 1);
+    maps.event.addListener(map, "dragend", onDrag);
+    maps.event.addListener(map, "zoom_changed", onZoom);
     return () => {
-      maps.event.removeListener(map, "dragend", notify);
-      maps.event.removeListener(map, "zoom_changed", notify);
+      maps.event.removeListener(map, "dragend", onDrag);
+      maps.event.removeListener(map, "zoom_changed", onZoom);
     };
   }, [status]);
 
