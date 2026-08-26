@@ -69,6 +69,7 @@ export function normalizeCoord(raw: string | number | undefined | null): number 
   if (raw === undefined || raw === null || raw === "") return null;
   let n = typeof raw === "number" ? raw : parseFloat(raw);
   if (!Number.isFinite(n)) return null;
+  if (n === 0) return null;                  // 0 은 좌표가 없다는 뜻이다(한국 좌표에 0 은 없다)
   if (Math.abs(n) > 1000) n = n / 1e7;      // 네이버 1e7 스케일
   if (Math.abs(n) > 200) return null;        // 그래도 이상하면 버린다
   return n;
