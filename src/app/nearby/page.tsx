@@ -6,8 +6,11 @@ import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
 import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
 import LoadingCat from "@/components/LoadingCat";
-import NearbyMap from "@/components/NearbyMap";
-import { getFoodIconUrl } from "@/lib/foodIcons";
+import MapPanel, { ViewToggle } from "@/components/MapPanel";
+import {
+  FOOD_EMOJIS, categoryKey, localFoodIcon, catShort, fmtDist,
+  kakaoUrl, naverUrl, googleUrl,
+} from "@/lib/foodCategory";
 
 type Place = {
   title: string;
@@ -20,28 +23,9 @@ type Place = {
   phone: string;
 };
 
-/* 카테고리 분류용 키 목록. 예전에는 여기에 아이콘 경로까지 같이 적어 뒀는데
-   그 경로들(korean.png 등)은 실제로 없는 파일이라 사진을 못 받은 카드마다
-   깨진 이미지가 떴다. 실제 아이콘 140개는 한글 파일명이고 lib/foodIcons.ts 가
-   그 매핑을 이미 갖고 있다 — 그래서 분류 키만 남기고 그림은 그쪽에 맡긴다. */
-const FOOD_KEYS = ["한식", "중식", "일식", "양식", "카페", "치킨", "피자", "분식", "술집", "패스트푸드", "베이커리"];
-
-/** 카카오 카테고리 문자열("음식점 > 일식 > 우동")에서 쓸 아이콘 경로. 없으면 null */
-function localFoodIcon(category: string): string | null {
-  const leaf = category.split(" > ").pop() || category;
-  return getFoodIconUrl(leaf) || getFoodIconUrl(categoryKey(category));
-}
-const FOOD_EMOJIS: Record<string, string> = {
-  한식: "🍚", 중식: "🥢", 일식: "🍱", 양식: "🍝", 카페: "☕", 치킨: "🍗",
-  피자: "🍕", 분식: "🍜", 술집: "🍺", 패스트푸드: "🍔", 베이커리: "🥐",
-};
-
-function categoryKey(cat: string) {
-  for (const k of FOOD_KEYS) {
-    if (cat.includes(k)) return k;
-  }
-  return "한식";
-}
+/* 카테고리·아이콘·거리·지도링크 헬퍼는 lib/foodCategory.ts 로 옮겼다.
+   /search 화면이 같은 카드를 그리는데 복사본이 갈라져 아이콘 버그를 한쪽만
+   고치는 일이 있었다. */
 
 function normalizePlaceName(name: string): string {
   return name
@@ -71,8 +55,13 @@ function NearbyContent() {
   const [usedRadius, setUsedRadius] = useState<number>(1000);
   const [expandedRadius, setExpandedRadius] = useState(false);
   const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
-  const [view, setView] = useState<"list" | "map">("list");
+  /* 지도를 기본으로 보여준다 — 어디쯤인지 먼저 보이는 게 고르는 데 낫다.
+     SDK/도메인 문제로 지도가 안 뜨는 경우를 위해 목록 전환은 남긴다. */
+  const [view, setView] = useState<"list" | "map">("map");
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
+  /* 지도 키·SDK 문제로 지도를 못 띄우면 결과가 아예 안 보이게 된다(지도가 기본이라).
+     한 번은 자동으로 목록으로 되돌린다. 그 뒤 사용자가 다시 '지도'를 누르면 그대로 둔다. */
+  const [mapBroken, setMapBroken] = useState(false);
 
   useEffect(() => {
     getSupabase().from("meal_pats").select("restaurant_name,menu").eq("status", "open")
@@ -269,21 +258,6 @@ function NearbyContent() {
     setGroupCreating(false);
   }
 
-  const fmtDist = (d: number | null) => d === null ? "" : d < 1000 ? `${Math.round(d)}m` : `${(d / 1000).toFixed(1)}km`;
-  const catShort = (cat: string) => cat.split(" > ").pop() || cat;
-
-  function kakaoUrl(p: Place) {
-    if (p.link?.includes("place.map.kakao") || p.link?.includes("map.kakao.com/link")) return p.link;
-    return `https://map.kakao.com/link/search/${encodeURIComponent(p.title)}`;
-  }
-  function naverUrl(p: Place) {
-    return `https://map.naver.com/p/search/${encodeURIComponent(p.title)}`;
-  }
-  function googleUrl(p: Place) {
-    const q = encodeURIComponent(p.title + (p.address ? " " + p.address : ""));
-    return `https://www.google.com/maps/search/?q=${q}&hl=ko`;
-  }
-
   return (
     <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh", paddingBottom:32 }}>
       {/* 헤더 */}
@@ -319,21 +293,8 @@ function NearbyContent() {
           </button>
         ))}
         <div style={{ flex:1 }} />
-        {/* 목록 ↔ 지도. 한 번에 하나만 켜진 것이 보이게 묶어 둔다 */}
-        <div style={{ display:"flex", background:"var(--bg-2)", borderRadius:"var(--r-pill)", padding:3, gap:2, flexShrink:0 }}>
-          {([["list","목록","☰"],["map","지도","🗺️"]] as const).map(([v, label, icon]) => (
-            <button key={v} className="tap" onClick={() => setView(v)} aria-pressed={view === v} style={{
-              display:"flex", alignItems:"center", gap:4,
-              padding:"5px 11px", borderRadius:"var(--r-pill)", border:"none", cursor:"pointer",
-              fontSize:12.5, fontWeight:700,
-              background: view === v ? "var(--surface)" : "transparent",
-              color: view === v ? "var(--primary)" : "var(--text-3)",
-              boxShadow: view === v ? "0 1px 3px rgba(0,0,0,.12)" : "none",
-            }}>
-              <span style={{ fontSize:13 }}>{icon}</span>{label}
-            </button>
-          ))}
-        </div>
+        {/* 목록 ↔ 지도 (MapPanel 과 같은 모양을 쓴다) */}
+        <ViewToggle view={view} onChange={setView} />
       </div>
 
       {/* 상태 */}
@@ -424,66 +385,21 @@ function NearbyContent() {
 
       {/* 지도 보기 — 현재 위치와 식당들이 어디쯤인지 한눈에 */}
       {!loading && !error && view === "map" && places.length > 0 && (
-        <div style={{ padding:"12px 16px 0" }}>
-          <NearbyMap
-            places={places}
-            center={coords}
-            getEmoji={(p) => FOOD_EMOJIS[categoryKey(p.category)] || "🍽️"}
-            selectedIndex={pickedIdx}
-            onSelect={setPickedIdx}
-            height="min(58vh, 460px)"
-          />
-          {/* 고른 가게 — 목록 카드의 핵심만 추린 형태 */}
-          {pickedIdx !== null && places[pickedIdx] && (() => {
-            const p = places[pickedIdx];
-            const ck = categoryKey(p.category);
-            const imgUrl = images[p.title] || localFoodIcon(p.category);
-            const hasRealImg = !!images[p.title];
-            return (
-              <div
-                /* 지도가 화면을 거의 다 쓰므로 카드는 접힌 아래에 생긴다.
-                   마커를 눌렀는데 아무 일도 없어 보이면 안 되니 직접 끌어와 보여준다. */
-                ref={(el) => { el?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}
-                style={{ marginTop:10, background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
-                <div style={{ display:"flex", gap:12, padding:"12px 14px" }}>
-                  <div style={{ width:64, height:64, borderRadius:14, overflow:"hidden", flexShrink:0, background:"var(--bg-2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                    {imgUrl
-                      ? <img src={imgUrl} alt={ck} referrerPolicy="no-referrer"
-                          style={{ width:"100%", height:"100%", objectFit: hasRealImg ? "cover" : "contain", padding: hasRealImg ? 0 : 5 }} />
-                      : <img src="/mascot/tabs/food.png" alt="" style={{ width:40, height:40, objectFit:"contain" }} />}
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:6, marginBottom:4 }}>
-                      <span style={{ fontFamily:"var(--font-display)", fontSize:16, lineHeight:1.3 }}>{p.title}</span>
-                      <button onClick={() => setPickedIdx(null)} aria-label="닫기"
-                        style={{ background:"none", border:"none", fontSize:16, color:"var(--text-3)", cursor:"pointer", flexShrink:0, lineHeight:1 }}>✕</button>
-                    </div>
-                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8, flexWrap:"wrap" }}>
-                      {p.category && (
-                        <span style={{ fontSize:11, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"var(--bg-2)", color:"var(--text-3)" }}>{catShort(p.category)}</span>
-                      )}
-                      {p.distance !== null && <span style={{ fontSize:11.5, color:"var(--text-3)" }}>📍 {fmtDist(p.distance)}</span>}
-                    </div>
-                    {p.address && <p style={{ fontSize:11.5, color:"var(--text-3)", margin:"0 0 8px" }}>{p.address}</p>}
-                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                      <a href={kakaoUrl(p)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
-                        style={{ padding:"5px 12px", borderRadius:8, background:"#FAE100", color:"#3A1D1D", fontSize:12, fontWeight:700, textDecoration:"none" }}>카카오맵</a>
-                      <a href={naverUrl(p)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
-                        style={{ padding:"5px 12px", borderRadius:8, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>네이버맵</a>
-                      <a href={googleUrl(p)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
-                        style={{ padding:"5px 12px", borderRadius:8, background:"#4285F4", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>구글맵</a>
-                    </div>
-                    <button className="tap" onClick={() => { setFindGroupModal(p); setGroupNameInput(`${p.title} 같이 먹어요`); }} style={{
-                      marginTop:6, width:"100%", padding:"8px", borderRadius:10, border:"none",
-                      background:"var(--primary)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer",
-                      display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                    }}>🍽️ 같이 먹을 사람 구하기</button>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-        </div>
+        <MapPanel
+          places={places}
+          center={coords}
+          images={images}
+          selectedIndex={pickedIdx}
+          onSelect={setPickedIdx}
+          onFindGroup={(p) => { setFindGroupModal(p as Place); setGroupNameInput(`${p.title} 같이 먹어요`); }}
+          onUnavailable={() => { if (!mapBroken) { setMapBroken(true); setView("list"); } }}
+        />
+      )}
+
+      {mapBroken && view === "list" && places.length > 0 && (
+        <p style={{ fontSize:12, color:"var(--text-3)", margin:"10px 16px 0" }}>
+          🗺️ 지도를 열 수 없어서 목록으로 보여드려요
+        </p>
       )}
 
       {!loading && view === "list" && places.length > 0 && (

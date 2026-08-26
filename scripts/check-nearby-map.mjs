@@ -56,15 +56,25 @@ await ctx.route("**dummy-local.supabase.co/**", (r) =>
 
 await page.goto(`${BASE}/nearby`, { waitUntil: "domcontentloaded" });
 
-// 목록이 뜨는지 먼저
-await page.waitForSelector("text=김밥천국 강남점", { timeout: 15000 }).catch(() => problems.push("목록에 가짜 결과가 뜨지 않음"));
-await page.screenshot({ path: `${OUT}-1-list.png` });
-
-// 지도로 전환
-const mapBtn = page.getByRole("button", { name: /지도/ });
-await mapBtn.click();
+// 2026-08-26: 지도가 **기본 화면**이 되었다. 결과가 오면 바로 지도가 그려져야 한다.
+await page.waitForSelector("text=김밥천국 강남점", { timeout: 15000 }).catch(() => problems.push("가짜 결과가 화면에 뜨지 않음"));
 await page.waitForTimeout(3500);
 await page.screenshot({ path: `${OUT}-2-map.png` });
+
+// 목록 전환도 살아 있는지 (지도가 안 뜨는 환경의 대피로)
+const listBtn = page.getByRole("button", { name: /목록/ });
+await listBtn.click();
+await page.waitForTimeout(600);
+// 목록 화면은 지도 안내 문구가 사라지고 가게 이름은 그대로 보인다
+//  (/nearby 목록 카드는 주소를 적지 않으므로 주소로 판정하면 안 된다)
+const listShown =
+  (await page.locator("text=파란 점이 내 위치예요").count()) === 0 &&
+  (await page.locator("text=김밥천국 강남점").count()) > 0;
+if (!listShown) problems.push("목록 전환이 동작하지 않음");
+await page.screenshot({ path: `${OUT}-1-list.png` });
+// 다시 지도로 돌아와 마커 확인
+await page.getByRole("button", { name: /지도/ }).click();
+await page.waitForTimeout(2500);
 
 // SDK 가 실제로 붙었는지 / 지도 타일이 생겼는지
 const diag = await page.evaluate(() => {

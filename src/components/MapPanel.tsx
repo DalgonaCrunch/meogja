@@ -1,0 +1,121 @@
+"use client";
+
+/**
+ * 지도 + 고른 가게 카드. /nearby 와 /search 가 같이 쓴다.
+ *
+ * 예전에는 이 덩어리가 /nearby 안에만 인라인으로 있어서, 홈에서 들어가는
+ * /search 화면에는 지도가 아예 없었다. 카드를 세 번째로 복사하지 않으려고
+ * 컴포넌트로 뽑았다.
+ */
+
+import NearbyMap, { type MapPlace } from "@/components/NearbyMap";
+import { trackPlaceClick } from "@/lib/placeClicks";
+import {
+  FOOD_EMOJIS, categoryKey, localFoodIcon, catShort, fmtDist,
+  kakaoUrl, naverUrl, googleUrl,
+} from "@/lib/foodCategory";
+
+type Props = {
+  places: MapPlace[];
+  /** 지도 기준점 — x=경도, y=위도 */
+  center: { x: number; y: number } | null;
+  /** 가게 이름 → 사진 URL (없으면 카테고리 아이콘으로 떨어진다) */
+  images?: Record<string, string>;
+  selectedIndex: number | null;
+  onSelect: (i: number | null) => void;
+  onFindGroup: (p: MapPlace) => void;
+  height?: string;
+  /** 지도를 못 띄웠을 때 (부르는 쪽이 목록으로 되돌린다) */
+  onUnavailable?: () => void;
+};
+
+export default function MapPanel({
+  places, center, images = {}, selectedIndex, onSelect, onFindGroup,
+  height = "min(58vh, 460px)", onUnavailable,
+}: Props) {
+  const picked = selectedIndex !== null ? places[selectedIndex] : undefined;
+
+  return (
+    <div style={{ padding: "12px 16px 0" }}>
+      <NearbyMap
+        places={places}
+        center={center}
+        getEmoji={(p) => FOOD_EMOJIS[categoryKey(p.category)] || "🍽️"}
+        selectedIndex={selectedIndex}
+        onSelect={onSelect}
+        height={height}
+        onUnavailable={onUnavailable}
+      />
+
+      {picked && (() => {
+        const p = picked;
+        const ck = categoryKey(p.category);
+        const imgUrl = images[p.title] || localFoodIcon(p.category);
+        const hasRealImg = !!images[p.title];
+        return (
+          <div
+            /* 지도가 화면을 거의 다 쓰므로 카드는 접힌 아래에 생긴다.
+               마커를 눌렀는데 아무 일도 없어 보이면 안 되니 직접 끌어와 보여준다. */
+            ref={(el) => { el?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}
+            style={{ marginTop: 10, background: "var(--surface)", borderRadius: 16, border: "var(--card-border)", boxShadow: "var(--card-shadow)", overflow: "hidden" }}>
+            <div style={{ display: "flex", gap: 12, padding: "12px 14px" }}>
+              <div style={{ width: 64, height: 64, borderRadius: 14, overflow: "hidden", flexShrink: 0, background: "var(--bg-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {imgUrl
+                  ? <img src={imgUrl} alt={ck} referrerPolicy="no-referrer"
+                      style={{ width: "100%", height: "100%", objectFit: hasRealImg ? "cover" : "contain", padding: hasRealImg ? 0 : 5 }} />
+                  : <img src="/mascot/tabs/food.png" alt="" style={{ width: 40, height: 40, objectFit: "contain" }} />}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: 16, lineHeight: 1.3 }}>{p.title}</span>
+                  <button onClick={() => onSelect(null)} aria-label="닫기"
+                    style={{ background: "none", border: "none", fontSize: 16, color: "var(--text-3)", cursor: "pointer", flexShrink: 0, lineHeight: 1 }}>✕</button>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                  {p.category && (
+                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: "var(--r-pill)", background: "var(--bg-2)", color: "var(--text-3)" }}>{catShort(p.category)}</span>
+                  )}
+                  {p.distance !== null && <span style={{ fontSize: 11.5, color: "var(--text-3)" }}>📍 {fmtDist(p.distance)}</span>}
+                </div>
+                {p.address && <p style={{ fontSize: 11.5, color: "var(--text-3)", margin: "0 0 8px" }}>{p.address}</p>}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <a href={kakaoUrl(p)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
+                    style={{ padding: "5px 12px", borderRadius: 8, background: "#FAE100", color: "#3A1D1D", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>카카오맵</a>
+                  <a href={naverUrl(p)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
+                    style={{ padding: "5px 12px", borderRadius: 8, background: "#03C75A", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>네이버맵</a>
+                  <a href={googleUrl(p)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
+                    style={{ padding: "5px 12px", borderRadius: 8, background: "#4285F4", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>구글맵</a>
+                </div>
+                <button className="tap" onClick={() => onFindGroup(p)} style={{
+                  marginTop: 6, width: "100%", padding: "8px", borderRadius: 10, border: "none",
+                  background: "var(--primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                }}>🍽️ 같이 먹을 사람 구하기</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+/** 목록/지도 전환 토글. 두 화면이 같은 모양을 쓰도록 여기 둔다. */
+export function ViewToggle({ view, onChange }: { view: "list" | "map"; onChange: (v: "list" | "map") => void }) {
+  return (
+    <div style={{ display: "flex", background: "var(--bg-2)", borderRadius: "var(--r-pill)", padding: 3, gap: 2, flexShrink: 0 }}>
+      {([["list", "목록", "☰"], ["map", "지도", "🗺️"]] as const).map(([v, label, icon]) => (
+        <button key={v} className="tap" onClick={() => onChange(v)} aria-pressed={view === v} style={{
+          display: "flex", alignItems: "center", gap: 4,
+          padding: "5px 11px", borderRadius: "var(--r-pill)", border: "none", cursor: "pointer",
+          fontSize: 12.5, fontWeight: 700,
+          background: view === v ? "var(--surface)" : "transparent",
+          color: view === v ? "var(--primary)" : "var(--text-3)",
+          boxShadow: view === v ? "0 1px 3px rgba(0,0,0,.12)" : "none",
+        }}>
+          <span style={{ fontSize: 13 }}>{icon}</span>{label}
+        </button>
+      ))}
+    </div>
+  );
+}

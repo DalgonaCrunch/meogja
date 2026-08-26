@@ -6,6 +6,9 @@ import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
 import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
 import LoadingCat from "@/components/LoadingCat";
+import MapPanel, { ViewToggle } from "@/components/MapPanel";
+import type { MapPlace } from "@/components/NearbyMap";
+import { normalizeCoord, cleanTitle } from "@/lib/foodCategory";
 
 type Restaurant = {
   title: string;
@@ -49,6 +52,13 @@ function SearchContent() {
   const [placeClicks, setPlaceClicks] = useState<Record<string, number>>({});
   const [usedRadius, setUsedRadius] = useState<number>(1000);
   const [expandedRadius, setExpandedRadius] = useState(false);
+  /* 홈에서 바로 들어오는 이 화면에도 지도를 붙였다(예전에는 /nearby 에만 있었다).
+     지도를 기본으로 두고, SDK·도메인 문제로 안 뜰 때를 위해 목록 전환을 남긴다. */
+  const [view, setView] = useState<"list" | "map">("map");
+  const [pickedIdx, setPickedIdx] = useState<number | null>(null);
+  /* 지도를 못 띄우는 환경(키 없음·도메인 미등록)에서 결과가 안 보이면 안 된다 →
+     한 번은 자동으로 목록으로 되돌린다. */
+  const [mapBroken, setMapBroken] = useState(false);
 
   useEffect(() => {
     getSupabase().from("meal_pats").select("restaurant_name,menu").eq("status", "open")
@@ -214,6 +224,7 @@ function SearchContent() {
       setExpandedRadius(finalRadius > 1000);
       all.sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
       setResults(all);
+      setPickedIdx(null);
       if (all.length) fetchPlaceClickStats(all.map(r => (r.title || "").replace(/<[^>]*>/g, ""))).then(setPlaceClicks);
       // 상위 15개 식당 이미지 비동기 fetch (결과 개수와 맞춤)
       all.slice(0, 15).forEach(async (item) => {
@@ -275,6 +286,29 @@ function SearchContent() {
     setGroupCreating(false);
   }
 
+  /* 지도에 넘길 형태로 변환.
+     🔴 네이버(/api/search)는 mapx/mapy 를 1e7 배 정수로 내려준다 — normalizeCoord 가
+     되돌린다. 좌표가 없는 결과(구글에서 간혹)는 지도에서 빼고 목록에만 남긴다. */
+  const mapPlaces: MapPlace[] = [];
+  const mapPlaceOrigin: Restaurant[] = [];
+  results.forEach((r) => {
+    const lng = normalizeCoord(r.mapx);
+    const lat = normalizeCoord(r.mapy);
+    if (lng === null || lat === null) return;
+    mapPlaces.push({
+      title: cleanTitle(r.title),
+      category: r.category || "",
+      address: r.roadAddress || r.address || "",
+      distance: r.distance ?? null,
+      mapx: String(lng),
+      mapy: String(lat),
+      link: r.link || "",
+      phone: r.telephone || "",
+    });
+    mapPlaceOrigin.push(r);
+  });
+  const mapCenter = location ? { x: location.lng, y: location.lat } : null;
+
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16, padding:"16px" }}>
       <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -296,11 +330,15 @@ function SearchContent() {
         </button>
       </div>
 
-      {menus.length > 0 && (
-        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-          {menus.map(m => (
-            <span key={m} style={{ padding:"6px 12px", borderRadius:"var(--r-pill)", background:"var(--primary)", color:"#fff", fontSize:13, fontWeight:600 }}>{m}</span>
-          ))}
+      {(menus.length > 0 || results.length > 0) && (
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6, flex:1, minWidth:0 }}>
+            {menus.map(m => (
+              <span key={m} style={{ padding:"6px 12px", borderRadius:"var(--r-pill)", background:"var(--primary)", color:"#fff", fontSize:13, fontWeight:600 }}>{m}</span>
+            ))}
+          </div>
+          {/* 목록 ↔ 지도 (/nearby 와 같은 모양) */}
+          {results.length > 0 && <ViewToggle view={view} onChange={setView} />}
         </div>
       )}
 
@@ -392,7 +430,40 @@ function SearchContent() {
         </div>
       )}
 
-      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+      {/* 지도 보기 — 내 위치와 가게들이 어디쯤인지 */}
+      {!loading && view === "map" && mapPlaces.length > 0 && (
+        <div style={{ margin:"0 -16px" }}>
+          <MapPanel
+            places={mapPlaces}
+            center={mapCenter}
+            images={images}
+            selectedIndex={pickedIdx}
+            onSelect={setPickedIdx}
+            onFindGroup={(p) => {
+              const idx = mapPlaces.indexOf(p);
+              const origin = idx >= 0 ? mapPlaceOrigin[idx] : null;
+              setFindGroupModal(origin || { title: p.title, address: p.address, category: p.category, link: p.link });
+              setGroupNameInput(`${p.title} 같이 먹어요`);
+            }}
+            onUnavailable={() => { if (!mapBroken) { setMapBroken(true); setView("list"); } }}
+          />
+        </div>
+      )}
+
+      {/* 좌표가 없어 지도에 못 올린 결과가 있으면 알려 준다 */}
+      {!loading && view === "map" && results.length > mapPlaces.length && (
+        <p style={{ fontSize:12, color:"var(--text-3)", margin:"8px 16px 0" }}>
+          위치 정보가 없는 {results.length - mapPlaces.length}곳은 지도에 표시되지 않아요 — 목록에서 볼 수 있어요
+        </p>
+      )}
+
+      {mapBroken && view === "list" && results.length > 0 && (
+        <p style={{ fontSize:12, color:"var(--text-3)", margin:0 }}>
+          🗺️ 지도를 열 수 없어서 목록으로 보여드려요
+        </p>
+      )}
+
+      <div style={{ display: view === "list" ? "flex" : "none", flexDirection:"column", gap:10 }}>
         {results.map((r, i) => {
           const name = (r.title || "").replace(/<[^>]*>/g, "");
           const imgUrl = images[name];

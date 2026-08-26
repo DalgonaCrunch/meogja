@@ -155,10 +155,13 @@ type Props = {
   selectedIndex: number | null;
   onSelect: (index: number | null) => void;
   height?: number | string;
+  /** 지도를 띄울 수 없을 때(키 없음·SDK 실패) 알린다. 지도가 기본 화면이므로
+   *  부르는 쪽이 목록으로 되돌려 결과가 안 보이는 상황을 막는다. */
+  onUnavailable?: () => void;
 };
 
 export default function NearbyMap({
-  places, center, getEmoji, selectedIndex, onSelect, height = 420,
+  places, center, getEmoji, selectedIndex, onSelect, height = 420, onUnavailable,
 }: Props) {
   const boxRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KMap | null>(null);
@@ -242,6 +245,12 @@ export default function NearbyMap({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, places, center, selectedIndex]);
+
+  // ── 지도를 못 띄우면 부르는 쪽에 알린다 (지도가 기본 화면이라 목록으로 되돌려야 한다)
+  useEffect(() => {
+    if (status === "nokey" || status === "error") onUnavailable?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   // ── 탭 전환 등으로 컨테이너 크기가 0 이었다가 살아나면 다시 재보게 한다
   useEffect(() => {
