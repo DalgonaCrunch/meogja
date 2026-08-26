@@ -9,7 +9,7 @@ import { getCategorySubItems } from "@/lib/recommend";
 import { expandDislikes, type IngredientMap } from "@/lib/ingredients";
 import { loadIngredientMap } from "@/lib/ingredientMap";
 import MenuBattle from "./MenuBattle";
-import { MENU_CATEGORIES, MEAL_POOL, ROULETTE_POOL } from "@/lib/menus";
+import { MENU_CATEGORIES, MEAL_POOL, ROULETTE_POOL, CAFE_DESSERT_POOL, isMealFood } from "@/lib/menus";
 import { getFoodIconUrl } from "@/lib/foodIcons";
 import { getTimeSlot, TIME_FOODS, getAgeGroupFoods, getWeatherFoods, WeatherCondition } from "@/lib/foodRecommend";
 import TourGuide, { TOUR_KEY } from "@/components/TourGuide";
@@ -223,6 +223,8 @@ export default function Home() {
   // 홈 기능
   const [rouletteResult, setRouletteResult] = useState<string | null>(null);
   const [rouletteRunning, setRouletteRunning] = useState(false);
+  /* 디저트 랜덤은 따로 돈다 — 한 끼 추천에 디저트가 섞이면 "오늘 뭐 먹지" 가 아니게 된다 */
+  const [dessertRoulette, setDessertRoulette] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const CAT_IMGS = ["cat-39","cat-02","cat-15","cat-19","cat-24","cat-40","cat-38","cat-07"];
   const [catImg, setCatImg] = useState("cat-39");
@@ -415,8 +417,9 @@ export default function Home() {
     }
   }
 
-  function spinRoulette() {
+  function spinRoulette(dessert = false) {
     if (rouletteRunning) return;
+    setDessertRoulette(dessert);
     setRouletteRunning(true);
     setRouletteResult(null);
 
@@ -431,12 +434,19 @@ export default function Home() {
       ...rWeatherFoods,
       ...trendingMenus.filter(m => ROULETTE_POOL.includes(m.name)).map(m => m.name),
     ]);
-    let pool = Array.from(rCandidates)
-      .filter(n => !ROULETTE_CATEGORY_EXCLUDE.has(n))
-      .filter(n => !homeHardDislikes.has(n))
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 40);
-    if (pool.length === 0) pool = [...MEAL_POOL];
+    /* 🔴 시간대·날씨·트렌드 목록에는 디저트와 음료가 섞여 있다(오후 = 버블티·빙수…).
+       한 끼를 고르는 자리이므로 걸러낸다 — 점심에 마카롱이 나오면 안 된다.
+       디저트를 뽑고 싶을 때는 아래 '디저트로 뽑기' 로 따로 돌린다. */
+    const wantDessert = dessert;
+    let pool = wantDessert
+      ? CAFE_DESSERT_POOL.filter(n => !homeHardDislikes.has(n))
+      : Array.from(rCandidates)
+          .filter(n => !ROULETTE_CATEGORY_EXCLUDE.has(n))
+          .filter(n => isMealFood(n))
+          .filter(n => !homeHardDislikes.has(n))
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 40);
+    if (pool.length === 0) pool = wantDessert ? [...CAFE_DESSERT_POOL] : [...MEAL_POOL];
 
     let i = 0;
     const total = 20;
@@ -669,7 +679,7 @@ export default function Home() {
             </div>
           )}
           <div style={{ display:"flex", gap:8 }}>
-            <button data-tour-id="tour-roulette" className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
+            <button data-tour-id="tour-roulette" className="tap" onClick={() => spinRoulette(false)} disabled={rouletteRunning} style={{
               flex: rouletteResult && !rouletteRunning ? "0 0 auto" : 1,
               padding: rouletteResult && !rouletteRunning ? "11px 16px" : "11px 8px",
               borderRadius:"var(--r-pill)", border:"none",
@@ -690,6 +700,12 @@ export default function Home() {
               </button>
             )}
           </div>
+          {/* 디저트는 따로 뽑는다 — 한 끼 랜덤에 섞으면 점심에 마카롱이 나온다 */}
+          <button className="tap" onClick={() => spinRoulette(true)} disabled={rouletteRunning}
+            style={{ marginTop:8, background:"none", border:"none", color:"rgba(255,255,255,.9)",
+              fontSize:12.5, fontWeight:700, cursor:rouletteRunning ? "default" : "pointer", textDecoration:"underline" }}>
+            🍰 디저트로 뽑기
+          </button>
         </div>
       </div>}
 
@@ -727,6 +743,7 @@ export default function Home() {
         ]);
         const algoRanked = Array.from(candidateSet)
           .filter(name => !ROULETTE_CATEGORY_EXCLUDE.has(name))
+          .filter(name => isMealFood(name)) // 디저트·음료는 한 끼 추천에서 뺀다
           .filter(name => !homeHardDislikes.has(name))
           .map(name => {
           const timeScore = timeScoreMap.get(name) || 0;
@@ -1062,7 +1079,7 @@ export default function Home() {
               <p style={{ fontSize:15, color:"rgba(255,255,255,.75)", marginBottom:18 }}>랜덤으로 오늘 메뉴를 정해드려요</p>
             )}
             <div style={{ display:"flex", gap:10 }}>
-              <button className="tap" onClick={spinRoulette} disabled={rouletteRunning} style={{
+              <button className="tap" onClick={() => spinRoulette(false)} disabled={rouletteRunning} style={{
                 flex:1, padding:"13px", borderRadius:"var(--r-pill)", border:"none",
                 background: rouletteRunning ? "rgba(255,255,255,.3)" : "#fff",
                 color: rouletteRunning ? "#fff" : "var(--primary)",

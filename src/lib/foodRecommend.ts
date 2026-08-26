@@ -147,7 +147,7 @@ export const TIME_FOODS: Record<TimeSlot, { emoji: string; foods: string[] }> = 
 export type WeatherCondition = "hot" | "warm" | "cool" | "cold" | "rainy" | "snowy";
 
 export const WEATHER_FOODS: Record<WeatherCondition, { emoji: string; label: string; foods: string[] }> = {
-  hot:   { emoji: "☀️", label: "더운 날",  foods: ["냉면","콩국수","밀면","물냉면","비빔냉면","빙수","아이스크림","냉국수","냉우동","샐러드","냉채"] },
+  hot:   { emoji: "☀️", label: "더운 날",  foods: ["냉면","콩국수","밀면","물냉면","비빔냉면","빙수","아이스크림","냉우동","샐러드","해파리냉채"] },
   warm:  { emoji: "🌤️", label: "맑은 날",  foods: [] }, // 날씨 보정 없음
   cool:  { emoji: "🍂", label: "선선한 날", foods: ["파전","칼국수","된장찌개","순두부찌개","수제비","감자탕"] },
   cold:  { emoji: "❄️", label: "추운 날",  foods: ["국밥","삼계탕","뚝배기불고기","순대국","설렁탕","해장국","찌개","전골","부대찌개","뼈해장국"] },
