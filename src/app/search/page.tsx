@@ -9,6 +9,7 @@ import LoadingCat from "@/components/LoadingCat";
 import MapPanel, { ViewToggle } from "@/components/MapPanel";
 import type { MapPlace } from "@/components/NearbyMap";
 import { normalizeCoord, cleanTitle } from "@/lib/foodCategory";
+import { dedupePlaces } from "@/lib/dedupePlaces";
 
 type Restaurant = {
   title: string;
@@ -237,7 +238,10 @@ function SearchContent() {
             throw err;
           }
         }));
-        all = round;
+        /* 메뉴마다 따로 검색해 합치기 때문에 같은 가게가 여러 번 들어온다.
+           이름|주소 완전일치로는 주소 표기가 갈린 같은 집을 못 잡는다 →
+           이름을 다듬고 좌표가 80m 안이면 같은 가게로 본다. */
+        all = dedupePlaces(round);
         finalRadius = radius;
         if (round.length > 0) break;
       }

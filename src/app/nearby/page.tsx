@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
 import LoadingCat from "@/components/LoadingCat";
 import MapPanel, { ViewToggle } from "@/components/MapPanel";
+import { dedupePlaces } from "@/lib/dedupePlaces";
 import {
   FOOD_EMOJIS, categoryKey, localFoodIcon, catShort, fmtDist,
   kakaoUrl, naverUrl, googleUrl,
@@ -188,7 +189,9 @@ function NearbyContent() {
           throw new Error(errData.error || "주변 식당을 불러올 수 없습니다.");
         }
         const data = await res.json();
-        items = data.items || [];
+        /* 같은 집이 이름·주소를 조금 달리해 여러 번 등록된 경우가 있다(실물에서 3개까지
+           봤다). 이름을 다듬고 좌표가 80m 안이면 하나로 본다. */
+        items = dedupePlaces(data.items || []);
         finalRadius = radius;
         if (items.length > 0) break;
       }

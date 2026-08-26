@@ -6,6 +6,7 @@ import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
 import { expandDislikes } from "@/lib/ingredients";
 import { loadIngredientMap } from "@/lib/ingredientMap";
 import { bumpSearched } from "@/lib/behaviorScore";
+import { dedupePlaces } from "@/lib/dedupePlaces";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendationsDetailed } from "@/lib/recommend";
 import { getTimeSlot, TIME_FOODS, getAgeGroupFoods } from "@/lib/foodRecommend";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
@@ -850,8 +851,9 @@ export default function GroupPage() {
     const dislikes = expandDislikes(dislikeNames, await loadIngredientMap()).hard;
     const results = await Promise.all(selectedMenus.map((q) => searchNearbyFromProvider(q, [...providers][0] || "naver")));
     const all = results.flat();
-    const seen = new Set<string>();
-    const unique = all.filter((r) => { const k = r.title + r.address; if (seen.has(k)) return false; seen.add(k); return true; });
+    /* 메뉴마다 검색해 합치므로 같은 가게가 여러 번 들어온다. 이름+주소 완전일치로는
+       주소 표기가 갈린 같은 집을 못 잡는다 → 이름을 다듬고 좌표로 견준다. */
+    const unique = dedupePlaces(all);
     const filtered = unique.filter((r) => {
       const cat = (r.category || "").toLowerCase();
       const title = (r.title || "").toLowerCase();

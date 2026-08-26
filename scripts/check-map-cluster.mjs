@@ -85,11 +85,31 @@ for (let i = 0; i < 6 && !expandedOk; i++) {
 await page.screenshot({ path: `${OUT}-2-expanded.png` });
 if (!expandedOk) problems.push(`클러스터를 끝까지 눌러도 가게를 고를 수 없다(이름표 ${namesShown} → ${namesAfter})`);
 
+/* 한 자리를 펼친 뒤 다른 자리를 펼치면, 앞서 펼친 것이 접혀서는 안 된다
+   (2026-08-26 owner 신고: "하나를 펼치면 다른 게 접힌다"). */
+let keepBothOpen = true;
+{
+  const remaining = await page.locator("text=/\\+\\d+곳/").count();
+  const namesList = await page.locator("text=/^붙어있는가게\\d$/").allTextContents();
+  if (remaining > 0 && namesList.length > 0) {
+    await page.locator("text=/\\+\\d+곳/").first().click({ force: true }).catch(() => {});
+    await page.waitForTimeout(1200);
+    const listAfter = await page.locator("text=/^붙어있는가게\\d$/").allTextContents();
+    /* 지도가 확대되면 화면 밖으로 나간 마커는 DOM 에서 사라진다(카카오가 그린다).
+       그래서 개수로만 보면 접힌 것과 구분이 안 된다 → **앞서 펼친 이름이 남아 있는지**
+       를 본다. 하나라도 남아 있으면 접히지 않은 것이다. */
+    const survived = namesList.filter(n => listAfter.includes(n));
+    keepBothOpen = survived.length > 0;
+    if (!keepBothOpen) problems.push(`다른 자리를 펼치자 앞서 펼친 것이 모두 사라졌다(${namesList.join(",")} → ${listAfter.join(",")})`);
+    await page.screenshot({ path: `${OUT}-5-two-open.png` });
+  }
+}
+
 // 클러스터를 눌러 확대한 것이 "이 지역에서 다시 찾기" 로 오해되면 안 된다
 const researchBtn = await page.getByRole("button", { name: /이 지역에서 다시 찾기/ }).count();
 if (researchBtn > 0) problems.push('클러스터 확대만으로 "이 지역에서 다시 찾기" 가 떴다(줌은 이동이 아니다)');
 
-console.log(JSON.stringify({ clusterCount, namesShown, clusterLabel, farShown, expandedOk, researchBtn, problems, consoleErrors: consoleErrors.slice(0, 6) }, null, 2));
+console.log(JSON.stringify({ clusterCount, namesShown, clusterLabel, farShown, expandedOk, keepBothOpen, researchBtn, problems, consoleErrors: consoleErrors.slice(0, 6) }, null, 2));
 console.log(problems.length ? "\n❌ 문제 " + problems.length + "건" : "\n✅ 클러스터 확인 통과");
 
 await browser.close();

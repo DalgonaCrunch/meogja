@@ -244,8 +244,20 @@ export default function NearbyMap({
   const [epoch, setEpoch] = useState(0);
   /* 더 확대할 수 없을 만큼 붙어 있는 자리를 눌렀을 때, 그 안의 가게들을 동그랗게
      펼쳐 보여준다. 어느 화면 상태에서 펼친 것인지(epoch) 같이 들고 있어서
-     지도를 움직이면 저절로 접힌다. */
-  const [spread, setSpread] = useState<{ members: number[]; epoch: number } | null>(null);
+     지도를 움직이면 저절로 접힌다.
+     🔴 **펼친 자리는 여러 곳일 수 있다.** 한 곳만 기억하면 다른 자리를 펼치는 순간
+     앞서 펼친 것이 접힌다(실제로 그랬다). 펼친 자리들을 모아 둔다.
+     🔴 접는 기준을 **줌으로 잡으면 안 된다.** 다른 자리를 펼치려고 누를 때 지도가
+     확대되는데, 그것까지 "화면이 바뀌었다" 로 세면 방금 펼친 것이 접힌다.
+     사용자가 지도를 **밀었을 때**와 **결과가 새로 왔을 때**만 접는다.
+     🔴 펼친 것을 "묶음 단위" 로 기억하면 안 된다. 줌이 바뀌면 묶이는 조합 자체가
+     달라져서(픽셀 기준이므로) 방금 펼친 것이 다시 묶인다 — 그래서 **가게 번호**로
+     기억한다. 한 번 펼친 가게는 다시 묶이지 않는다. */
+  const [spread, setSpread] = useState<{ released: number[]; base: string } | null>(null);
+
+  /* 결과 목록과 기준점의 서명. 새 검색이 오면 값이 바뀌어 펼친 상태가 저절로 무효가 된다
+     (effect 로 지우지 않아도 된다). */
+  const listKey = `${center ? `${center.x},${center.y}` : "-"}|${places.length}|${places[0]?.title ?? ""}`;
 
   const appkey = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
   // 키가 없는 것은 상태 변화가 아니라 처음부터 정해진 사실이다 — 계산해서 쓴다
@@ -301,9 +313,9 @@ export default function NearbyMap({
        묶지 않는다(눌러서 보고 있는 것이 사라지면 안 된다). */
     /* 얼마나 가까울 때 묶을지. 넉넉하게 잡으면(예전 62px) 조금만 가까워도 묶여서
        지도가 동그라미 몇 개로 뭉뚱그려진다 — 실물에서 "너무 합쳐져 안 보인다".
-       마커 동그라미가 38px 이니, 실제로 겹치는 정도만 묶는다. 이름표는 서로
-       조금 겹칠 수 있지만, 묶여서 안 보이는 것보다 낫다. */
-    const CLUSTER_PX = 36;
+       마커 동그라미가 38px 이니, 거의 같은 자리일 때만 묶는다(62 → 36 → 26px 로
+       두 번 좁혔다). 이름표는 서로 겹칠 수 있지만, 묶여서 안 보이는 것보다 낫다. */
+    const CLUSTER_PX = 26;
     const proj = map.getProjection();
     type Spot = { i: number; pos: KLatLng; pt: KPoint };
     const spots: Spot[] = [];
@@ -316,13 +328,44 @@ export default function NearbyMap({
       spots.push({ i, pos, pt: proj.containerPointFromCoords(pos) });
     });
 
+    /* 한 번 펼친 가게(released)와 고른 가게는 묶지 않는다. */
+    const released = spread && spread.base === listKey ? new Set(spread.released) : new Set<number>();
+    const loose: Spot[] = [];      // 펼쳐 둔 것 — 따로 자리를 벌려 그린다
     const groups: Spot[][] = [];
     for (const sp of spots) {
+      if (released.has(sp.i)) { loose.push(sp); continue; }
       if (sp.i === selectedIndex) { groups.push([sp]); continue; }  // 고른 것은 홀로
       const near = groups.find(g =>
         g[0].i !== selectedIndex &&
         Math.hypot(g[0].pt.x - sp.pt.x, g[0].pt.y - sp.pt.y) < CLUSTER_PX);
       if (near) near.push(sp); else groups.push([sp]);
+    }
+
+    /* 펼쳐 둔 것들 중 서로 겹치는 것끼리는 동그랗게 벌려 놓는다(같은 건물이면
+       좌표가 거의 같아서 그냥 그리면 완전히 포개진다). */
+    const looseSets: Spot[][] = [];
+    for (const sp of loose) {
+      const near = looseSets.find(g => Math.hypot(g[0].pt.x - sp.pt.x, g[0].pt.y - sp.pt.y) < CLUSTER_PX);
+      if (near) near.push(sp); else looseSets.push([sp]);
+    }
+    for (const set of looseSets) {
+      const R = 58;
+      set.forEach((sp, k) => {
+        const pos = set.length === 1 ? sp.pos : (() => {
+          const a = (2 * Math.PI * k) / set.length - Math.PI / 2;
+          return proj.coordsFromContainerPoint(new maps.Point(
+            set[0].pt.x + Math.cos(a) * R,
+            set[0].pt.y + Math.sin(a) * R,
+          ));
+        })();
+        const p = places[sp.i];
+        const active = selectedIndex === sp.i;
+        const el = makeMarkerEl(getEmoji(p), p.title, active);
+        el.addEventListener("click", () => onSelect(active ? null : sp.i));
+        const ov = new maps.CustomOverlay({ position: pos, content: el, yAnchor: 1, zIndex: active ? 10 : 4 });
+        ov.setMap(map);
+        overlaysRef.current.push(ov);
+      });
     }
 
     groups.forEach((g) => {
@@ -341,29 +384,6 @@ export default function NearbyMap({
       }
       const head = g[0];
 
-      /* 이 자리를 펼쳐 보라고 한 상태면 가게들을 동그랗게 벌려 놓는다.
-         (같은 건물에 여러 곳이 있으면 더 확대해도 안 갈라진다 — 그때 쓸 수 있는
-         유일한 출구다. 화면 좌표로 벌린 뒤 좌표로 되돌린다.) */
-      const spreading = spread && spread.epoch === epoch && spread.members.includes(head.i);
-      if (spreading) {
-        const R = 58;
-        g.forEach((sp, k) => {
-          const a = (2 * Math.PI * k) / g.length - Math.PI / 2;
-          const pos = proj.coordsFromContainerPoint(new maps.Point(
-            head.pt.x + Math.cos(a) * R,
-            head.pt.y + Math.sin(a) * R,
-          ));
-          const p = places[sp.i];
-          const active = selectedIndex === sp.i;
-          const el = makeMarkerEl(getEmoji(p), p.title, active);
-          el.addEventListener("click", () => onSelect(active ? null : sp.i));
-          const ov = new maps.CustomOverlay({ position: pos, content: el, yAnchor: 1, zIndex: active ? 10 : 4 });
-          ov.setMap(map);
-          overlaysRef.current.push(ov);
-        });
-        return;
-      }
-
       // 여러 곳이 겹친 자리 — 개수를 보여준다. 누르면 확대하고, 더 못 하면 펼친다
       const el = makeClusterEl(g.length, getEmoji(places[head.i]), g.map(sp => places[sp.i].title));
       el.addEventListener("click", () => {
@@ -378,8 +398,11 @@ export default function NearbyMap({
           setEpoch(e => e + 1);
           return;
         }
-        // 최대 확대인데도 붙어 있다 → 동그랗게 펼친다
-        setSpread({ members: g.map(sp => sp.i), epoch });
+        // 최대 확대인데도 붙어 있다 → 동그랗게 펼친다(다른 자리를 접지 않는다)
+        const mine = g.map(sp => sp.i);
+        setSpread(prev => prev && prev.base === listKey
+          ? { released: [...new Set([...prev.released, ...mine])], base: listKey }
+          : { released: mine, base: listKey });
       });
       const ov = new maps.CustomOverlay({
         position: head.pos, content: el, yAnchor: 1, zIndex: 3,
@@ -397,7 +420,7 @@ export default function NearbyMap({
       fittedRef.current = fitKey;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, places, center, selectedIndex, epoch, spread]);
+  }, [status, places, center, selectedIndex, epoch, spread, listKey]);
 
   /* 콜백이 바뀌어도 리스너를 다시 달지 않게 최신 것을 담아 둔다
      (렌더 중에 ref 를 건드리면 안 된다 — effect 에서 갈아 끼운다) */
@@ -415,6 +438,7 @@ export default function NearbyMap({
       const c = map.getCenter();
       onMovedRef.current?.({ x: c.getLng(), y: c.getLat() });
       setEpoch((e) => e + 1);
+      setSpread(null); // 다른 곳을 보러 간 것 — 펼친 자리는 접는다
     };
     const onZoom = () => setEpoch((e) => e + 1);
     maps.event.addListener(map, "dragend", onDrag);
