@@ -60,6 +60,14 @@ function SearchContent() {
      한 번은 자동으로 목록으로 되돌린다. */
   const [mapBroken, setMapBroken] = useState(false);
 
+  /** 같이 먹을 사람 구하기 모달 열기 — 모임 목록 로딩도 여기서 켠다 */
+  function openFindGroup(p: Restaurant, name: string) {
+    setLoadingGroups(true);
+    setMyGroups([]);
+    setFindGroupModal(p);
+    setGroupNameInput(`${name} 같이 먹어요`);
+  }
+
   useEffect(() => {
     getSupabase().from("meal_pats").select("restaurant_name,menu").eq("status", "open")
       .then(({ data }) => {
@@ -81,9 +89,10 @@ function SearchContent() {
       });
   }, []);
 
+  /* 모달을 열 때 openFindGroup 이 로딩을 켠다 — effect 안에서 동기적으로 setState 하면
+     렌더가 연쇄된다(eslint react-hooks/set-state-in-effect). */
   useEffect(() => {
     if (!findGroupModal) return;
-    setLoadingGroups(true);
     getCurrentUser().then(async (u) => {
       if (u.type === "none") { setLoadingGroups(false); return; }
       const userId = u.type === "auth" ? u.user.id : null;
@@ -457,8 +466,7 @@ function SearchContent() {
             onFindGroup={(p) => {
               const idx = mapPlaces.indexOf(p);
               const origin = idx >= 0 ? mapPlaceOrigin[idx] : null;
-              setFindGroupModal(origin || { title: p.title, address: p.address, category: p.category, link: p.link });
-              setGroupNameInput(`${p.title} 같이 먹어요`);
+              openFindGroup(origin || { title: p.title, address: p.address, category: p.category, link: p.link }, p.title);
             }}
             onUnavailable={() => { if (!mapBroken) { setMapBroken(true); setView("list"); } }}
             onSearchHere={searchHere}
@@ -539,7 +547,7 @@ function SearchContent() {
                       </button>
                     )}
                   </div>
-                  <button className="tap" onClick={() => { setFindGroupModal(r); setGroupNameInput(`${name} 같이 먹어요`); }} style={{
+                  <button className="tap" onClick={() => openFindGroup(r, name)} style={{
                     marginTop:6, width:"100%", padding:"8px", borderRadius:10, border:"none",
                     background:"var(--primary)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer",
                     display:"flex", alignItems:"center", justifyContent:"center", gap:6,

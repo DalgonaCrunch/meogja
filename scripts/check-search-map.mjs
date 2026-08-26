@@ -115,6 +115,17 @@ if (await jumpBtn.count()) {
 }
 if (!keepPick) problems.push('"지도에서" 로 넘어갔을 때 그 가게가 골라져 있지 않음');
 
+// 지도 카드의 "같이 먹을 사람 구하기" → 모달이 열린다 (모임 로딩 상태 포함)
+let modalOk = false;
+const findBtn = page.getByRole("button", { name: /같이 먹을 사람 구하기/ }).first();
+if (await findBtn.count()) {
+  await findBtn.click();
+  await page.waitForTimeout(1200);
+  modalOk = (await page.locator("text=또는 새 모임 만들기").count()) > 0;
+  await page.screenshot({ path: `${OUT}-5-modal.png` });
+}
+if (!modalOk) problems.push('"같이 먹을 사람 구하기" 모달이 안 열림');
+
 if (!diag.toggle) problems.push("목록/지도 토글이 없음");
 if (!diag.sdk) problems.push("카카오 지도 SDK 가 로드되지 않음 (도메인 미등록이거나 키 문제)");
 if (diag.errText) problems.push("화면에 '지도를 불러오지 못했어요' 표시됨");
@@ -125,7 +136,7 @@ if (!diag.skipNote) problems.push("좌표 없는 결과 안내 문구가 안 보
 if (diag.htmlTagLeak) problems.push("제목의 <b> 태그가 그대로 노출됨");
 if (!listShown) problems.push("목록 전환이 동작하지 않음(좌표 없는 가게가 목록에 없음)");
 
-console.log(JSON.stringify({ diag, cardShown, listShown, problems, consoleErrors: consoleErrors.slice(0, 8) }, null, 2));
+console.log(JSON.stringify({ diag, cardShown, listShown, keepPick, modalOk, problems, consoleErrors: consoleErrors.slice(0, 8) }, null, 2));
 console.log(problems.length ? "\n❌ 문제 " + problems.length + "건" : "\n✅ /search 지도 확인 통과");
 
 await browser.close();

@@ -63,6 +63,14 @@ function NearbyContent() {
      한 번은 자동으로 목록으로 되돌린다. 그 뒤 사용자가 다시 '지도'를 누르면 그대로 둔다. */
   const [mapBroken, setMapBroken] = useState(false);
 
+  /** 같이 먹을 사람 구하기 모달 열기 — 모임 목록 로딩도 여기서 켠다 */
+  function openFindGroup(p: Place, name: string) {
+    setLoadingGroups(true);
+    setMyGroups([]);
+    setFindGroupModal(p);
+    setGroupNameInput(`${name} 같이 먹어요`);
+  }
+
   useEffect(() => {
     getSupabase().from("meal_pats").select("restaurant_name,menu").eq("status", "open")
       .then(({ data }) => {
@@ -84,9 +92,10 @@ function NearbyContent() {
       });
   }, []);
 
+  /* 모달을 열 때 openFindGroup 이 로딩을 켠다 — effect 안에서 동기적으로 setState 하면
+     렌더가 연쇄된다(eslint react-hooks/set-state-in-effect). */
   useEffect(() => {
     if (!findGroupModal) return;
-    setLoadingGroups(true);
     getCurrentUser().then(async (u) => {
       if (u.type === "none") { setLoadingGroups(false); return; }
       const userId = u.type === "auth" ? u.user.id : null;
@@ -402,7 +411,7 @@ function NearbyContent() {
           images={images}
           selectedIndex={pickedIdx}
           onSelect={setPickedIdx}
-          onFindGroup={(p) => { setFindGroupModal(p as Place); setGroupNameInput(`${p.title} 같이 먹어요`); }}
+          onFindGroup={(p) => openFindGroup(p as Place, p.title)}
           onUnavailable={() => { if (!mapBroken) { setMapBroken(true); setView("list"); } }}
           onSearchHere={searchHere}
           searching={loading}
@@ -486,7 +495,7 @@ function NearbyContent() {
                         🗺️ 지도에서
                       </button>
                     </div>
-                    <button className="tap" onClick={() => { setFindGroupModal(p); setGroupNameInput(`${p.title} 같이 먹어요`); }} style={{
+                    <button className="tap" onClick={() => openFindGroup(p, p.title)} style={{
                       marginTop:6, width:"100%", padding:"8px", borderRadius:10, border:"none",
                       background:"var(--primary)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer",
                       display:"flex", alignItems:"center", justifyContent:"center", gap:6,
