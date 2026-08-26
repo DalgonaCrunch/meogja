@@ -45,7 +45,13 @@ const og = await page.request.get(`${BASE}/api/og?type=result&title=${encodeURIC
 if (og.status() !== 200) problems.push(`OG 이미지 status ${og.status()}`);
 const ct = og.headers()["content-type"] || "";
 if (!ct.includes("image")) problems.push(`OG 응답이 이미지가 아니다: ${ct}`);
-else fs.writeFileSync(`${OUT}-og.png`, await og.body());
+else {
+  const body = await og.body();
+  fs.writeFileSync(`${OUT}-og.png`, body);
+  /* 그림이 들어간 카드는 20KB 아래로 내려가지 않는다. 예전처럼 이모지 한 글자만
+     그리면 파일이 확 작아진다 — 그림이 빠진 것을 크기로 잡는다. */
+  if (body.length < 40_000) problems.push(`미리보기 이미지가 너무 단순하다(${body.length}바이트) — 음식 그림이 빠진 듯`);
+}
 
 // 메타 태그가 이미지를 가리키는지
 const ogMeta = await page.locator('meta[property="og:image"]').getAttribute("content").catch(() => null);
