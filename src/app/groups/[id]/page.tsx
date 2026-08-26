@@ -8,6 +8,7 @@ import { loadIngredientMap } from "@/lib/ingredientMap";
 import { bumpSearched } from "@/lib/behaviorScore";
 import { dedupePlaces } from "@/lib/dedupePlaces";
 import { shareResult } from "@/lib/shareResult";
+import { computeFit } from "@/lib/fitScore";
 import MapPanel, { ViewToggle } from "@/components/MapPanel";
 import { normalizeCoord, cleanTitle } from "@/lib/foodCategory";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendationsDetailed } from "@/lib/recommend";
@@ -119,6 +120,10 @@ type ScoredRestaurant = {
   score: number;
   matchedLikes: string[];
   distance: number | null;
+  /** 이 모임 취향과 몇 % 맞나 (맞는 사람이 없으면 null — 0% 를 보여주면 가게를 깎는 말이 된다) */
+  fitPct?: number | null;
+  /** 취향이 맞는 모임원 이름 */
+  fitNames?: string[];
   _provider?: string;
 };
 
@@ -199,7 +204,7 @@ export default function GroupPage() {
   const [providers, setProviders] = useState<Set<"naver" | "kakao">>(new Set(["naver", "kakao"]));
   const [location, setLocation] = useState<{ lat: number; lng: number; label?: string; address?: string } | null>(null);
   const [radius, setRadius] = useState(1000);
-  const [sortBy, setSortBy] = useState<"distance" | "rating" | "score" | "category">("distance");
+  const [sortBy, setSortBy] = useState<"distance" | "rating" | "score" | "fit" | "category">("distance");
   // 카테고리 필터
   const [filterLarge, setFilterLarge] = useState<string>("");
   const [filterMedium, setFilterMedium] = useState<string>("");
@@ -871,10 +876,16 @@ export default function GroupPage() {
       }
       return true;
     });
-    const scored: ScoredRestaurant[] = filtered.map((r) => ({
-      ...r, score: selectedMenus.some((m) => (r.category || "").toLowerCase().includes(m.toLowerCase())) ? 2 : 0,
-      matchedLikes: selectedMenus.filter((m) => (r.category || "").toLowerCase().includes(m.toLowerCase())),
-    }));
+    const scored: ScoredRestaurant[] = filtered.map((r) => {
+      /* "이 모임에 맞는가" — 광고가 개입할 수 없는 축이다(lib/fitScore.ts 주석 참고) */
+      const fit = computeFit(r, prefs ?? [], selected);
+      return {
+        ...r, score: selectedMenus.some((m) => (r.category || "").toLowerCase().includes(m.toLowerCase())) ? 2 : 0,
+        matchedLikes: selectedMenus.filter((m) => (r.category || "").toLowerCase().includes(m.toLowerCase())),
+        fitPct: fit.pct,
+        fitNames: fit.likedBy.map(id => members.find(m => m.id === id)?.name).filter((n): n is string => !!n),
+      };
+    });
     scored.sort((a, b) => {
       if (a.distance !== null && b.distance !== null) return a.distance - b.distance;
       return b.score - a.score;
@@ -977,7 +988,12 @@ export default function GroupPage() {
       for (const medium of allMedium) {
         if (cat.includes(medium.toLowerCase())) score += 1;
       }
-      return { ...r, score, matchedLikes: [...new Set(matchedLikes)] };
+      const fit = computeFit(r, prefs ?? [], selected);
+      return {
+        ...r, score, matchedLikes: [...new Set(matchedLikes)],
+        fitPct: fit.pct,
+        fitNames: fit.likedBy.map(id => members.find(m => m.id === id)?.name).filter((n): n is string => !!n),
+      };
     });
 
     // 기본 정렬: 거리순
@@ -1259,6 +1275,15 @@ export default function GroupPage() {
               <span style={{ fontSize:12, color:"var(--text-2)" }}>{r.category.split(">").slice(-1)[0]?.trim() || r.category}</span>
             </div>
             {r.address && <p style={{ fontSize:11.5, color:"var(--text-3)", margin:"0 0 4px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.address}</p>}
+            {/* 우리 모임 취향과 얼마나 맞나 — 남이 돈으로 조작할 수 없는 유일한 지표다 */}
+            {typeof r.fitPct === "number" && (
+              <div style={{ fontSize:11.5, color:"var(--primary)", fontWeight:700, marginBottom:4 }}>
+                🎯 우리 취향 {r.fitPct}%
+                {r.fitNames && r.fitNames.length > 0 && (
+                  <span style={{ fontWeight:500, color:"var(--text-3)" }}> · {r.fitNames.slice(0, 3).join(", ")}{r.fitNames.length > 3 ? ` +${r.fitNames.length - 3}` : ""}</span>
+                )}
+              </div>
+            )}
             {hasScore && (
               <div style={{ fontSize:11.5, color:"var(--primary)", fontWeight:600, marginBottom:4 }}>💛 모임 선호도 높음</div>
             )}
@@ -1327,6 +1352,13 @@ export default function GroupPage() {
       }
       case "score":
         return b.score - a.score;
+      case "fit": {
+        /* 취향이 맞는 사람이 없는 곳(null)은 뒤로. 같으면 가까운 순. */
+        const fa = a.fitPct ?? -1, fb = b.fitPct ?? -1;
+        if (fa !== fb) return fb - fa;
+        if (a.distance !== null && b.distance !== null) return a.distance - b.distance;
+        return 0;
+      }
       case "category":
         return (a.category || "").localeCompare(b.category || "");
       default:
@@ -2551,7 +2583,7 @@ export default function GroupPage() {
               </div>
               {/* 정렬 버튼 + 목록/지도 — 별도 줄 */}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
-                {([["distance","📍 거리순"],["score","👍 선호순"],["rating","⭐ 별점"],["category","🏷 카테고리"]] as const).map(([s, label]) => (
+                {([["distance","📍 거리순"],["fit","🎯 우리 취향순"],["score","👍 선호순"],["rating","⭐ 별점"],["category","🏷 카테고리"]] as const).map(([s, label]) => (
                   <button key={s} className="tap" onClick={() => setSortBy(s)} style={{
                     padding: "5px 12px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 600,
                     border: sortBy === s ? "2px solid var(--primary)" : "1.5px solid var(--border)",
