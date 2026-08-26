@@ -10,6 +10,7 @@ import { expandDislikes, type IngredientMap } from "@/lib/ingredients";
 import { shareResult } from "@/lib/shareResult";
 import { loadIngredientMap } from "@/lib/ingredientMap";
 import MenuBattle from "./MenuBattle";
+import PatReminder from "./PatReminder";
 import { MENU_CATEGORIES, MEAL_POOL, ROULETTE_POOL, CAFE_DESSERT_POOL, isMealFood } from "@/lib/menus";
 import { getFoodIconUrl } from "@/lib/foodIcons";
 import { getTimeSlot, TIME_FOODS, getAgeGroupFoods, getWeatherFoods, WeatherCondition } from "@/lib/foodRecommend";
@@ -657,6 +658,9 @@ export default function Home() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", gap: 28 }}>
+
+      {/* 곧 시작하는 먹자팟 — 노쇼를 돈(예약금) 대신 때맞춘 알림으로 줄인다 */}
+      <PatReminder />
 
       {/* ── 통합 Hero 카드 ── */}
       {homeSettings.show_roulette && <div className="fade-up" style={{ padding: "16px 16px 0" }}>
