@@ -55,12 +55,19 @@ await page.goto(`${BASE}/nearby`, { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(4500);
 await page.screenshot({ path: `${OUT}-1-clustered.png` });
 
-const clusterCount = await page.locator("text=/^\\d+곳$/").count();
+/* 묶인 자리의 이름표는 "붙어있는가게1 · 붙어있는가게2 +6곳" 형태다.
+   (묶였어도 이름을 보여준다 — 2026-08-26 owner 요청) */
+const clusterCount = await page.locator("text=/\\+\\d+곳/").count();
 const namesShown = await page.locator("text=/^붙어있는가게\\d$/").count();
+const clusterLabel = clusterCount
+  ? (await page.locator("text=/\\+\\d+곳/").first().textContent()) || ""
+  : "";
 const farShown = await page.locator("text=멀리있는우동").count() > 0;
 
-if (clusterCount === 0) problems.push('겹친 마커가 묶이지 않음 ("N곳" 동그라미가 없다)');
-if (namesShown > 2) problems.push(`겹친 이름표가 그대로 다 보인다(${namesShown}개) — 안 묶인 듯`);
+if (clusterCount === 0) problems.push('겹친 마커가 묶이지 않음 (묶음 이름표가 없다)');
+if (clusterCount && !clusterLabel.includes("붙어있는가게")) {
+  problems.push(`묶음 이름표에 가게 이름이 없다("${clusterLabel}")`);
+}
 if (!farShown) problems.push("떨어져 있는 마커까지 묶여 버렸다");
 
 /* 클러스터를 누르면 확대되어 풀린다. 같은 자리에 몰려 있으면 최대 확대까지
@@ -68,7 +75,7 @@ if (!farShown) problems.push("떨어져 있는 마커까지 묶여 버렸다");
 let expandedOk = false;
 let namesAfter = namesShown;
 for (let i = 0; i < 6 && !expandedOk; i++) {
-  const cluster = page.locator("text=/^\\d+곳$/").first();
+  const cluster = page.locator("text=/\\+\\d+곳/").first();
   if (!(await cluster.count())) break;
   await cluster.click({ force: true }).catch(() => {});
   await page.waitForTimeout(1500);
@@ -82,7 +89,7 @@ if (!expandedOk) problems.push(`클러스터를 끝까지 눌러도 가게를 �
 const researchBtn = await page.getByRole("button", { name: /이 지역에서 다시 찾기/ }).count();
 if (researchBtn > 0) problems.push('클러스터 확대만으로 "이 지역에서 다시 찾기" 가 떴다(줌은 이동이 아니다)');
 
-console.log(JSON.stringify({ clusterCount, namesShown, farShown, expandedOk, researchBtn, problems, consoleErrors: consoleErrors.slice(0, 6) }, null, 2));
+console.log(JSON.stringify({ clusterCount, namesShown, clusterLabel, farShown, expandedOk, researchBtn, problems, consoleErrors: consoleErrors.slice(0, 6) }, null, 2));
 console.log(problems.length ? "\n❌ 문제 " + problems.length + "건" : "\n✅ 클러스터 확인 통과");
 
 await browser.close();

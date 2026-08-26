@@ -138,40 +138,54 @@ function makeMarkerEl(emoji: string, label: string, active: boolean): HTMLElemen
   return wrap;
 }
 
-/* 겹친 마커를 하나로 묶어 보여주는 동그라미. 누르면 그 안으로 확대해 들어간다. */
-function makeClusterEl(count: number, emoji: string): HTMLElement {
+/* 겹친 마커를 하나로 묶어 보여주는 동그라미.
+   묶었어도 **가게 이름은 보여준다** — 이름이 없으면 뭐가 묶였는지 몰라서 누르기 전에는
+   쓸모가 없다. 좁은 폭에 다 못 넣으니 두 곳까지 적고 나머지는 개수로 알린다. */
+function makeClusterEl(count: number, emoji: string, names: string[]): HTMLElement {
   const wrap = document.createElement("div");
   wrap.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer;";
 
   const bubble = document.createElement("div");
   bubble.style.cssText = [
-    "width:46px", "height:46px", "border-radius:50%",
+    "width:44px", "height:44px", "border-radius:50%",
     "display:flex", "flex-direction:column", "align-items:center", "justify-content:center",
     "background:#fff", "border:2.5px solid var(--primary)",
-    "box-shadow:0 3px 10px rgba(0,0,0,.24)",
-    "line-height:1",
+    "box-shadow:0 3px 10px rgba(0,0,0,.24)", "line-height:1",
   ].join(";");
 
   const top = document.createElement("div");
   top.textContent = emoji;
-  top.style.cssText = "font-size:14px;";
+  top.style.cssText = "font-size:13px;";
   const num = document.createElement("div");
   num.textContent = String(count);
   num.style.cssText = "font-size:12.5px;font-weight:800;color:var(--primary);margin-top:1px;";
   bubble.appendChild(top);
   bubble.appendChild(num);
 
-  const name = document.createElement("div");
-  name.textContent = `${count}곳`;
-  name.style.cssText = [
-    "margin-top:3px", "font-size:11px", "font-weight:700",
-    "padding:2px 7px", "border-radius:99px",
-    "background:rgba(255,255,255,.94)", "color:var(--text, #333)",
+  const tip = document.createElement("div");
+  tip.style.cssText = [
+    "width:0", "height:0", "margin-top:-2px",
+    "border-left:5px solid transparent", "border-right:5px solid transparent",
+    "border-top:7px solid #fff",
+    "filter:drop-shadow(0 2px 1px rgba(0,0,0,.18))",
+  ].join(";");
+
+  const label = document.createElement("div");
+  const shown = names.slice(0, 2);
+  const rest = count - shown.length;
+  label.textContent = shown.join(" · ") + (rest > 0 ? ` +${rest}곳` : "");
+  label.style.cssText = [
+    "margin-top:3px", "max-width:150px",
+    "overflow:hidden", "text-overflow:ellipsis", "white-space:nowrap",
+    "font-size:11px", "font-weight:700",
+    "padding:2px 8px", "border-radius:99px",
+    "background:rgba(255,255,255,.96)", "color:var(--text, #333)",
     "box-shadow:0 1px 4px rgba(0,0,0,.18)",
   ].join(";");
 
   wrap.appendChild(bubble);
-  wrap.appendChild(name);
+  wrap.appendChild(tip);
+  wrap.appendChild(label);
   return wrap;
 }
 
@@ -285,7 +299,11 @@ export default function NearbyMap({
        겹침은 지구 위 거리가 아니라 **화면 픽셀** 문제다 — 줌마다 달라진다.
        그래서 화면 좌표로 바꿔 놓고 가까운 것끼리 묶는다. 고른 가게는 절대
        묶지 않는다(눌러서 보고 있는 것이 사라지면 안 된다). */
-    const CLUSTER_PX = 62;
+    /* 얼마나 가까울 때 묶을지. 넉넉하게 잡으면(예전 62px) 조금만 가까워도 묶여서
+       지도가 동그라미 몇 개로 뭉뚱그려진다 — 실물에서 "너무 합쳐져 안 보인다".
+       마커 동그라미가 38px 이니, 실제로 겹치는 정도만 묶는다. 이름표는 서로
+       조금 겹칠 수 있지만, 묶여서 안 보이는 것보다 낫다. */
+    const CLUSTER_PX = 36;
     const proj = map.getProjection();
     type Spot = { i: number; pos: KLatLng; pt: KPoint };
     const spots: Spot[] = [];
@@ -347,10 +365,12 @@ export default function NearbyMap({
       }
 
       // 여러 곳이 겹친 자리 — 개수를 보여준다. 누르면 확대하고, 더 못 하면 펼친다
-      const el = makeClusterEl(g.length, getEmoji(places[head.i]));
+      const el = makeClusterEl(g.length, getEmoji(places[head.i]), g.map(sp => places[sp.i].title));
       el.addEventListener("click", () => {
         const lv = map.getLevel();
-        if (lv > 1) {
+        /* 이미 많이 확대된 상태(레벨 1~2)면 더 확대해도 안 갈라진다 — 바로 펼친다.
+           예전에는 레벨 1 에서만 펼쳐서, 2 에서 몇 번을 눌러도 아무 일이 없었다. */
+        if (lv > 2) {
           const gb = new maps.LatLngBounds();
           g.forEach(sp => gb.extend(sp.pos));
           if (!gb.isEmpty()) map.setBounds(gb, 80, 60, 60, 60);
