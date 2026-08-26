@@ -154,9 +154,9 @@ owner 요청: "지도를 기본값으로. 그리고 주변찾기 탭 말고 홈�
 - [ ] 아이콘 매핑 구멍: `술집`, `패스트푸드` 는 `getFoodIconUrl` 이 못 찾아 마스코트로 떨어진다
 
 원래 있던 것:
-- [ ] `nearby/page.tsx:100` eslint error(effect 안에서 setState) — 이번 작업 전부터 있던 것
+- [ ] eslint error(effect 안에서 setState) 2건 — `nearby/page.tsx:89`, `search/page.tsx:86` (둘 다 예전부터 있던 findGroupModal effect)
 - [ ] SPEC.md 의 미구현 항목들(AI 추천, 리뷰 UI, OG 이미지 공유 등)
 
 ---
 
-*마지막 업데이트: 2026-08-26 (주변 맛집 지도 보기 — 카카오 지도 SDK, 실서비스 확인 완료)*
+*마지막 업데이트: 2026-08-26 (지도를 기본 화면으로 + 홈 진입 `/search` 에도 지도, MapPanel 공용화)*
