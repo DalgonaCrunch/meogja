@@ -30,6 +30,8 @@ const ctxOpts = {
   locale: "ko-KR",
   geolocation: { latitude: CENTER.lat, longitude: CENTER.lng },
   permissions: ["geolocation"],
+  // 서비스워커가 가로채면 page.route 가 안 먹는다(PWA 앱이라 SW 가 등록된다)
+  serviceWorkers: "block",
 };
 
 const browser = await chromium.launch();
@@ -41,15 +43,15 @@ page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text(
 page.on("pageerror", (e) => consoleErrors.push("pageerror: " + e.message));
 
 // 검색 결과·설정·이미지는 가짜로 (로컬에 키가 없다)
-await page.route("**/api/nearby*", (r) =>
+await ctx.route("**/api/nearby*", (r) =>
   r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: FAKE, total: FAKE.length }) }));
-await page.route("**/api/admin/settings*", (r) =>
+await ctx.route("**/api/admin/settings*", (r) =>
   r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ search_provider: "kakao" }) }));
-await page.route("**/api/food-image*", (r) =>
+await ctx.route("**/api/food-image*", (r) =>
   r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) }));
-await page.route("**dummy-local.supabase.co/**", (r) =>
+await ctx.route("**dummy-local.supabase.co/**", (r) =>
   r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
-await page.route("**dummy-local.supabase.co/**", (r) =>
+await ctx.route("**dummy-local.supabase.co/**", (r) =>
   r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
 
 await page.goto(`${BASE}/nearby`, { waitUntil: "domcontentloaded" });

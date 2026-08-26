@@ -235,7 +235,9 @@ export default function NearbyMap({
     // 목록이나 기준 위치가 실제로 바뀌었을 때만 화면을 다시 맞춘다(선택은 제외)
     const fitKey = `${center ? `${center.x},${center.y}` : "-"}|${places.map(p => `${p.mapx},${p.mapy}`).join(";")}`;
     if (!bounds.isEmpty() && fittedRef.current !== fitKey) {
-      map.setBounds(bounds, 60, 30, 30, 30);
+      // 좌우 여백을 넉넉히. 마커 옆에 가게 이름표가 붙어 있어서 여백이 좁으면
+      // 가장자리 마커의 이름이 지도 밖으로 잘린다(폭 92px 짜리가 중앙 기준 양옆).
+      map.setBounds(bounds, 64, 56, 40, 56);
       fittedRef.current = fitKey;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
 import LoadingCat from "@/components/LoadingCat";
 import NearbyMap from "@/components/NearbyMap";
+import { getFoodIconUrl } from "@/lib/foodIcons";
 
 type Place = {
   title: string;
@@ -19,19 +20,24 @@ type Place = {
   phone: string;
 };
 
-const FOOD_ICONS: Record<string, string> = {
-  한식: "/food-icons/korean.png", 중식: "/food-icons/chinese.png", 일식: "/food-icons/japanese.png",
-  양식: "/food-icons/western.png", 카페: "/food-icons/cafe.png", 치킨: "/food-icons/chicken.png",
-  피자: "/food-icons/pizza.png", 분식: "/food-icons/tteok.png", 술집: "/food-icons/beer.png",
-  패스트푸드: "/food-icons/burger.png", 베이커리: "/food-icons/bakery.png",
-};
+/* 카테고리 분류용 키 목록. 예전에는 여기에 아이콘 경로까지 같이 적어 뒀는데
+   그 경로들(korean.png 등)은 실제로 없는 파일이라 사진을 못 받은 카드마다
+   깨진 이미지가 떴다. 실제 아이콘 140개는 한글 파일명이고 lib/foodIcons.ts 가
+   그 매핑을 이미 갖고 있다 — 그래서 분류 키만 남기고 그림은 그쪽에 맡긴다. */
+const FOOD_KEYS = ["한식", "중식", "일식", "양식", "카페", "치킨", "피자", "분식", "술집", "패스트푸드", "베이커리"];
+
+/** 카카오 카테고리 문자열("음식점 > 일식 > 우동")에서 쓸 아이콘 경로. 없으면 null */
+function localFoodIcon(category: string): string | null {
+  const leaf = category.split(" > ").pop() || category;
+  return getFoodIconUrl(leaf) || getFoodIconUrl(categoryKey(category));
+}
 const FOOD_EMOJIS: Record<string, string> = {
   한식: "🍚", 중식: "🥢", 일식: "🍱", 양식: "🍝", 카페: "☕", 치킨: "🍗",
   피자: "🍕", 분식: "🍜", 술집: "🍺", 패스트푸드: "🍔", 베이커리: "🥐",
 };
 
 function categoryKey(cat: string) {
-  for (const k of Object.keys(FOOD_ICONS)) {
+  for (const k of FOOD_KEYS) {
     if (cat.includes(k)) return k;
   }
   return "한식";
@@ -431,10 +437,14 @@ function NearbyContent() {
           {pickedIdx !== null && places[pickedIdx] && (() => {
             const p = places[pickedIdx];
             const ck = categoryKey(p.category);
-            const imgUrl = images[p.title] || FOOD_ICONS[ck];
+            const imgUrl = images[p.title] || localFoodIcon(p.category);
             const hasRealImg = !!images[p.title];
             return (
-              <div style={{ marginTop:10, background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
+              <div
+                /* 지도가 화면을 거의 다 쓰므로 카드는 접힌 아래에 생긴다.
+                   마커를 눌렀는데 아무 일도 없어 보이면 안 되니 직접 끌어와 보여준다. */
+                ref={(el) => { el?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}
+                style={{ marginTop:10, background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
                 <div style={{ display:"flex", gap:12, padding:"12px 14px" }}>
                   <div style={{ width:64, height:64, borderRadius:14, overflow:"hidden", flexShrink:0, background:"var(--bg-2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
                     {imgUrl
@@ -480,7 +490,7 @@ function NearbyContent() {
         <div style={{ display:"flex", flexDirection:"column", gap:10, padding:"12px 16px 0" }}>
           {places.map((p, i) => {
             const ck = categoryKey(p.category);
-            const imgUrl = images[p.title] || FOOD_ICONS[ck];
+            const imgUrl = images[p.title] || localFoodIcon(p.category);
             const hasRealImg = !!images[p.title];
             return (
               <div key={i} style={{ background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
