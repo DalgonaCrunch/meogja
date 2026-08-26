@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { bumpFoodScore, BEHAVIOR_WEIGHT } from "@/lib/behaviorScore";
+import { suggestMenus, menuForStorage, canonicalizeMenu } from "@/lib/menuMatch";
 import { showConfirm, toast } from "@/lib/dialog";
 import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
 import LoadingCat from "@/components/LoadingCat";
@@ -109,13 +110,19 @@ export default function PatTab({
       { title: `${menu} 어땠어요?`, icon: "🍚", confirmLabel: "또 갈래요 👍" },
     );
     markRated(patId); // 아니라고 해도 다시 묻지 않는다
-    if (again) {
-      await bumpFoodScore(menu, BEHAVIOR_WEIGHT.wouldRepeat);
-      toast(`${menu} 취향에 반영했어요`);
+    if (!again) return;
+    const canon = canonicalizeMenu(menu);
+    if (canon) {
+      await bumpFoodScore(canon, BEHAVIOR_WEIGHT.wouldRepeat);
+      toast(`${canon} 취향에 반영했어요`);
+    } else {
+      // 사전에 없는 이름 — 고맙다는 말은 하고, 점수는 쌓지 않는다
+      toast("알려주셔서 고마워요");
     }
   }
 
   const generatedTitle = menuInput.trim() ? TITLE_TEMPLATES[titleIdx](menuInput.trim()) : "";
+  const menuSuggestions = suggestMenus(menuInput, 6);
   const finalTitle = useCustom ? customTitle : generatedTitle;
 
   function copyInviteLink(patId: string) {
@@ -177,7 +184,9 @@ export default function PatTab({
       group_id: groupId,
       creator_member_id: myMemberId,
       creator_name: myMemberName,
-      menu: menuInput.trim(),
+      /* 표준 이름이 있으면 그것을 저장한다. 사용자가 쓴 원문은 제목에 남아 있다
+         ("삼겹" 으로 적어도 삼겹살로 모여야 집계와 취향 반영이 맞는다). */
+      menu: menuForStorage(menuInput).menu,
       title: finalTitle.trim(),
       restaurant_name: restaurantInput.trim() || null,
       scheduled_at: scheduledInput ? new Date(scheduledInput).toISOString() : null,
@@ -213,8 +222,10 @@ export default function PatTab({
     await getSupabase().from("meal_pat_joins").insert({
       pat_id: pat.id, member_id: myMemberId, member_name: myMemberName,
     });
-    /* 먹으러 가겠다고 한 것 — 설문보다 센 신호다 */
-    void bumpFoodScore(pat.menu, BEHAVIOR_WEIGHT.joinedPat);
+    /* 먹으러 가겠다고 한 것 — 설문보다 센 신호다.
+       🔴 사전에 없는 이름으로는 점수를 쌓지 않는다(오타가 취향 테이블에 남는다). */
+    const canon = canonicalizeMenu(pat.menu);
+    if (canon) void bumpFoodScore(canon, BEHAVIOR_WEIGHT.joinedPat);
   }
 
   async function leavePat(pat: MealPat) {
@@ -521,8 +532,28 @@ export default function PatTab({
               value={menuInput}
               onChange={e => { setMenuInput(e.target.value); setTitleIdx(0); setUseCustom(false); }}
               placeholder="예: 삼겹살, 떡볶이, 라멘…"
-              style={{ width:"100%", padding:"11px 14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--bg)", fontSize:14, outline:"none", boxSizing:"border-box", marginBottom:12 }}
+              style={{ width:"100%", padding:"11px 14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"var(--bg)", fontSize:14, outline:"none", boxSizing:"border-box", marginBottom:8 }}
             />
+
+            {/* 후보 — 고르면 표준 이름으로 저장된다. 자유 입력도 그대로 받는다
+                (막으면 답답하고, 우리 사전에 없는 메뉴도 있다). */}
+            {menuSuggestions.length > 0 && (
+              <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
+                {menuSuggestions.map(m => (
+                  <button key={m} className="tap" onClick={() => { setMenuInput(m); setTitleIdx(0); setUseCustom(false); }}
+                    style={{ padding:"6px 12px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)",
+                      background:"var(--bg-2)", color:"var(--text-2)", fontSize:13, cursor:"pointer" }}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* 사전에 없는 이름이면 알려 준다 — 아이콘도 취향 반영도 안 되는 이유가 있다 */}
+            {menuInput.trim().length >= 2 && !canonicalizeMenu(menuInput) && (
+              <p style={{ fontSize:11.5, color:"var(--text-3)", margin:"0 0 12px", lineHeight:1.5 }}>
+                우리 메뉴 목록에 없는 이름이에요. 그대로 만들 수 있지만, 취향 반영과 아이콘은 목록에 있는 이름일 때 동작해요.
+              </p>
+            )}
 
             {/* 자동 생성 제목 */}
             {menuInput.trim() && (
