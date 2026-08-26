@@ -7,7 +7,7 @@ import { expandDislikes } from "@/lib/ingredients";
 import { loadIngredientMap } from "@/lib/ingredientMap";
 import { bumpSearched } from "@/lib/behaviorScore";
 import { dedupePlaces, normalizeStoreName } from "@/lib/dedupePlaces";
-import { shareResult } from "@/lib/shareResult";
+import { shareResult, sharePlace } from "@/lib/shareResult";
 import { computeFit } from "@/lib/fitScore";
 import { densityMap } from "@/lib/density";
 import MapPanel, { ViewToggle } from "@/components/MapPanel";
@@ -1346,6 +1346,15 @@ export default function GroupPage() {
                   </a>
                 );
               })()}
+              {/* 가게 하나만 콕 집어 공유 — 모임 밖 사람에게도 보낸다 */}
+              <button className="tap" onClick={async () => {
+                const res = await sharePlace({
+                  name: r.title, category: r.category, address: r.address, groupName: group?.name,
+                });
+                if (res === "copied") toast("링크를 복사했어요");
+              }} style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", color:"var(--text-2)", border:"1px solid var(--border)", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                🔗 공유
+              </button>
               {(isOwner || myMemberId) && (
                 <button className="tap" onClick={() => saveDecisionAndPat(r)} style={{ padding:"5px 12px", borderRadius:8, background:"var(--primary)", color:"#fff", fontSize:12, fontWeight:800, border:"none", cursor:"pointer" }}>
                   {savingDecision ? "만드는 중…" : "🍚 먹자팟 만들기!"}

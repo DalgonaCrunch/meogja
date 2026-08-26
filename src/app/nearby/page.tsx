@@ -9,6 +9,8 @@ import LoadingCat from "@/components/LoadingCat";
 import MapPanel, { ViewToggle } from "@/components/MapPanel";
 import { dedupePlaces } from "@/lib/dedupePlaces";
 import { densityMap } from "@/lib/density";
+import { sharePlace } from "@/lib/shareResult";
+import { toast } from "@/lib/dialog";
 import {
   FOOD_EMOJIS, categoryKey, localFoodIcon, catShort, fmtDist,
   kakaoUrl, naverUrl, googleUrl,
@@ -524,6 +526,12 @@ function NearbyContent() {
                         style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", color:"var(--text-2)", border:"1px solid var(--border)", fontSize:12, fontWeight:700, textDecoration:"none" }}>
                         예약 찾기
                       </a>
+                      <button className="tap" onClick={async () => {
+                        const r = await sharePlace({ name: p.title, category: p.category, address: p.address });
+                        if (r === "copied") toast("링크를 복사했어요");
+                      }} style={{ padding:"5px 12px", borderRadius:8, background:"var(--primary)", color:"#fff", border:"none", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                        🔗 공유
+                      </button>
                       {/* 목록에서 고른 가게를 지도에서 이어 본다(선택이 유지된다) */}
                       <button className="tap" onClick={() => { setPickedIdx(i); setView("map"); }}
                         style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", color:"var(--text-2)", border:"1px solid var(--border)", fontSize:12, fontWeight:700, cursor:"pointer" }}>

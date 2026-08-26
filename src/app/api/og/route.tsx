@@ -23,6 +23,7 @@ const FALLBACK_IMG: Record<string, string> = {
   worldcup: '/mascot/tabs/ranking.png',
   group: '/mascot/tabs/community.png',
   result: '/mascot/tabs/food.png',
+  place: '/mascot/tabs/search.png',
   default: '/mascot/tabs/food.png',
 };
 
@@ -50,9 +51,13 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type') || 'default';
   const title = (searchParams.get('title') || '').slice(0, 40);
   const sub = (searchParams.get('sub') || '').slice(0, 60);
+  /* place(가게)일 때 그림을 고르는 데 쓴다. 가게 이름만으로는 무슨 음식인지 모른다
+     ("역전우동" 은 이름에 메뉴가 있지만 "할머니집" 은 없다). */
+  const cat = (searchParams.get('cat') || '').slice(0, 40);
 
   const headline =
     type === 'result' ? (title || '오늘 메뉴') :
+    type === 'place' ? (title || '이 가게') :
     type === 'group' ? (title || '같이 정해요') :
     type === 'battle' ? '메뉴 배틀 결과' :
     type === 'vote' ? '투표 결과' :
@@ -64,17 +69,27 @@ export async function GET(request: NextRequest) {
      메뉴 이름은 크게 남긴다. */
   const kicker =
     type === 'result' ? (sub ? `${sub}의 선택` : '오늘은 이거 어때요?') :
-    type === 'group' ? '먹자냥 모임' : '먹자냥';
+    type === 'place' ? (sub ? `${sub} · 여기 어때요?` : '여기 어때요?') :
+    type === 'group' ? '먹자냥 모임 초대' :
+    type === 'battle' ? '메뉴 배틀' :
+    type === 'vote' ? '메뉴 투표' :
+    type === 'worldcup' ? '메뉴 월드컵' : '먹자냥';
 
   const footer =
-    type === 'result' ? '먹자냥이 취향을 모아 정했어요' : '친구들과 메뉴 정하기 · 먹자냥';
+    type === 'result' ? '먹자냥이 취향을 모아 정했어요' :
+    type === 'place' ? '먹자냥이 취향을 모아 골랐어요' :
+    type === 'group' ? '들어와서 같이 메뉴 정해요' :
+    '친구들과 메뉴 정하기 · 먹자냥';
 
-  const iconPath = (type === 'result' && title ? getFoodIconUrl(title) : null)
+  /* 그림 고르기: 메뉴는 이름으로, 가게는 카테고리(없으면 이름)로 찾는다 */
+  const iconPath =
+    (type === 'result' && title ? getFoodIconUrl(title) : null)
+    ?? (type === 'place' ? (getFoodIconUrl(cat) ?? getFoodIconUrl(title)) : null)
     ?? FALLBACK_IMG[type] ?? FALLBACK_IMG.default;
   const foodImg = `${BASE_URL}${iconPath}`;
   const mascotImg = `${BASE_URL}${MASCOT}`;
 
-  const allText = headline + kicker + footer + '먹자냥오늘 뭐 먹지?';
+  const allText = headline + kicker + footer + '먹자냥오늘 뭐 먹지?여기 어때요';
   const [bold, regular] = await Promise.all([loadFont(allText, 800), loadFont(allText, 500)]);
   const fonts = [
     ...(bold ? [{ name: 'NotoKR', data: bold, weight: 800 as const, style: 'normal' as const }] : []),

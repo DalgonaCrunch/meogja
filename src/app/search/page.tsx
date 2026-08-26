@@ -10,6 +10,8 @@ import MapPanel, { ViewToggle } from "@/components/MapPanel";
 import type { MapPlace } from "@/components/NearbyMap";
 import { normalizeCoord, cleanTitle } from "@/lib/foodCategory";
 import { dedupePlaces } from "@/lib/dedupePlaces";
+import { sharePlace } from "@/lib/shareResult";
+import { toast } from "@/lib/dialog";
 
 type Restaurant = {
   title: string;
@@ -557,6 +559,10 @@ function SearchContent() {
                     <a href={`https://booking.naver.com/booking/search?query=${encodeURIComponent(name)}`}
                       target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(name)}
                       style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", color:"var(--text-2)", border:"1px solid var(--border)", fontSize:12, fontWeight:700, textDecoration:"none" }}>예약 찾기</a>
+                    <button className="tap" onClick={async () => {
+                      const res = await sharePlace({ name, category: r.category, address: r.roadAddress || r.address });
+                      if (res === "copied") toast("링크를 복사했어요");
+                    }} style={{ padding:"5px 12px", borderRadius:8, background:"var(--primary)", color:"#fff", border:"none", fontSize:12, fontWeight:700, cursor:"pointer" }}>🔗 공유</button>
                     {/* 목록에서 고른 가게를 지도에서 이어 본다. 좌표가 없으면 못 간다 */}
                     {mapIdxByResult[i] >= 0 && (
                       <button className="tap" onClick={() => { setPickedIdx(mapIdxByResult[i]); setView("map"); }}

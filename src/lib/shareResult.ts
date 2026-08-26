@@ -54,3 +54,45 @@ export async function shareResult(r: ShareResult): Promise<"shared" | "copied" |
     return "failed";
   }
 }
+
+/* ── 가게 공유 ──────────────────────────────────────────────────────
+   메뉴를 정한 다음에는 "어디서" 가 남는다. 그 결정도 공유돼야 흐름이 끊기지 않는다.
+   여기도 서버에 저장하지 않고 주소에 담는다. */
+
+export type SharePlace = {
+  /** 가게 이름 */
+  name: string;
+  /** 카테고리 — 그림을 고르는 데 쓴다("할머니집" 같은 이름만으로는 무슨 음식인지 모른다) */
+  category?: string;
+  address?: string;
+  groupName?: string;
+};
+
+export function buildPlaceUrl({ name, category, address, groupName }: SharePlace): string {
+  const p = new URLSearchParams();
+  p.set("p", name);
+  if (category) p.set("c", category);
+  if (address) p.set("a", address);
+  if (groupName) p.set("g", groupName);
+  return `${BASE}/result?${p.toString()}`;
+}
+
+export async function sharePlace(r: SharePlace): Promise<"shared" | "copied" | "failed"> {
+  const url = buildPlaceUrl(r);
+  const title = r.groupName ? `${r.groupName} 오늘은 ${r.name}!` : `오늘은 ${r.name}!`;
+  const text = `${title}\n먹자냥이 취향을 모아 골랐어요 🍽️`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title, text, url });
+      return "shared";
+    }
+  } catch {
+    return "failed"; // 취소한 경우도 여기로 온다 — 복사로 떨어지지 않게
+  }
+  try {
+    await navigator.clipboard.writeText(`${text}\n${url}`);
+    return "copied";
+  } catch {
+    return "failed";
+  }
+}

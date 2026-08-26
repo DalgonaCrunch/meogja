@@ -57,7 +57,27 @@ else {
 const ogMeta = await page.locator('meta[property="og:image"]').getAttribute("content").catch(() => null);
 if (!ogMeta || !ogMeta.includes("type=result")) problems.push(`og:image 메타가 결과 이미지를 안 가리킨다: ${ogMeta}`);
 
-console.log(JSON.stringify({ title, ogMeta, errs, problems }, null, 1));
+/* 가게 공유도 같은 화면을 쓴다 — 메뉴를 정한 다음에는 "어디서" 가 남는다 */
+const placeUrl = `${BASE}/result?p=${encodeURIComponent("역전우동 강남")}`
+  + `&c=${encodeURIComponent("음식점 > 일식 > 우동")}&a=${encodeURIComponent("서울 강남구 테헤란로 1")}`
+  + `&g=${encodeURIComponent("점심팟")}`;
+await page.goto(placeUrl, { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(2000);
+await page.screenshot({ path: `${OUT}-place.png`, fullPage: true });
+const placeTitle = await page.title();
+if (!placeTitle.includes("역전우동")) problems.push(`가게 공유 제목에 가게 이름이 없다: "${placeTitle}"`);
+if (!(await page.locator("text=지도에서 보기").count())) problems.push("가게 공유에 '지도에서 보기' 가 없다");
+const placeOg = await page.locator('meta[property="og:image"]').getAttribute("content").catch(() => null);
+if (!placeOg || !placeOg.includes("type=place")) problems.push(`가게 og:image 가 place 형식이 아니다: ${placeOg}`);
+const placeImg = await page.request.get(`${BASE}/api/og?type=place&title=${encodeURIComponent("역전우동")}&cat=${encodeURIComponent("우동")}`);
+if (placeImg.status() !== 200) problems.push(`가게 OG 이미지 status ${placeImg.status()}`);
+else {
+  const body = await placeImg.body();
+  fs.writeFileSync(`${OUT}-place-og.png`, body);
+  if (body.length < 40_000) problems.push(`가게 OG 이미지가 너무 단순하다(${body.length}바이트)`);
+}
+
+console.log(JSON.stringify({ title, ogMeta, placeTitle, errs, problems }, null, 1));
 console.log(problems.length ? "\n❌ 문제 " + problems.length + "건" : "\n✅ 결과 카드 확인 통과");
 await browser.close();
 process.exit(problems.length ? 1 : 0);

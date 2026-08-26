@@ -11,6 +11,8 @@
 import { useState } from "react";
 import NearbyMap, { type MapPlace } from "@/components/NearbyMap";
 import { trackPlaceClick, getClickCount } from "@/lib/placeClicks";
+import { sharePlace } from "@/lib/shareResult";
+import { toast } from "@/lib/dialog";
 import {
   FOOD_EMOJIS, categoryKey, localFoodIcon, catShort, fmtDist,
   kakaoUrl, naverUrl, googleUrl, distanceMeters,
@@ -153,6 +155,11 @@ export default function MapPanel({
                   <a href={`https://booking.naver.com/booking/search?query=${encodeURIComponent(p.title)}`}
                     target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
                     style={{ padding: "5px 12px", borderRadius: 8, background: "var(--bg-2)", color: "var(--text-2)", border: "1px solid var(--border)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>예약 찾기</a>
+                  {/* 가게도 공유된다 — 메뉴를 정한 다음에는 "어디서" 가 남는다 */}
+                  <button className="tap" onClick={async () => {
+                    const r = await sharePlace({ name: p.title, category: p.category, address: p.address });
+                    if (r === "copied") toast("링크를 복사했어요");
+                  }} style={{ padding: "5px 12px", borderRadius: 8, background: "var(--primary)", color: "#fff", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>🔗 공유</button>
                 </div>
                 <button className="tap" onClick={() => onFindGroup(p)} style={{
                   marginTop: 6, width: "100%", padding: "8px", borderRadius: 10, border: "none",
