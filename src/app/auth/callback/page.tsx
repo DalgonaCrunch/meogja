@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
+import { hasAnyPreference } from "@/lib/tastePrefs";
 import { Suspense } from "react";
 
 function CallbackContent() {
@@ -152,6 +153,17 @@ function CallbackContent() {
         }
 
         setStatus("완료! 이동 중…");
+        /* 처음 온 사람은 취향부터 물어본다 — 선호도가 하나도 없으면 튜토리얼로.
+           선호가 비면 추천이 사실상 무작위라 첫 경험이 가장 나쁘다.
+           확인이 실패하면 원래 가려던 곳으로 그냥 보낸다(막지 않는다). */
+        try {
+          const { data: { session } } = await getSupabase().auth.getSession();
+          const uid = session?.user?.id;
+          if (uid && next === "/" && !(await hasAnyPreference(uid))) {
+            router.replace("/taste?onboarding=1");
+            return;
+          }
+        } catch { /* 확인 실패는 넘어간다 */ }
         router.replace(next);
       } catch (err) {
         console.error("Auth callback error:", err);

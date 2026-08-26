@@ -1016,6 +1016,19 @@ export default function ProfilePage() {
               <p style={{ fontFamily: "var(--font-display)", fontSize: 17 }}>내 기본 선호도</p>
             </div>
             <div style={{ background: "var(--surface)", borderRadius: 16, padding: "18px 16px", border: "var(--card-border)", boxShadow: "var(--card-shadow)", display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* 하나하나 고르는 건 지겹다 — 카드 넘기며 한 번에 끝내는 길을 위에 둔다 */}
+              <button className="tap" onClick={() => router.push("/taste")} style={{
+                display: "flex", alignItems: "center", gap: 10, width: "100%",
+                padding: "13px 14px", borderRadius: 14, border: "none", cursor: "pointer",
+                background: "linear-gradient(135deg,#FF7A45,#FF4E88)", color: "#fff", textAlign: "left",
+              }}>
+                <span style={{ fontSize: 24 }}>🃏</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontFamily: "var(--font-display)", fontSize: 15 }}>카드로 취향 알아보기</span>
+                  <span style={{ display: "block", fontSize: 11.5, opacity: .92 }}>넘기기만 하면 끝 · 1분</span>
+                </span>
+                <span style={{ fontSize: 18 }}>›</span>
+              </button>
               <p style={{ fontSize: 13, color: "var(--text-2)" }}>모임 참여 시 불러올 수 있는 내 기본 선호도입니다.</p>
               {/* 좋아함/못먹음 토글 */}
               <div style={{ display: "flex", background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r-pill)", padding: 3, gap: 3, width: "fit-content" }}>
