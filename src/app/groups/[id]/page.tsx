@@ -8,6 +8,8 @@ import { loadIngredientMap } from "@/lib/ingredientMap";
 import { bumpSearched } from "@/lib/behaviorScore";
 import { dedupePlaces } from "@/lib/dedupePlaces";
 import { shareResult } from "@/lib/shareResult";
+import MapPanel, { ViewToggle } from "@/components/MapPanel";
+import { normalizeCoord, cleanTitle } from "@/lib/foodCategory";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendationsDetailed } from "@/lib/recommend";
 import { getTimeSlot, TIME_FOODS, getAgeGroupFoods } from "@/lib/foodRecommend";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
@@ -209,6 +211,11 @@ export default function GroupPage() {
   const [menuRecommendations, setMenuRecommendations] = useState<{ menu: string; large: string; medium: string; score: number; likedByIds: string[]; likedByAll?: boolean }[]>([]);
   /* 못 먹는 것이 너무 많아 후보가 남지 않아 되살린 경우 — 화면에 알려 준다 */
   const [recRelaxed, setRecRelaxed] = useState(false);
+  /* 모임 화면은 **목록이 기본**이다. 여기서는 여러 명이 카드를 훑어보며 고르기 때문에
+     지도부터 보여주면 정보가 줄어든다(/nearby·/search 는 반대로 지도가 기본). */
+  const [restaurantView, setRestaurantView] = useState<"list" | "map">("list");
+  const [pickedRestaurantIdx, setPickedRestaurantIdx] = useState<number | null>(null);
+  const [restaurantMapBroken, setRestaurantMapBroken] = useState(false);
   const [selectedMenus, setSelectedMenus] = useState<string[]>([]);
   const [voteUrl, setVoteUrl] = useState<string | null>(null);
   const [creatingVote, setCreatingVote] = useState(false);
@@ -874,6 +881,7 @@ export default function GroupPage() {
     });
     const sliced = scored.slice(0, 15);
     setScoredRestaurants(sliced);
+    setPickedRestaurantIdx(null);
     if (sliced.length) fetchPlaceClickStats(sliced.map(r => r.title)).then(setPlaceClicks);
     setLoading(false);
     setHasSearched(true);
@@ -980,6 +988,7 @@ export default function GroupPage() {
     setSortBy("distance");
     const top = scored.slice(0, 15);
     setScoredRestaurants(top);
+    setPickedRestaurantIdx(null);
     if (top.length) fetchPlaceClickStats(top.map(r => r.title)).then(setPlaceClicks);
     saveSession(selected, top.slice(0, 5));
     setLoading(false);
@@ -1288,6 +1297,23 @@ export default function GroupPage() {
       </div>
     );
   }
+
+  /* 지도에 넘길 형태. 제공자마다 좌표 형식이 달라(네이버는 1e7 배) normalizeCoord 로
+     맞추고, 좌표가 없는 것은 지도에서 뺀다. */
+  const restaurantMapPlaces = scoredRestaurants.flatMap((r) => {
+    const lng = normalizeCoord(r.mapx);
+    const lat = normalizeCoord(r.mapy);
+    if (lng === null || lat === null) return [];
+    return [{
+      title: cleanTitle(r.title),
+      category: r.category || "",
+      address: r.address || "",
+      distance: r.distance ?? null,
+      mapx: String(lng), mapy: String(lat),
+      link: r.link || "",
+      phone: "",
+    }];
+  });
 
   const sortedRestaurants = [...scoredRestaurants].sort((a, b) => {
     switch (sortBy) {
@@ -2523,8 +2549,8 @@ export default function GroupPage() {
                   </button>
                 </div>
               </div>
-              {/* 정렬 버튼 — 별도 줄 */}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+              {/* 정렬 버튼 + 목록/지도 — 별도 줄 */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
                 {([["distance","📍 거리순"],["score","👍 선호순"],["rating","⭐ 별점"],["category","🏷 카테고리"]] as const).map(([s, label]) => (
                   <button key={s} className="tap" onClick={() => setSortBy(s)} style={{
                     padding: "5px 12px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 600,
@@ -2534,8 +2560,33 @@ export default function GroupPage() {
                     cursor: "pointer", transition: "all 0.15s",
                   }}>{label}</button>
                 ))}
+                <div style={{ flex: 1 }} />
+                <ViewToggle view={restaurantView} onChange={setRestaurantView} />
               </div>
-              {sortBy === "category" ? (
+
+              {/* 지도 보기 — 여러 곳이 어디쯤인지 한눈에 */}
+              {restaurantView === "map" && (
+                <div style={{ margin: "0 -16px 12px" }}>
+                  <MapPanel
+                    places={restaurantMapPlaces}
+                    center={location ? { x: location.lng, y: location.lat } : null}
+                    stats={{ clicks: placeClicks }}
+                    selectedIndex={pickedRestaurantIdx}
+                    onSelect={setPickedRestaurantIdx}
+                    onFindGroup={(p) => { void p; /* 모임 안에서는 이미 모임이 있다 */ }}
+                    onUnavailable={() => {
+                      if (!restaurantMapBroken) { setRestaurantMapBroken(true); setRestaurantView("list"); }
+                    }}
+                  />
+                </div>
+              )}
+              {restaurantMapBroken && restaurantView === "list" && (
+                <p style={{ fontSize: 12, color: "var(--text-3)", margin: "0 0 10px" }}>
+                  🗺️ 지도를 열 수 없어서 목록으로 보여드려요
+                </p>
+              )}
+
+              {restaurantView === "map" ? null : sortBy === "category" ? (
                 // 카테고리별 그룹핑
                 (() => {
                   const groups: Record<string, typeof sortedRestaurants> = {};
