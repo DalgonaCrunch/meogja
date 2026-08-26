@@ -164,6 +164,9 @@ export default function NearbyMap({
   const mapRef = useRef<KMap | null>(null);
   const overlaysRef = useRef<KOverlay[]>([]);
   const meRef = useRef<KOverlay | null>(null);
+  /* 화면을 맞춘 대상이 무엇이었는지 기억한다. 마커를 고를 때마다 다시 맞추면
+     사용자가 확대·이동해 둔 화면이 매번 원위치로 튕긴다. */
+  const fittedRef = useRef<string>("");
   const [loaded, setLoaded] = useState<"loading" | "ready" | "error">("loading");
 
   const appkey = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
@@ -229,7 +232,12 @@ export default function NearbyMap({
       bounds.extend(pos);
     });
 
-    if (!bounds.isEmpty()) map.setBounds(bounds, 60, 30, 30, 30);
+    // 목록이나 기준 위치가 실제로 바뀌었을 때만 화면을 다시 맞춘다(선택은 제외)
+    const fitKey = `${center ? `${center.x},${center.y}` : "-"}|${places.map(p => `${p.mapx},${p.mapy}`).join(";")}`;
+    if (!bounds.isEmpty() && fittedRef.current !== fitKey) {
+      map.setBounds(bounds, 60, 30, 30, 30);
+      fittedRef.current = fitKey;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, places, center, selectedIndex]);
 
