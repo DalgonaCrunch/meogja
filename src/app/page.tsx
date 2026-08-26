@@ -6,7 +6,8 @@ import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import { toast, showAlert, showConfirm, showPrompt } from "@/lib/dialog";
 import { getCategorySubItems } from "@/lib/recommend";
-import { expandDislikes } from "@/lib/ingredients";
+import { expandDislikes, type IngredientMap } from "@/lib/ingredients";
+import { loadIngredientMap } from "@/lib/ingredientMap";
 import MenuBattle from "./MenuBattle";
 import { MENU_CATEGORIES, MEAL_POOL, ROULETTE_POOL } from "@/lib/menus";
 import { getFoodIconUrl } from "@/lib/foodIcons";
@@ -234,7 +235,10 @@ export default function Home() {
   /* 못 먹는 이름(재료일 수도, 메뉴일 수도)을 실제 메뉴 목록으로 펼친 것.
      예전에는 문자열 부분일치로 걸렀는데 양쪽으로 다 틀렸다 —
      `마라` 가 마라탕을 못 잡고, `파` 는 파스타·짜파게티까지 지웠다. */
-  const homeHardDislikes = useMemo(() => expandDislikes(homeDislikedFoods).hard, [homeDislikedFoods]);
+  const [ingredientMap, setIngredientMap] = useState<IngredientMap | undefined>(undefined);
+  const homeHardDislikes = useMemo(
+    () => expandDislikes(homeDislikedFoods, ingredientMap).hard,
+    [homeDislikedFoods, ingredientMap]);
   const [homeUserScores, setHomeUserScores] = useState<Map<string,number>>(new Map());
   const [homeSettings, setHomeSettings] = useState<{
     show_roulette:boolean; show_battle:boolean; show_ranking:boolean; show_trending_bar:boolean;
@@ -258,6 +262,9 @@ export default function Home() {
   const [deleteTarget, setDeleteTarget] = useState<Group | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
   const [deletePasswordError, setDeletePasswordError] = useState(false);
+
+  // 재료 표(메뉴 ↔ 재료)를 DB 에서 한 번 받아 둔다. 실패하면 코드 표로 돈다.
+  useEffect(() => { loadIngredientMap().then(setIngredientMap).catch(() => {}); }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem("meogja_starred_groups");

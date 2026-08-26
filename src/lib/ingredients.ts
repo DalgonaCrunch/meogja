@@ -61,6 +61,15 @@ export const INGREDIENT_SOFT: Record<string, string[]> = {
   청양고추: ["떡볶이", "짬뽕", "육개장", "감자탕", "낙지볶음", "오징어볶음", "매운탕", "제육볶음"],
 };
 
+/** 재료 → 메뉴 표의 모양. DB 에서 받아 온 것도 같은 모양으로 넘긴다 */
+export type IngredientMap = {
+  hard: Record<string, string[]>;
+  soft: Record<string, string[]>;
+};
+
+/** 코드에 박혀 있는 씨앗 표 (DB 를 못 읽을 때 쓰는 대비책) */
+export const STATIC_INGREDIENT_MAP: IngredientMap = { hard: INGREDIENT_HARD, soft: INGREDIENT_SOFT };
+
 /** 이 재료가 프리셋에 있는 '재료' 인가(메뉴·카테고리 이름이 아니라) */
 export function isKnownIngredient(name: string): boolean {
   return name in INGREDIENT_HARD || name in INGREDIENT_SOFT;
@@ -74,15 +83,18 @@ export function isKnownIngredient(name: string): boolean {
  * 재료가 아닌 이름(메뉴·카테고리)은 그대로 hard 에 넣는다 — 사용자가 그 메뉴를
  * 직접 못 먹는다고 고른 것이므로 해석할 것이 없다.
  */
-export function expandDislikes(names: string[]): { hard: Set<string>; soft: Map<string, number> } {
+export function expandDislikes(
+  names: string[],
+  map: IngredientMap = STATIC_INGREDIENT_MAP,
+): { hard: Set<string>; soft: Map<string, number> } {
   const hard = new Set<string>();
   const soft = new Map<string, number>();
   for (const raw of names) {
     const name = raw.trim();
     if (!name) continue;
-    const hardList = INGREDIENT_HARD[name];
+    const hardList = map.hard[name];
     if (hardList) { hardList.forEach(m => hard.add(m)); continue; }
-    const softList = INGREDIENT_SOFT[name];
+    const softList = map.soft[name];
     if (softList) { softList.forEach(m => soft.set(m, (soft.get(m) ?? 0) + 1)); continue; }
     hard.add(name); // 메뉴·카테고리 이름은 그대로
   }

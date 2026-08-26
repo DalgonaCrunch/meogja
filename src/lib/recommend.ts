@@ -1,5 +1,5 @@
 import { FoodPreference } from "./supabase";
-import { expandDislikes } from "./ingredients";
+import { expandDislikes, type IngredientMap } from "./ingredients";
 
 export type MenuItem = {
   name: string;
@@ -361,13 +361,15 @@ export function getRecommendationsDetailed(
   preferences: FoodPreference[],
   participantIds: string[],
   count: number = 5,
-  seed?: string
+  seed?: string,
+  /** DB 에서 받아 온 재료 표(없으면 코드에 있는 씨앗 표를 쓴다) */
+  ingredientMap?: IngredientMap
 ): RecommendResult {
   const participantPrefs = preferences.filter((p) => participantIds.includes(p.member_id));
 
   // 1. 못 먹는 것 — 이름을 실제 메뉴로 펼친다
   const dislikeNames = participantPrefs.filter(p => prefScore(p) <= HARD_LIMIT).map(p => p.food_name);
-  const { hard, soft } = expandDislikes(dislikeNames);
+  const { hard, soft } = expandDislikes(dislikeNames, ingredientMap);
   // 별로(-1 등)는 빼지 않고 점수만 깎는다
   const mildPenalty = new Map<string, number>();
   participantPrefs
@@ -445,7 +447,8 @@ export function getRecommendations(
   preferences: FoodPreference[],
   participantIds: string[],
   count: number = 5,
-  seed?: string
+  seed?: string,
+  ingredientMap?: IngredientMap
 ): { menu: string; large: string; medium: string; score: number; likedByIds: string[] }[] {
-  return getRecommendationsDetailed(preferences, participantIds, count, seed).items;
+  return getRecommendationsDetailed(preferences, participantIds, count, seed, ingredientMap).items;
 }

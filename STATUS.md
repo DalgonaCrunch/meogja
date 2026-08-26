@@ -191,6 +191,25 @@ owner: "선호도 조사에서 **못 먹는 음식**을 제대로 파악하고 *
 - 확인: `node scripts/check-recommend.mjs` (9가지 경우 — 마라→마라탕 제외, 파→파스타 생존,
   전원 선호 우선, 같은 씨앗 같은 순서, 다 빼도 빈 화면 아님, score 없는 옛 행 동작)
 
+### 재료 표를 DB 로 (2026-08-26, 코드는 끝 · 적용 대기)
+
+- `supabase/migrations/20260826000003_menu_ingredients.sql` — 테이블 + 씨앗 151행 + 제보 RPC
+- `src/lib/ingredientMap.ts` — DB 표를 받아 코드 표 위에 **더한다**(캐시 1회).
+  🔴 실패하면 코드 표로 돈다. 못 먹는 음식을 거르는 일이라 "조용히 아무것도 안 걸러짐" 이 최악이다.
+- 제보는 `report_menu_ingredient` RPC. `confirmed=false` 로 시작하고 **3명**이 모이면 반영된다
+  — 아무나 확정시킬 수 있으면 장난으로 남의 메뉴를 지울 수 있다.
+- 남은 일: 제보를 넣는 화면(2단계 스와이프에 같이), 관리자 검수 화면
+
+### Vercel/Supabase 접근에 대해 알아낸 것 (2026-08-26)
+
+- 이 환경에서 **Vercel CLI 는 인증돼 있고** 프로젝트가 링크돼 있다(`dalgonacrunchs-projects/meogja`).
+  `npx vercel env ls`, `npx vercel env pull` 이 된다.
+- 🔴 그런데 **Sensitive 로 등록된 값은 되읽을 수 없다.** `POSTGRES_URL`·`POSTGRES_PASSWORD`·
+  `SUPABASE_SERVICE_ROLE_KEY` 는 pull 하면 값 자리에 `[SENSITIVE]` 문자열이 온다.
+  → 그 경로로 DB 에 붙는 것은 불가능하다. 읽히는 것은 host/user/database/anon key 정도.
+- 그래서 마이그레이션 적용에는 **Supabase 액세스 토큰(sbp_…)** 이나 DB 비밀번호가 필요하다.
+  `npx supabase db push --db-url <url>` 또는 `link` 후 `--linked`.
+
 🔴 **마이그레이션은 아직 실서비스에 적용되지 않았다.** 이 환경에는 supabase 링크(액세스 토큰)가
 없다 → owner 가 `supabase db push --linked` 를 돌려야 한다.
 코드는 컬럼이 없어도 동작한다(`score` 없으면 like=+2 / dislike=-9 로 본다). 다만 **2단계

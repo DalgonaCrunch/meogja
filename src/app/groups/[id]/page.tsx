@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
 import { expandDislikes } from "@/lib/ingredients";
+import { loadIngredientMap } from "@/lib/ingredientMap";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendationsDetailed } from "@/lib/recommend";
 import { getTimeSlot, TIME_FOODS, getAgeGroupFoods } from "@/lib/foodRecommend";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
@@ -822,7 +823,9 @@ export default function GroupPage() {
       /* 씨앗을 넣어 순서를 흔든다. 모임+날짜 기준이라 같은 날 다시 눌러도 순서가
          그대로고(신뢰), 날이 바뀌면 다른 메뉴가 앞으로 온다(같은 것만 나오지 않게). */
       const seed = `${id}-${new Date().toISOString().slice(0, 10)}`;
-      const res = getRecommendationsDetailed(prefs, selected, 15, seed);
+      /* 재료 표는 DB 에서 받는다(없으면 코드에 있는 씨앗 표로 간다) */
+      const ingMap = await loadIngredientMap();
+      const res = getRecommendationsDetailed(prefs, selected, 15, seed, ingMap);
       setMenuRecommendations(res.items);
       setRecRelaxed(res.relaxed);
     }
@@ -839,7 +842,7 @@ export default function GroupPage() {
     const dislikeNames = (prefs ?? [])
       .filter((p) => (typeof p.score === "number" ? p.score <= -5 : p.preference_type === "dislike"))
       .map((p) => p.food_name);
-    const dislikes = expandDislikes(dislikeNames).hard;
+    const dislikes = expandDislikes(dislikeNames, await loadIngredientMap()).hard;
     const results = await Promise.all(selectedMenus.map((q) => searchNearbyFromProvider(q, [...providers][0] || "naver")));
     const all = results.flat();
     const seen = new Set<string>();
@@ -880,7 +883,7 @@ export default function GroupPage() {
     const dislikeNames = (prefs ?? [])
       .filter((p) => (typeof p.score === "number" ? p.score <= -5 : p.preference_type === "dislike"))
       .map((p) => p.food_name);
-    const dislikes = expandDislikes(dislikeNames).hard;
+    const dislikes = expandDislikes(dislikeNames, await loadIngredientMap()).hard;
 
     // 카테고리 필터 우선 적용
     const DEFAULT_QUERIES = ["한식", "중식", "일식", "양식", "분식", "고기", "카페"];
