@@ -6,7 +6,7 @@ import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
 import { expandDislikes } from "@/lib/ingredients";
 import { loadIngredientMap } from "@/lib/ingredientMap";
 import { bumpSearched } from "@/lib/behaviorScore";
-import { dedupePlaces } from "@/lib/dedupePlaces";
+import { dedupePlaces, normalizeStoreName } from "@/lib/dedupePlaces";
 import { shareResult } from "@/lib/shareResult";
 import { computeFit } from "@/lib/fitScore";
 import MapPanel, { ViewToggle } from "@/components/MapPanel";
@@ -183,6 +183,9 @@ export default function GroupPage() {
   const hasAutoSelected = useRef(false);
   const [savingDecision, setSavingDecision] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  /* 이 모임이 예전에 갔던 가게 → 몇 번 갔나. 먹자팟 이력에서 센다.
+     남이 조작할 수 없는 신호이고, "아는 사람들이 갔던 곳" 이라 리뷰보다 신뢰가 간다. */
+  const [visitedCounts, setVisitedCounts] = useState<Record<string, number>>({});
   const [reviewAvgs, setReviewAvgs] = useState<Record<string, number>>({});
   const [memberImages, setMemberImages] = useState<Record<string, string>>({});
   const [restaurantImages, setRestaurantImages] = useState<Record<string, string>>({});
@@ -269,6 +272,25 @@ export default function GroupPage() {
       }
     } catch { /* ignore */ }
   }
+
+  // 우리 모임 방문 이력 — 먹자팟에 적힌 가게 이름을 센다
+  useEffect(() => {
+    if (!id) return;
+    getSupabase()
+      .from("meal_pats")
+      .select("restaurant_name")
+      .eq("group_id", id)
+      .not("restaurant_name", "is", null)
+      .then(({ data }) => {
+        if (!data) return;
+        const counts: Record<string, number> = {};
+        data.forEach((row: { restaurant_name: string | null }) => {
+          const key = normalizeStoreName(row.restaurant_name || "");
+          if (key) counts[key] = (counts[key] || 0) + 1;
+        });
+        setVisitedCounts(counts);
+      });
+  }, [id]);
 
   useEffect(() => {
     // 마지막 방문 모임 저장 (모임 탭 복귀용)
@@ -1282,6 +1304,12 @@ export default function GroupPage() {
                 {r.fitNames && r.fitNames.length > 0 && (
                   <span style={{ fontWeight:500, color:"var(--text-3)" }}> · {r.fitNames.slice(0, 3).join(", ")}{r.fitNames.length > 3 ? ` +${r.fitNames.length - 3}` : ""}</span>
                 )}
+              </div>
+            )}
+            {/* 우리 모임이 갔던 곳 — 아는 사람들의 이력이라 리뷰보다 믿을 만하다 */}
+            {visitedCounts[normalizeStoreName(r.title)] > 0 && (
+              <div style={{ fontSize:11.5, color:"#C05E00", fontWeight:700, marginBottom:4 }}>
+                🍚 우리 모임이 {visitedCounts[normalizeStoreName(r.title)]}번 갔어요
               </div>
             )}
             {hasScore && (
