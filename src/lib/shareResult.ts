@@ -20,13 +20,16 @@ export type ShareResult = {
   groupName?: string;
   /** 고른 사람들 이름 — "누가 골랐나" 를 보여주는 것이 공유 동기를 만든다 */
   who?: string[];
+  /** 화면에 나온 먹자냥 얼굴(cat-39 …). 받은 사람도 같은 얼굴을 보게 한다 */
+  mascot?: string;
 };
 
-export function buildResultUrl({ menus, groupName, who }: ShareResult): string {
+export function buildResultUrl({ menus, groupName, who, mascot }: ShareResult): string {
   const p = new URLSearchParams();
   p.set("m", menus.filter(Boolean).slice(0, 4).join(","));
   if (groupName) p.set("g", groupName);
   if (who?.length) p.set("who", who.filter(Boolean).slice(0, 8).join(","));
+  if (mascot) p.set("mc", mascot);
   return `${BASE}/result?${p.toString()}`;
 }
 
@@ -62,15 +65,18 @@ export async function shareResult(r: ShareResult): Promise<"shared" | "copied" |
 export type SharePlace = {
   /** 가게 이름 */
   name: string;
+  /** 화면에 나온 먹자냥 얼굴 */
+  mascot?: string;
   /** 카테고리 — 그림을 고르는 데 쓴다("할머니집" 같은 이름만으로는 무슨 음식인지 모른다) */
   category?: string;
   address?: string;
   groupName?: string;
 };
 
-export function buildPlaceUrl({ name, category, address, groupName }: SharePlace): string {
+export function buildPlaceUrl({ name, category, address, groupName, mascot }: SharePlace): string {
   const p = new URLSearchParams();
   p.set("p", name);
+  if (mascot) p.set("mc", mascot);
   if (category) p.set("c", category);
   if (address) p.set("a", address);
   if (groupName) p.set("g", groupName);

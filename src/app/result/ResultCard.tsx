@@ -10,9 +10,11 @@ type Props = {
   menus: string[]; who: string[]; groupName: string;
   /** 가게를 공유한 경우 — 주인공이 메뉴가 아니라 가게가 된다 */
   place?: string; category?: string; address?: string;
+  /** 공유한 사람 화면에 나왔던 먹자냥 얼굴 */
+  mascot?: string;
 };
 
-export default function ResultCard({ menus, who, groupName, place, category, address }: Props) {
+export default function ResultCard({ menus, who, groupName, place, category, address, mascot }: Props) {
   const router = useRouter();
   const isPlace = !!place;
   const menu = menus[0] || "오늘 메뉴";
@@ -59,7 +61,12 @@ export default function ResultCard({ menus, who, groupName, place, category, add
           : <span style={{ fontSize: 92 }}>🍽️</span>}
       </div>
 
-      <p style={{ fontFamily: "var(--font-display)", fontSize: isPlace ? 28 : 32, margin: "0 0 4px" }}>{subject}</p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <p style={{ fontFamily: "var(--font-display)", fontSize: isPlace ? 28 : 32, margin: "0 0 4px" }}>{subject}</p>
+        {mascot && (
+          <img src={`/mascot/avatars/${mascot}.png`} alt="" style={{ width: 44, height: 44, objectFit: "contain", mixBlendMode: "multiply" }} />
+        )}
+      </div>
       {isPlace && (category || address) && (
         <p style={{ fontSize: 13, color: "var(--text-3)", margin: "0 0 8px", lineHeight: 1.5 }}>
           {[catShort(category || ""), address].filter(Boolean).join(" · ")}
@@ -109,8 +116,8 @@ export default function ResultCard({ menus, who, groupName, place, category, add
         }}>🎲 우리도 정해보기</button>
         <button className="tap" onClick={async () => {
           const r = isPlace
-            ? await sharePlace({ name: place!, category, address, groupName: groupName || undefined })
-            : await shareResult({ menus, groupName: groupName || undefined, who });
+            ? await sharePlace({ name: place!, category, address, groupName: groupName || undefined, mascot })
+            : await shareResult({ menus, groupName: groupName || undefined, who, mascot });
           if (r === "copied") toast("링크를 복사했어요");
         }} style={{
           padding: "12px", borderRadius: "var(--r-pill)", border: "none",

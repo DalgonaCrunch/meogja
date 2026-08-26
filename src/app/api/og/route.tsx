@@ -27,8 +27,19 @@ const FALLBACK_IMG: Record<string, string> = {
   default: '/mascot/tabs/food.png',
 };
 
-/** 결과 카드에 함께 넣는 먹자냥 */
-const MASCOT = '/mascot/avatars/cat-31.png';
+/* 결과 화면에서 쓰는 먹자냥들. 한 얼굴로 고정하면 공유 카드가 늘 똑같아 보인다.
+   🔴 다만 **그릴 때마다 무작위로 뽑으면 안 된다.** 같은 링크가 볼 때마다 다른 얼굴이
+   되면 캐시된 그림과 어긋나고, 사용자가 화면에서 본 얼굴과도 달라진다.
+   → 화면에서 쓴 얼굴을 `mc` 로 받고, 없으면 **메뉴 이름을 해시**해서 고른다
+   (같은 메뉴는 늘 같은 얼굴 = 무작위처럼 보이지만 안 흔들린다). */
+const MASCOTS = ['cat-39', 'cat-02', 'cat-15', 'cat-19', 'cat-24', 'cat-40', 'cat-38', 'cat-07'];
+
+function pickMascot(given: string, seed: string): string {
+  if (/^cat-\d{2}$/.test(given) && MASCOTS.includes(given)) return given;
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return MASCOTS[Math.abs(h) % MASCOTS.length];
+}
 
 /** 필요한 글자만 담은 글꼴을 받아 온다(전체 한글 글꼴은 수 MB 라 못 쓴다) */
 async function loadFont(text: string, weight: 500 | 800): Promise<ArrayBuffer | null> {
@@ -54,6 +65,8 @@ export async function GET(request: NextRequest) {
   /* place(가게)일 때 그림을 고르는 데 쓴다. 가게 이름만으로는 무슨 음식인지 모른다
      ("역전우동" 은 이름에 메뉴가 있지만 "할머니집" 은 없다). */
   const cat = (searchParams.get('cat') || '').slice(0, 40);
+  // 화면에서 쓴 먹자냥 얼굴(mc). 없으면 이름으로 골라서 늘 같은 얼굴이 나오게 한다.
+  const mascotParam = (searchParams.get('mc') || '').slice(0, 10);
 
   const headline =
     type === 'result' ? (title || '오늘 메뉴') :
@@ -87,7 +100,7 @@ export async function GET(request: NextRequest) {
     ?? (type === 'place' ? (getFoodIconUrl(cat) ?? getFoodIconUrl(title)) : null)
     ?? FALLBACK_IMG[type] ?? FALLBACK_IMG.default;
   const foodImg = `${BASE_URL}${iconPath}`;
-  const mascotImg = `${BASE_URL}${MASCOT}`;
+  const mascotImg = `${BASE_URL}/mascot/avatars/${pickMascot(mascotParam, title || type)}.png`;
 
   const allText = headline + kicker + footer + '먹자냥오늘 뭐 먹지?여기 어때요';
   const [bold, regular] = await Promise.all([loadFont(allText, 800), loadFont(allText, 500)]);

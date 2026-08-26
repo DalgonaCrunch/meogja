@@ -13,7 +13,7 @@ import ResultCard from "./ResultCard";
 
 const BASE_URL = "https://meogja.vercel.app";
 
-type Search = { m?: string; g?: string; who?: string; p?: string; c?: string; a?: string };
+type Search = { m?: string; g?: string; who?: string; p?: string; c?: string; a?: string; mc?: string };
 
 function parse(sp: Search) {
   const menus = (sp.m || "").split(",").map(s => s.trim()).filter(Boolean).slice(0, 4);
@@ -24,13 +24,15 @@ function parse(sp: Search) {
   const place = (sp.p || "").trim();
   const category = (sp.c || "").trim();
   const address = (sp.a || "").trim();
-  return { menus, who, groupName, place, category, address };
+  /* 공유한 사람 화면에 나온 먹자냥 얼굴. 받은 사람도 같은 얼굴을 봐야 "그 카드" 로 느낀다 */
+  const mascot = /^cat-\d{2}$/.test(sp.mc || "") ? sp.mc! : "";
+  return { menus, who, groupName, place, category, address, mascot };
 }
 
 export async function generateMetadata(
   { searchParams }: { searchParams: Promise<Search> }
 ): Promise<Metadata> {
-  const { menus, who, groupName, place, category } = parse(await searchParams);
+  const { menus, who, groupName, place, category, mascot } = parse(await searchParams);
   const menu = menus[0] || "오늘 메뉴";
   const subject = place || menu;
   const title = groupName ? `${groupName} 오늘은 ${subject}!` : `오늘은 ${subject}!`;
@@ -39,11 +41,12 @@ export async function generateMetadata(
     : who.length
       ? `${who.join(", ")} 취향을 모아서 정했어요. 우리도 정해볼까요?`
       : "먹자냥이 취향을 모아 메뉴를 정해줘요.";
+  const mc = mascot ? `&mc=${encodeURIComponent(mascot)}` : "";
   const og = place
     ? `${BASE_URL}/api/og?type=place&title=${encodeURIComponent(place)}`
-      + `&sub=${encodeURIComponent(groupName)}&cat=${encodeURIComponent(category)}`
+      + `&sub=${encodeURIComponent(groupName)}&cat=${encodeURIComponent(category)}${mc}`
     : `${BASE_URL}/api/og?type=result&title=${encodeURIComponent(menu)}`
-      + `&sub=${encodeURIComponent(groupName || (who.length ? who.join(", ") : ""))}`;
+      + `&sub=${encodeURIComponent(groupName || (who.length ? who.join(", ") : ""))}${mc}`;
 
   return {
     title, description,
@@ -55,11 +58,11 @@ export async function generateMetadata(
 export default async function ResultPage(
   { searchParams }: { searchParams: Promise<Search> }
 ) {
-  const { menus, who, groupName, place, category, address } = parse(await searchParams);
+  const { menus, who, groupName, place, category, address, mascot } = parse(await searchParams);
   return (
     <ResultCard
       menus={menus} who={who} groupName={groupName}
-      place={place} category={category} address={address}
+      place={place} category={category} address={address} mascot={mascot}
     />
   );
 }

@@ -77,7 +77,19 @@ else {
   if (body.length < 40_000) problems.push(`가게 OG 이미지가 너무 단순하다(${body.length}바이트)`);
 }
 
-console.log(JSON.stringify({ title, ogMeta, placeTitle, errs, problems }, null, 1));
+/* 먹자냥 얼굴: 메뉴마다 달라야 하고(고정이면 카드가 늘 똑같다),
+   같은 메뉴는 늘 같아야 한다(볼 때마다 바뀌면 캐시된 그림과 어긋난다) */
+const shots = {};
+for (const m of ["김치찌개", "초밥", "티라미수", "짜장면", "떡볶이", "파스타"]) {
+  const r = await page.request.get(`${BASE}/api/og?type=result&title=${encodeURIComponent(m)}`);
+  shots[m] = (await r.body()).length;
+}
+const uniqSizes = new Set(Object.values(shots));
+if (uniqSizes.size < 3) problems.push(`메뉴가 달라도 카드가 거의 같다(얼굴이 고정된 듯): ${JSON.stringify(shots)}`);
+const again = (await (await page.request.get(`${BASE}/api/og?type=result&title=${encodeURIComponent("초밥")}`)).body()).length;
+if (again !== shots["초밥"]) problems.push(`같은 메뉴인데 카드가 달라졌다(${shots["초밥"]} → ${again}) — 얼굴이 매번 무작위로 뽑히는 듯`);
+
+console.log(JSON.stringify({ title, ogMeta, placeTitle, shots, errs, problems }, null, 1));
 console.log(problems.length ? "\n❌ 문제 " + problems.length + "건" : "\n✅ 결과 카드 확인 통과");
 await browser.close();
 process.exit(problems.length ? 1 : 0);
