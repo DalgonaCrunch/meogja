@@ -72,9 +72,23 @@ const listShown =
   (await page.locator("text=김밥천국 강남점").count()) > 0;
 if (!listShown) problems.push("목록 전환이 동작하지 않음");
 await page.screenshot({ path: `${OUT}-1-list.png` });
-// 다시 지도로 돌아와 마커 확인
-await page.getByRole("button", { name: /지도/ }).click();
-await page.waitForTimeout(2500);
+
+// 목록 카드의 "지도에서" → 그 가게가 골라진 상태로 지도가 뜬다
+let keepPick = false;
+const jumpBtn = page.getByRole("button", { name: /지도에서/ }).nth(1); // 두 번째 카드(역전우동)
+if (await jumpBtn.count()) {
+  await jumpBtn.click();
+  await page.waitForTimeout(2500);
+  keepPick = await page.locator("text=서울 강남구 테헤란로 1").count() > 0; // 지도 카드에만 주소가 있다
+  await page.screenshot({ path: `${OUT}-4-jump.png` });
+} else {
+  problems.push('목록 카드에 "지도에서" 버튼이 없음');
+}
+if (!keepPick) problems.push('"지도에서" 로 넘어갔을 때 그 가게가 골라져 있지 않음');
+
+// 마커 확인을 위해 선택 해제
+await page.locator("text=✕").first().click().catch(() => {});
+await page.waitForTimeout(600);
 
 // SDK 가 실제로 붙었는지 / 지도 타일이 생겼는지
 const diag = await page.evaluate(() => {

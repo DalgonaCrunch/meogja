@@ -291,10 +291,13 @@ function SearchContent() {
      되돌린다. 좌표가 없는 결과(구글에서 간혹)는 지도에서 빼고 목록에만 남긴다. */
   const mapPlaces: MapPlace[] = [];
   const mapPlaceOrigin: Restaurant[] = [];
+  /* 목록 i번째 → 지도 몇 번째 마커인가. 좌표 없는 결과가 빠지므로 번호가 어긋난다. */
+  const mapIdxByResult: number[] = [];
   results.forEach((r) => {
     const lng = normalizeCoord(r.mapx);
     const lat = normalizeCoord(r.mapy);
-    if (lng === null || lat === null) return;
+    if (lng === null || lat === null) { mapIdxByResult.push(-1); return; }
+    mapIdxByResult.push(mapPlaces.length);
     mapPlaces.push({
       title: cleanTitle(r.title),
       category: r.category || "",
@@ -514,6 +517,13 @@ function SearchContent() {
                     <a href={kakaoHref} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(name)} style={{ padding:"5px 12px", borderRadius:8, background:"#FAE100", color:"#3A1D1D", fontSize:12, fontWeight:700, textDecoration:"none" }}>카카오맵</a>
                     <a href={naverHref} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(name)} style={{ padding:"5px 12px", borderRadius:8, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>네이버맵</a>
                     <a href={googleHref} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(name)} style={{ padding:"5px 12px", borderRadius:8, background:"#4285F4", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>구글맵</a>
+                    {/* 목록에서 고른 가게를 지도에서 이어 본다. 좌표가 없으면 못 간다 */}
+                    {mapIdxByResult[i] >= 0 && (
+                      <button className="tap" onClick={() => { setPickedIdx(mapIdxByResult[i]); setView("map"); }}
+                        style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", color:"var(--text-2)", border:"1px solid var(--border)", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                        🗺️ 지도에서
+                      </button>
+                    )}
                   </div>
                   <button className="tap" onClick={() => { setFindGroupModal(r); setGroupNameInput(`${name} 같이 먹어요`); }} style={{
                     marginTop:6, width:"100%", padding:"8px", borderRadius:10, border:"none",

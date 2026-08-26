@@ -467,6 +467,11 @@ function NearbyContent() {
                         style={{ padding:"5px 12px", borderRadius:8, background:"#4285F4", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>
                         구글맵
                       </a>
+                      {/* 목록에서 고른 가게를 지도에서 이어 본다(선택이 유지된다) */}
+                      <button className="tap" onClick={() => { setPickedIdx(i); setView("map"); }}
+                        style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", color:"var(--text-2)", border:"1px solid var(--border)", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                        🗺️ 지도에서
+                      </button>
                     </div>
                     <button className="tap" onClick={() => { setFindGroupModal(p); setGroupNameInput(`${p.title} 같이 먹어요`); }} style={{
                       marginTop:6, width:"100%", padding:"8px", borderRadius:10, border:"none",

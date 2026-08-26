@@ -98,6 +98,23 @@ await page.waitForTimeout(500);
 const listShown = await page.locator("text=좌표없는가게").count() > 0;
 await page.screenshot({ path: `${OUT}-3-list.png` });
 
+// 좌표 없는 가게에는 "지도에서" 버튼이 없어야 한다 (목록이 보이는 동안 센다)
+const jumpCount = await page.getByRole("button", { name: /지도에서/ }).count();
+if (jumpCount !== 3) problems.push(`"지도에서" 버튼 수가 3이 아님(${jumpCount}) — 좌표 있는 결과 3곳에만 붙어야 한다`);
+
+// 목록 카드의 "지도에서" → 그 가게가 골라진 상태로 지도가 뜬다
+let keepPick = false;
+const jumpBtn = page.getByRole("button", { name: /지도에서/ }).nth(1); // 역전우동
+if (await jumpBtn.count()) {
+  await jumpBtn.click();
+  await page.waitForTimeout(2500);
+  keepPick = await page.locator("text=서울 강남구 테헤란로 1").count() > 0;
+  await page.screenshot({ path: `${OUT}-4-jump.png` });
+} else {
+  problems.push('목록 카드에 "지도에서" 버튼이 없음');
+}
+if (!keepPick) problems.push('"지도에서" 로 넘어갔을 때 그 가게가 골라져 있지 않음');
+
 if (!diag.toggle) problems.push("목록/지도 토글이 없음");
 if (!diag.sdk) problems.push("카카오 지도 SDK 가 로드되지 않음 (도메인 미등록이거나 키 문제)");
 if (diag.errText) problems.push("화면에 '지도를 불러오지 못했어요' 표시됨");
