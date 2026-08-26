@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 import NearbyMap, { type MapPlace } from "@/components/NearbyMap";
-import { trackPlaceClick } from "@/lib/placeClicks";
+import { trackPlaceClick, getClickCount } from "@/lib/placeClicks";
 import {
   FOOD_EMOJIS, categoryKey, localFoodIcon, catShort, fmtDist,
   kakaoUrl, naverUrl, googleUrl, distanceMeters,
@@ -36,11 +36,14 @@ type Props = {
   onSearchHere?: (c: { x: number; y: number }) => void;
   /** 다시 찾는 중이면 버튼을 잠근다 */
   searching?: boolean;
+  /** 우리 앱에서 쌓인 신호 — 리뷰가 없는 우리가 신뢰를 만드는 방법이다.
+   *  clicks: 이 가게를 눌러본 횟수 / pats: 이 가게로 만들어진 먹자팟 수 */
+  stats?: { clicks?: Record<string, number>; pats?: Record<string, number> };
 };
 
 export default function MapPanel({
   places, center, images = {}, selectedIndex, onSelect, onFindGroup,
-  height = "min(58vh, 460px)", onUnavailable, onSearchHere, searching = false,
+  height = "min(58vh, 460px)", onUnavailable, onSearchHere, searching = false, stats,
 }: Props) {
   const picked = selectedIndex !== null ? places[selectedIndex] : undefined;
   /* 사용자가 지도를 밀어 옮긴 중심. 기준점에서 멀어지면 다시 찾기를 권한다.
@@ -114,6 +117,26 @@ export default function MapPanel({
                   {p.distance !== null && <span style={{ fontSize: 11.5, color: "var(--text-3)" }}>📍 {fmtDist(p.distance)}</span>}
                 </div>
                 {p.address && <p style={{ fontSize: 11.5, color: "var(--text-3)", margin: "0 0 8px" }}>{p.address}</p>}
+                {/* 우리 앱에 쌓인 신호. 남의 리뷰를 빌려오지 않고 우리 것만 보여준다 */}
+                {(() => {
+                  const patCount = stats?.pats?.[p.title] ?? 0;
+                  const clicks = stats?.clicks ? getClickCount(p.title, stats.clicks) : 0;
+                  if (!patCount && clicks < 3) return null;
+                  return (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "0 0 8px" }}>
+                      {patCount > 0 && (
+                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: "var(--r-pill)", background: "#FFF4E0", color: "#C05E00", fontWeight: 700 }}>
+                          🍚 먹자팟 {patCount}개
+                        </span>
+                      )}
+                      {clicks >= 3 && (
+                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: "var(--r-pill)", background: "#FFF0E0", color: "#D65000", fontWeight: 700 }}>
+                          🔥 {clicks}명이 봤어요
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <a href={kakaoUrl(p)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
                     style={{ padding: "5px 12px", borderRadius: 8, background: "#FAE100", color: "#3A1D1D", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>카카오맵</a>
@@ -121,6 +144,15 @@ export default function MapPanel({
                     style={{ padding: "5px 12px", borderRadius: 8, background: "#03C75A", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>네이버맵</a>
                   <a href={googleUrl(p)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
                     style={{ padding: "5px 12px", borderRadius: 8, background: "#4285F4", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>구글맵</a>
+                  {/* 정하고 나서 끊기지 않게 — 예약 인프라를 만들 이유는 없고, 전화와
+                      예약 페이지로 넘겨주는 것만으로 흐름이 이어진다 */}
+                  {p.phone && (
+                    <a href={`tel:${p.phone.replace(/[^0-9+]/g, "")}`} onClick={() => trackPlaceClick(p.title)}
+                      style={{ padding: "5px 12px", borderRadius: 8, background: "var(--green, #30A46C)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>📞 전화</a>
+                  )}
+                  <a href={`https://booking.naver.com/booking/search?query=${encodeURIComponent(p.title)}`}
+                    target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
+                    style={{ padding: "5px 12px", borderRadius: 8, background: "var(--bg-2)", color: "var(--text-2)", border: "1px solid var(--border)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>예약 찾기</a>
                 </div>
                 <button className="tap" onClick={() => onFindGroup(p)} style={{
                   marginTop: 6, width: "100%", padding: "8px", borderRadius: 10, border: "none",

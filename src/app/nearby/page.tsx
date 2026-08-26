@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
@@ -63,6 +63,16 @@ function NearbyContent() {
   /* 지도 키·SDK 문제로 지도를 못 띄우면 결과가 아예 안 보이게 된다(지도가 기본이라).
      한 번은 자동으로 목록으로 되돌린다. 그 뒤 사용자가 다시 '지도'를 누르면 그대로 둔다. */
   const [mapBroken, setMapBroken] = useState(false);
+  /* 가게 이름 → 그 가게로 만들어진 먹자팟 수. 목록 카드는 정규화한 이름으로 세는데
+     지도 카드도 같은 값을 써야 두 화면이 다른 말을 하지 않는다. */
+  const patRestaurantByTitle = useMemo(() => {
+    const out: Record<string, number> = {};
+    places.forEach(p => {
+      const n = patRestaurant[normalizePlaceName(p.title)] || 0;
+      if (n > 0) out[p.title] = n;
+    });
+    return out;
+  }, [places, patRestaurant]);
 
   /** 같이 먹을 사람 구하기 모달 열기 — 모임 목록 로딩도 여기서 켠다 */
   function openFindGroup(p: Place, name: string) {
@@ -412,6 +422,7 @@ function NearbyContent() {
           places={places}
           center={coords}
           images={images}
+          stats={{ clicks: placeClicks, pats: patRestaurantByTitle }}
           selectedIndex={pickedIdx}
           onSelect={setPickedIdx}
           onFindGroup={(p) => openFindGroup(p as Place, p.title)}
@@ -491,6 +502,18 @@ function NearbyContent() {
                         onClick={() => trackPlaceClick(p.title)}
                         style={{ padding:"5px 12px", borderRadius:8, background:"#4285F4", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>
                         구글맵
+                      </a>
+                      {/* 전화·예약 — 정한 다음이 이어져야 서비스가 끊기지 않는다 */}
+                      {p.phone && (
+                        <a href={`tel:${p.phone.replace(/[^0-9+]/g, "")}`} onClick={() => trackPlaceClick(p.title)}
+                          style={{ padding:"5px 12px", borderRadius:8, background:"var(--green, #30A46C)", color:"#fff", fontSize:12, fontWeight:700, textDecoration:"none" }}>
+                          📞 전화
+                        </a>
+                      )}
+                      <a href={`https://booking.naver.com/booking/search?query=${encodeURIComponent(p.title)}`}
+                        target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(p.title)}
+                        style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", color:"var(--text-2)", border:"1px solid var(--border)", fontSize:12, fontWeight:700, textDecoration:"none" }}>
+                        예약 찾기
                       </a>
                       {/* 목록에서 고른 가게를 지도에서 이어 본다(선택이 유지된다) */}
                       <button className="tap" onClick={() => { setPickedIdx(i); setView("map"); }}
