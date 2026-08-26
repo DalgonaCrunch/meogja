@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { bumpFoodScore, BEHAVIOR_WEIGHT } from "@/lib/behaviorScore";
 import { showConfirm, toast } from "@/lib/dialog";
@@ -88,6 +88,32 @@ export default function PatTab({
   const [expandedPatId, setExpandedPatId] = useState<string | null>(initialExpandId ?? null);
   const [copiedPatId, setCopiedPatId] = useState<string | null>(null);
   const [placeClicks, setPlaceClicks] = useState<Record<string, number>>({});
+  /* "또 갈래?" 에 답한 팟. 기기에만 남긴다 — 표를 만들 만큼 무거운 값이 아니고,
+     한 번 더 물어봐도 점수만 한 번 더 오를 뿐이라 위험하지 않다. */
+  const [rated, setRated] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("meogja_pat_rated") || "[]"); } catch { return []; }
+  });
+
+  function markRated(patId: string) {
+    setRated(prev => {
+      const next = [...new Set([...prev, patId])].slice(-200);
+      try { localStorage.setItem("meogja_pat_rated", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }
+
+  /** 또 갈래? — 한 번 누르면 끝. 별점을 받으려 하면 아무도 안 쓴다. */
+  async function askWouldRepeat(patId: string, menu: string) {
+    const again = await showConfirm(
+      "또 먹으러 갈 만했나요? 다음 추천에 반영해드려요.",
+      { title: `${menu} 어땠어요?`, icon: "🍚", confirmLabel: "또 갈래요 👍" },
+    );
+    markRated(patId); // 아니라고 해도 다시 묻지 않는다
+    if (again) {
+      await bumpFoodScore(menu, BEHAVIOR_WEIGHT.wouldRepeat);
+      toast(`${menu} 취향에 반영했어요`);
+    }
+  }
 
   const generatedTitle = menuInput.trim() ? TITLE_TEMPLATES[titleIdx](menuInput.trim()) : "";
   const finalTitle = useCustom ? customTitle : generatedTitle;
@@ -199,19 +225,61 @@ export default function PatTab({
 
   async function closePat(patId: string) {
     await getSupabase().from("meal_pats").update({ status: "closed" }).eq("id", patId);
-    /* 먹고 난 뒤 딱 한 번 묻는다. 리뷰보다 훨씬 가볍고, 우리만 쌓을 수 있는 신호다.
-       (별점을 받으려 하면 아무도 안 쓴다 — 한 번 누르면 끝나야 한다) */
     const pat = pats.find(p => p.id === patId);
     if (!pat) return;
-    const again = await showConfirm(
-      "또 먹으러 갈 만했나요? 다음 추천에 반영해드려요.",
-      { title: `${pat.menu} 어땠어요?`, icon: "🍚", confirmLabel: "또 갈래요 👍" },
-    );
-    if (again) {
-      await bumpFoodScore(pat.menu, BEHAVIOR_WEIGHT.wouldRepeat);
-      toast(`${pat.menu} 취향에 반영했어요`);
+
+    /* 🔴 예전에는 **닫는 사람에게만** 물었다. 실제로 같이 먹은 참여자들이 답하지 않으니
+       신호의 대부분이 버려졌다. 참여자에게는 알림으로 물어본다(들어오면 카드에서 답한다). */
+    const patJoins = joins[patId] || [];
+    const memberIds = patJoins.map(j => j.member_id).filter(id => id !== myMemberId);
+    if (memberIds.length > 0) {
+      try {
+        const { data: mem } = await getSupabase()
+          .from("members").select("user_id").in("id", memberIds);
+        const userIds = (mem || []).map(m => m.user_id).filter(Boolean);
+        if (userIds.length > 0) {
+          fetch("/api/push/notify-group", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              groupId: null, userIds,
+              title: `🍚 ${pat.menu} 어땠어요?`,
+              body: "또 갈 만했는지 한 번만 눌러주면 다음 추천이 좋아져요",
+              url: `/groups/${groupId}?tab=pat&rate=${patId}`,
+              excludeUserId: currentUserId || undefined,
+            }),
+          }).catch(() => {/* 알림 실패는 넘긴다 */});
+        }
+      } catch { /* 알림 실패는 넘긴다 */ }
     }
+
+    await askWouldRepeat(patId, pat.menu);
   }
+
+  /** 내가 이 팟에 참여했나 (또 갈래? 는 같이 먹은 사람에게만 묻는다) */
+  function joinedThis(patId: string): boolean {
+    if (!myMemberId) return false;
+    return (joins[patId] || []).some(j => j.member_id === myMemberId);
+  }
+
+  /* 알림("또 갈 만했어요?")을 눌러 들어온 경우 — 주소의 rate 를 보고 바로 묻는다.
+     한 번만 뜨게 ref 로 막는다(목록이 실시간으로 갱신되므로 effect 가 여러 번 돈다). */
+  const ratePromptedRef = useRef(false);
+  useEffect(() => {
+    if (ratePromptedRef.current || loading || pats.length === 0) return;
+    const id = new URLSearchParams(window.location.search).get("rate");
+    if (!id) return;
+    const pat = pats.find(p => p.id === id);
+    if (!pat) return;
+    ratePromptedRef.current = true;
+    if (!rated.includes(id) && (joins[id] || []).some(j => j.member_id === myMemberId)) {
+      /* 렌더가 끝난 뒤에 띄운다 — effect 안에서 바로 부르면 상태 변경이 렌더에
+         물려 연쇄가 생긴다(eslint react-hooks/set-state-in-effect). */
+      const t = setTimeout(() => { void askWouldRepeat(id, pat.menu); }, 0);
+      return () => clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, pats, joins]);
 
   const canParticipate = !!myMemberId;
   const open = pats.filter(p => p.status === "open");
@@ -419,9 +487,19 @@ export default function PatTab({
             {closed.slice(0, 5).map(pat => {
               const patJoins = joins[pat.id] || [];
               return (
-                <div key={pat.id} style={{ padding:"12px 14px", borderRadius:14, background:"var(--bg-2)", opacity:0.7 }}>
+                <div key={pat.id} style={{ padding:"12px 14px", borderRadius:14, background:"var(--bg-2)", opacity: joinedThis(pat.id) && !rated.includes(pat.id) ? 1 : 0.7 }}>
                   <p style={{ fontSize:14, color:"var(--text-2)", marginBottom:4 }}>{pat.title}</p>
                   <span style={{ fontSize:11, color:"var(--text-3)" }}>{patJoins.length}명 참여 · {timeSince(pat.created_at)}</span>
+                  {/* 같이 먹은 사람에게만 묻는다. 한 번 답하면 사라진다. */}
+                  {joinedThis(pat.id) && !rated.includes(pat.id) && (
+                    <button className="tap" onClick={() => askWouldRepeat(pat.id, pat.menu)} style={{
+                      display:"block", marginTop:8, padding:"8px 14px", borderRadius:"var(--r-pill)",
+                      border:"1.5px solid var(--primary)", background:"transparent", color:"var(--primary)",
+                      fontSize:12.5, fontWeight:700, cursor:"pointer",
+                    }}>
+                      🍚 {pat.menu} 또 갈래요?
+                    </button>
+                  )}
                 </div>
               );
             })}
