@@ -8,6 +8,7 @@ import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/plac
 import LoadingCat from "@/components/LoadingCat";
 import MapPanel, { ViewToggle } from "@/components/MapPanel";
 import { dedupePlaces } from "@/lib/dedupePlaces";
+import { densityMap } from "@/lib/density";
 import {
   FOOD_EMOJIS, categoryKey, localFoodIcon, catShort, fmtDist,
   kakaoUrl, naverUrl, googleUrl,
@@ -65,6 +66,9 @@ function NearbyContent() {
   const [mapBroken, setMapBroken] = useState(false);
   /* 가게 이름 → 그 가게로 만들어진 먹자팟 수. 목록 카드는 정규화한 이름으로 세는데
      지도 카드도 같은 값을 써야 두 화면이 다른 말을 하지 않는다. */
+  /* 후보끼리의 밀집도(좌표만으로 계산 — 추가 API 없음) */
+  const nearbyDensity = useMemo(() => densityMap(places, 80), [places]);
+
   const patRestaurantByTitle = useMemo(() => {
     const out: Record<string, number> = {};
     places.forEach(p => {
@@ -481,6 +485,11 @@ function NearbyContent() {
                         );
                         return null;
                       })()}
+                      {nearbyDensity[p.title] >= 3 && (
+                        <span style={{ fontSize:11, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"var(--bg-2)", color:"var(--text-2)", fontWeight:600 }}>
+                          🍜 이 근처 {nearbyDensity[p.title]}곳 더
+                        </span>
+                      )}
                       {getClickCount(p.title, placeClicks) >= 5 && (
                         <span style={{ fontSize:11, padding:"2px 8px", borderRadius:"var(--r-pill)", background:"#FFF0E0", color:"#D65000", fontWeight:700 }}>
                           🔥 많이 찾아봤어요

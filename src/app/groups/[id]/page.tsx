@@ -9,6 +9,7 @@ import { bumpSearched } from "@/lib/behaviorScore";
 import { dedupePlaces, normalizeStoreName } from "@/lib/dedupePlaces";
 import { shareResult } from "@/lib/shareResult";
 import { computeFit } from "@/lib/fitScore";
+import { densityMap } from "@/lib/density";
 import MapPanel, { ViewToggle } from "@/components/MapPanel";
 import { normalizeCoord, cleanTitle } from "@/lib/foodCategory";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendationsDetailed } from "@/lib/recommend";
@@ -1312,6 +1313,12 @@ export default function GroupPage() {
                 🍚 우리 모임이 {visitedCounts[normalizeStoreName(r.title)]}번 갔어요
               </div>
             )}
+            {/* 옆집으로 옮길 수 있는 자리인가 — 여럿이 갈 때 실제로 중요하다 */}
+            {nearbyDensity[r.title] >= 3 && (
+              <div style={{ fontSize:11.5, color:"var(--text-2)", fontWeight:600, marginBottom:4 }}>
+                🍜 이 근처에 후보 {nearbyDensity[r.title]}곳 더 있어요
+              </div>
+            )}
             {hasScore && (
               <div style={{ fontSize:11.5, color:"var(--primary)", fontWeight:600, marginBottom:4 }}>💛 모임 선호도 높음</div>
             )}
@@ -1367,6 +1374,10 @@ export default function GroupPage() {
       phone: "",
     }];
   });
+
+  /* 후보들끼리의 밀집도 — 추가 API 없이 좌표만으로 센다.
+     "이 동네 음식점 수" 가 아니라 "지금 후보 중 이 근처" 다(문구도 그렇게 쓴다). */
+  const nearbyDensity = densityMap(scoredRestaurants, 80);
 
   const sortedRestaurants = [...scoredRestaurants].sort((a, b) => {
     switch (sortBy) {
