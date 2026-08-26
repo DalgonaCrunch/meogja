@@ -7,12 +7,15 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const type = searchParams.get('type') || 'default';
   const title = searchParams.get('title') || '';
+  // result: 정해진 메뉴가 title, 모임 이름이나 고른 사람들이 sub 로 온다
+  const sub = searchParams.get('sub') || '';
 
   const emojiMap: Record<string, string> = {
     battle: '⚔️',
     vote: '🗳️',
     group: '🍽️',
     worldcup: '🏆',
+    result: '🍽️',
     default: '😋',
   };
 
@@ -21,11 +24,15 @@ export async function GET(request: NextRequest) {
     vote: '투표 결과는?',
     worldcup: '나의 최애 메뉴는?',
     group: title || '오늘 뭐 먹을지 같이 정해요!',
+    result: title ? `오늘 메뉴는 ${title}!` : '오늘 메뉴 정했어요!',
     default: '오늘 뭐 먹지?',
   };
 
   const displayTitle = type === 'group' && title ? title : teaserMap[type] || teaserMap.default;
-  const sub = type === 'group' && title ? '같이 뭐 먹을지 정해봐요 →' : 'meogja에서 확인해봐요 →';
+  /* 결과 카드는 "누가 골랐나" 를 아래에 적는다 — 받는 사람이 눌러보는 이유가 거기서 나온다 */
+  const subLine = type === 'result'
+    ? (sub ? `${sub} 취향으로 정했어요 →` : '취향을 모아 정했어요 →')
+    : type === 'group' && title ? '같이 뭐 먹을지 정해봐요 →' : 'meogja에서 확인해봐요 →';
 
   return new ImageResponse(
     (
@@ -63,7 +70,7 @@ export async function GET(request: NextRequest) {
             fontWeight: 500,
           }}
         >
-          {sub}
+          {subLine}
         </div>
         <div
           style={{

@@ -7,6 +7,7 @@ import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import { toast, showAlert, showConfirm, showPrompt } from "@/lib/dialog";
 import { getCategorySubItems } from "@/lib/recommend";
 import { expandDislikes, type IngredientMap } from "@/lib/ingredients";
+import { shareResult } from "@/lib/shareResult";
 import { loadIngredientMap } from "@/lib/ingredientMap";
 import MenuBattle from "./MenuBattle";
 import { MENU_CATEGORIES, MEAL_POOL, ROULETTE_POOL, CAFE_DESSERT_POOL, isMealFood } from "@/lib/menus";
@@ -700,6 +701,16 @@ export default function Home() {
               </button>
             )}
           </div>
+          {/* 정해진 결과가 밖으로 나가야 사람들이 우리를 안다 — 공유가 성장 수단이다 */}
+          {rouletteResult && !rouletteRunning && (
+            <button className="tap" onClick={async () => {
+              const r = await shareResult({ menus: [rouletteResult] });
+              if (r === "copied") toast("링크를 복사했어요");
+            }} style={{ marginTop:10, background:"rgba(255,255,255,.2)", border:"none", color:"#fff",
+              padding:"9px 14px", borderRadius:"var(--r-pill)", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+              🔗 결과 공유하기
+            </button>
+          )}
           {/* 디저트는 따로 뽑는다 — 한 끼 랜덤에 섞으면 점심에 마카롱이 나온다 */}
           <button className="tap" onClick={() => spinRoulette(true)} disabled={rouletteRunning}
             style={{ marginTop:8, background:"none", border:"none", color:"rgba(255,255,255,.9)",

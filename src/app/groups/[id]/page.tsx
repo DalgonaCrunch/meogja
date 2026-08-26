@@ -7,6 +7,7 @@ import { expandDislikes } from "@/lib/ingredients";
 import { loadIngredientMap } from "@/lib/ingredientMap";
 import { bumpSearched } from "@/lib/behaviorScore";
 import { dedupePlaces } from "@/lib/dedupePlaces";
+import { shareResult } from "@/lib/shareResult";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendationsDetailed } from "@/lib/recommend";
 import { getTimeSlot, TIME_FOODS, getAgeGroupFoods } from "@/lib/foodRecommend";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
@@ -2450,6 +2451,25 @@ export default function GroupPage() {
                   cursor: loading ? "default" : "pointer", width: "100%",
                 }}>
                   {loading ? "식당 검색 중…" : `선택한 ${selectedMenus.length}개 메뉴로 식당 찾기 →`}
+                </button>
+              )}
+              {/* 정해진 결과를 밖으로 — 누가 골랐는지까지 담아 보낸다.
+                  결정 서비스는 결과가 공유돼야 퍼진다(우리에게 사실상 유일한 성장 수단). */}
+              {selectedMenus.length > 0 && (
+                <button className="tap" onClick={async () => {
+                  const likedIds = new Set(
+                    menuRecommendations
+                      .filter(r => selectedMenus.includes(r.menu))
+                      .flatMap(r => r.likedByIds || []));
+                  const who = members.filter(m => likedIds.has(m.id)).map(m => m.name);
+                  const res = await shareResult({ menus: selectedMenus, groupName: group?.name, who });
+                  if (res === "copied") toast("링크를 복사했어요");
+                }} style={{
+                  marginTop: 8, padding: "11px 20px", borderRadius: 100,
+                  border: "1.5px solid var(--border)", background: "transparent",
+                  color: "var(--text-2)", fontSize: 14, fontWeight: 700, cursor: "pointer", width: "100%",
+                }}>
+                  🔗 결과 카드 공유하기
                 </button>
               )}
             </div>
