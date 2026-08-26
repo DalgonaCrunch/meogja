@@ -26,6 +26,11 @@ export const BEHAVIOR_WEIGHT = {
   wouldRepeat: 3,
 } as const;
 
+/* 같은 메뉴를 이 세션에서 이미 "찾아봤다" 로 올렸는지 기억한다.
+   🔴 다시 찾기를 누를 때마다 올라가면, 한 메뉴를 스무 번 검색한 사람은 그 메뉴
+   점수가 다른 모든 신호를 덮어 버린다(홈은 최고점으로 정규화한다). */
+const searchedOnce = new Set<string>();
+
 export async function bumpFoodScore(foodName: string, delta: number): Promise<void> {
   const name = (foodName || "").trim();
   if (!name || !delta) return;
@@ -41,4 +46,13 @@ export async function bumpFoodScore(foodName: string, delta: number): Promise<vo
 export async function bumpFoodScores(foodNames: string[], delta: number): Promise<void> {
   const uniq = [...new Set(foodNames.map(n => (n || "").trim()).filter(Boolean))];
   await Promise.all(uniq.map(n => bumpFoodScore(n, delta)));
+}
+
+/** "이 메뉴로 찾아봤다" — 한 세션에서 메뉴마다 한 번만 쌓는다 */
+export async function bumpSearched(foodNames: string[]): Promise<void> {
+  const fresh = foodNames
+    .map(n => (n || "").trim())
+    .filter(n => n && !searchedOnce.has(n));
+  fresh.forEach(n => searchedOnce.add(n));
+  if (fresh.length) await bumpFoodScores(fresh, BEHAVIOR_WEIGHT.searched);
 }

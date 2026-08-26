@@ -19,7 +19,7 @@ import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import { MENU_DATA } from "@/lib/recommend";
 import { getFoodIconUrl } from "@/lib/foodIcons";
-import { savePreference, type TasteVerdict } from "@/lib/tastePrefs";
+import { savePreference, markTasteDone, type TasteVerdict } from "@/lib/tastePrefs";
 import { reportMenuIngredient } from "@/lib/ingredientMap";
 import { toast } from "@/lib/dialog";
 import LoadingCat from "@/components/LoadingCat";
@@ -136,6 +136,7 @@ function TasteContent() {
       // 재료는 한 번에 저장한다(고르는 화면이라 장마다 저장할 것이 없다)
       await Promise.all(badIngredients.map(n => savePreference(userId, n, "never", "ingredient")));
     }
+    markTasteDone(); // 아무것도 안 골랐어도 다시 붙잡지 않는다
     setPhase("done");
   }
 

@@ -59,6 +59,17 @@ export async function savePreference(
   return !err2;
 }
 
+const DONE_KEY = "meogja_taste_done";
+
+/** 튜토리얼을 한 번 끝냈다고 표시 (아무것도 안 고르고 지나간 사람도 다시 안 붙잡는다) */
+export function markTasteDone() {
+  try { localStorage.setItem(DONE_KEY, "1"); } catch { /* 사파리 사생활 모드 등 */ }
+}
+
+export function isTasteDone(): boolean {
+  try { return localStorage.getItem(DONE_KEY) === "1"; } catch { return false; }
+}
+
 /** 이 사람이 선호도를 한 번이라도 등록했는가 (튜토리얼을 띄울지 판단) */
 export async function hasAnyPreference(userId: string): Promise<boolean> {
   const { count } = await getSupabase()

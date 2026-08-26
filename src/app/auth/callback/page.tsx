@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
-import { hasAnyPreference } from "@/lib/tastePrefs";
+import { hasAnyPreference, isTasteDone } from "@/lib/tastePrefs";
 import { Suspense } from "react";
 
 function CallbackContent() {
@@ -159,7 +159,7 @@ function CallbackContent() {
         try {
           const { data: { session } } = await getSupabase().auth.getSession();
           const uid = session?.user?.id;
-          if (uid && next === "/" && !(await hasAnyPreference(uid))) {
+          if (uid && next === "/" && !isTasteDone() && !(await hasAnyPreference(uid))) {
             router.replace("/taste?onboarding=1");
             return;
           }
