@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
+import { bumpFoodScore, BEHAVIOR_WEIGHT } from "@/lib/behaviorScore";
+import { showConfirm, toast } from "@/lib/dialog";
 import { trackPlaceClick, fetchPlaceClickStats, getClickCount } from "@/lib/placeClicks";
 import LoadingCat from "@/components/LoadingCat";
 
@@ -185,6 +187,8 @@ export default function PatTab({
     await getSupabase().from("meal_pat_joins").insert({
       pat_id: pat.id, member_id: myMemberId, member_name: myMemberName,
     });
+    /* 먹으러 가겠다고 한 것 — 설문보다 센 신호다 */
+    void bumpFoodScore(pat.menu, BEHAVIOR_WEIGHT.joinedPat);
   }
 
   async function leavePat(pat: MealPat) {
@@ -195,6 +199,18 @@ export default function PatTab({
 
   async function closePat(patId: string) {
     await getSupabase().from("meal_pats").update({ status: "closed" }).eq("id", patId);
+    /* 먹고 난 뒤 딱 한 번 묻는다. 리뷰보다 훨씬 가볍고, 우리만 쌓을 수 있는 신호다.
+       (별점을 받으려 하면 아무도 안 쓴다 — 한 번 누르면 끝나야 한다) */
+    const pat = pats.find(p => p.id === patId);
+    if (!pat) return;
+    const again = await showConfirm(
+      "또 먹으러 갈 만했나요? 다음 추천에 반영해드려요.",
+      { title: `${pat.menu} 어땠어요?`, icon: "🍚", confirmLabel: "또 갈래요 👍" },
+    );
+    if (again) {
+      await bumpFoodScore(pat.menu, BEHAVIOR_WEIGHT.wouldRepeat);
+      toast(`${pat.menu} 취향에 반영했어요`);
+    }
   }
 
   const canParticipate = !!myMemberId;

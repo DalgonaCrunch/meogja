@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
 import { expandDislikes } from "@/lib/ingredients";
 import { loadIngredientMap } from "@/lib/ingredientMap";
+import { bumpFoodScores, BEHAVIOR_WEIGHT } from "@/lib/behaviorScore";
 import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendationsDetailed } from "@/lib/recommend";
 import { getTimeSlot, TIME_FOODS, getAgeGroupFoods } from "@/lib/foodRecommend";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
@@ -834,6 +835,8 @@ export default function GroupPage() {
 
   async function handleRestaurantByMenus() {
     if (selectedMenus.length === 0) return;
+    /* 이 메뉴로 식당을 찾아본 것 자체가 취향 신호다 — 뒤에서 점수로 쌓는다 */
+    void bumpFoodScores(selectedMenus, BEHAVIOR_WEIGHT.searched);
     setLoading(true);
     setScoredRestaurants([]);
     const { data: prefs } = await getSupabase().from("food_preferences").select("*").in("member_id", selected);
