@@ -43,8 +43,13 @@ page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text(
 page.on("pageerror", (e) => consoleErrors.push("pageerror: " + e.message));
 
 // 검색 결과·설정·이미지는 가짜로 (로컬에 키가 없다)
-await ctx.route("**/api/nearby*", (r) =>
-  r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: FAKE, total: FAKE.length }) }));
+let nearbyCalls = 0;
+await ctx.route("**/api/nearby*", (r) => {
+  nearbyCalls++;
+  return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: FAKE, total: FAKE.length }) });
+});
+await ctx.route("**/api/reverse-geocode*", (r) =>
+  r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ address: "역삼동" }) }));
 await ctx.route("**/api/admin/settings*", (r) =>
   r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ search_provider: "kakao" }) }));
 await ctx.route("**/api/food-image*", (r) =>
@@ -115,13 +120,40 @@ if (diag.sdk && !diag.errText) {
   }
 }
 
+// 지도를 밀면 "이 지역에서 다시 찾기" 가 뜨고, 누르면 그 자리로 다시 검색한다
+let searchHereOk = false;
+if (diag.sdk && !diag.errText) {
+  const box = await page.locator('div[style*="border-radius: 16px"]').first().boundingBox();
+  if (box) {
+    const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(cx - 170, cy - 150, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(1200);
+    const btn = page.getByRole("button", { name: /이 지역에서 다시 찾기/ });
+    if (await btn.count()) {
+      const before = nearbyCalls;
+      await page.screenshot({ path: `${OUT}-5-moved.png` });
+      await btn.click();
+      await page.waitForTimeout(2500);
+      searchHereOk = nearbyCalls > before &&
+        (await page.getByRole("button", { name: /이 지역에서 다시 찾기/ }).count()) === 0;
+      await page.screenshot({ path: `${OUT}-6-researched.png` });
+    } else {
+      problems.push('지도를 밀었는데 "이 지역에서 다시 찾기" 가 안 뜸');
+    }
+  }
+  if (!searchHereOk) problems.push('"이 지역에서 다시 찾기" 가 재검색으로 이어지지 않음');
+}
+
 if (!diag.sdk) problems.push("카카오 지도 SDK 가 로드되지 않음 (도메인 미등록이거나 키 문제)");
 if (diag.errText) problems.push("화면에 '지도를 불러오지 못했어요' 표시됨");
 if (diag.loadingText) problems.push("여전히 '지도 여는 중' 상태");
 if (diag.sdk && !diag.errText && diag.tiles === 0) problems.push("지도 타일 이미지가 하나도 없음");
 if (diag.sdk && !diag.errText && !cardShown) problems.push("마커를 눌러도 가게 카드가 안 뜸");
 
-console.log(JSON.stringify({ diag, cardShown, problems, consoleErrors: consoleErrors.slice(0, 8) }, null, 2));
+console.log(JSON.stringify({ diag, cardShown, keepPick, searchHereOk, nearbyCalls, problems, consoleErrors: consoleErrors.slice(0, 8) }, null, 2));
 console.log(problems.length ? "\n❌ 문제 " + problems.length + "건" : "\n✅ 지도 확인 통과");
 
 await browser.close();

@@ -8,12 +8,17 @@
  * 컴포넌트로 뽑았다.
  */
 
+import { useState } from "react";
 import NearbyMap, { type MapPlace } from "@/components/NearbyMap";
 import { trackPlaceClick } from "@/lib/placeClicks";
 import {
   FOOD_EMOJIS, categoryKey, localFoodIcon, catShort, fmtDist,
-  kakaoUrl, naverUrl, googleUrl,
+  kakaoUrl, naverUrl, googleUrl, distanceMeters,
 } from "@/lib/foodCategory";
+
+/* 이만큼 밀었으면 "이 지역에서 다시 찾기" 를 보여준다. 조금 흔들린 것으로
+   버튼이 깜빡이면 성가시다. */
+const MOVED_THRESHOLD_M = 400;
 
 type Props = {
   places: MapPlace[];
@@ -27,16 +32,27 @@ type Props = {
   height?: string;
   /** 지도를 못 띄웠을 때 (부르는 쪽이 목록으로 되돌린다) */
   onUnavailable?: () => void;
+  /** "이 지역에서 다시 찾기" — 지도를 밀어 옮긴 위치로 다시 검색한다 */
+  onSearchHere?: (c: { x: number; y: number }) => void;
+  /** 다시 찾는 중이면 버튼을 잠근다 */
+  searching?: boolean;
 };
 
 export default function MapPanel({
   places, center, images = {}, selectedIndex, onSelect, onFindGroup,
-  height = "min(58vh, 460px)", onUnavailable,
+  height = "min(58vh, 460px)", onUnavailable, onSearchHere, searching = false,
 }: Props) {
   const picked = selectedIndex !== null ? places[selectedIndex] : undefined;
+  /* 사용자가 지도를 밀어 옮긴 중심. 기준점에서 멀어지면 다시 찾기를 권한다.
+     어느 기준점에서 밀었는지(baseKey)를 함께 들고 있어서, 새로 검색해 기준점이
+     바뀌면 옛 권유가 저절로 무효가 된다(effect 로 지우지 않아도 된다). */
+  const baseKey = center ? `${center.x},${center.y}` : "-";
+  const [moved, setMoved] = useState<{ at: { x: number; y: number }; base: string } | null>(null);
+  const movedTo = moved && moved.base === baseKey ? moved.at : null;
+  const far = !!(onSearchHere && movedTo && center && distanceMeters(center, movedTo) > MOVED_THRESHOLD_M);
 
   return (
-    <div style={{ padding: "12px 16px 0" }}>
+    <div style={{ padding: "12px 16px 0", position: "relative" }}>
       <NearbyMap
         places={places}
         center={center}
@@ -45,7 +61,27 @@ export default function MapPanel({
         onSelect={onSelect}
         height={height}
         onUnavailable={onUnavailable}
+        onMoved={onSearchHere ? (c) => setMoved({ at: c, base: baseKey }) : undefined}
       />
+
+      {/* 지도를 옮겼으면 그 자리에서 다시 찾도록 권한다 */}
+      {far && (
+        <button className="tap" disabled={searching}
+          onClick={() => { if (movedTo) { onSearchHere!(movedTo); setMoved(null); } }}
+          style={{
+            position: "absolute", left: "50%", transform: "translateX(-50%)",
+            bottom: 58, zIndex: 30,
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "9px 16px", borderRadius: "var(--r-pill)", border: "none",
+            background: "var(--primary)", color: "#fff",
+            fontFamily: "var(--font-display)", fontSize: 13.5,
+            boxShadow: "0 4px 14px rgba(0,0,0,.28)",
+            cursor: searching ? "default" : "pointer", opacity: searching ? .6 : 1,
+          }}>
+          <span style={{ display: "inline-block", animation: searching ? "spin .8s linear infinite" : "none" }}>↻</span>
+          {searching ? "찾는 중…" : "이 지역에서 다시 찾기"}
+        </button>
+      )}
 
       {picked && (() => {
         const p = picked;

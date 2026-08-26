@@ -79,3 +79,13 @@ export function normalizeCoord(raw: string | number | undefined | null): number 
 export function cleanTitle(t: string | undefined | null): string {
   return (t || "").replace(/<[^>]*>/g, "");
 }
+
+/** 두 좌표 사이 거리(m). "이 지역에서 다시 찾기" 를 보여줄지 판단하는 데 쓴다. */
+export function distanceMeters(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  const R = 6371e3;
+  const dLat = (b.y - a.y) * Math.PI / 180;
+  const dLng = (b.x - a.x) * Math.PI / 180;
+  const la1 = a.y * Math.PI / 180, la2 = b.y * Math.PI / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}

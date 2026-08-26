@@ -20,6 +20,7 @@ type KBounds = { extend(ll: KLatLng): void; isEmpty(): boolean };
 type KMap = {
   setBounds(b: KBounds, ...padding: number[]): void;
   setCenter(ll: KLatLng): void;
+  getCenter(): KLatLng;
   setLevel(level: number): void;
   relayout(): void;
 };
@@ -27,8 +28,13 @@ type KOverlay = {
   setMap(map: KMap | null): void;
   setZIndex(z: number): void;
 };
+type KEventTarget = KMap;
 type KakaoMaps = {
   load(cb: () => void): void;
+  event: {
+    addListener(target: KEventTarget, type: string, handler: () => void): void;
+    removeListener(target: KEventTarget, type: string, handler: () => void): void;
+  };
   LatLng: new (lat: number, lng: number) => KLatLng;
   LatLngBounds: new () => KBounds;
   Map: new (container: HTMLElement, opts: { center: KLatLng; level: number }) => KMap;
@@ -158,10 +164,12 @@ type Props = {
   /** 지도를 띄울 수 없을 때(키 없음·SDK 실패) 알린다. 지도가 기본 화면이므로
    *  부르는 쪽이 목록으로 되돌려 결과가 안 보이는 상황을 막는다. */
   onUnavailable?: () => void;
+  /** 사용자가 지도를 밀거나 줌을 바꿔 멈췄을 때의 화면 중심 (x=경도, y=위도) */
+  onMoved?: (c: { x: number; y: number }) => void;
 };
 
 export default function NearbyMap({
-  places, center, getEmoji, selectedIndex, onSelect, height = 420, onUnavailable,
+  places, center, getEmoji, selectedIndex, onSelect, height = 420, onUnavailable, onMoved,
 }: Props) {
   const boxRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KMap | null>(null);
@@ -245,6 +253,27 @@ export default function NearbyMap({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, places, center, selectedIndex]);
+
+  /* 콜백이 바뀌어도 리스너를 다시 달지 않게 최신 것을 담아 둔다 */
+  const onMovedRef = useRef(onMoved);
+  onMovedRef.current = onMoved;
+
+  // ── 지도를 밀거나 줌을 바꾸면 그 중심을 알린다 ("이 지역에서 다시 찾기")
+  useEffect(() => {
+    if (status !== "ready" || !mapRef.current || !window.kakao) return;
+    const maps = window.kakao.maps;
+    const map = mapRef.current;
+    const notify = () => {
+      const c = map.getCenter();
+      onMovedRef.current?.({ x: c.getLng(), y: c.getLat() });
+    };
+    maps.event.addListener(map, "dragend", notify);
+    maps.event.addListener(map, "zoom_changed", notify);
+    return () => {
+      maps.event.removeListener(map, "dragend", notify);
+      maps.event.removeListener(map, "zoom_changed", notify);
+    };
+  }, [status]);
 
   // ── 지도를 못 띄우면 부르는 쪽에 알린다 (지도가 기본 화면이라 목록으로 되돌려야 한다)
   useEffect(() => {

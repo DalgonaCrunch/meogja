@@ -202,6 +202,17 @@ function NearbyContent() {
     setLoading(false);
   }
 
+  /* 지도를 밀어 옮긴 자리에서 다시 찾기. 헤더 위치도 그 동네 이름으로 바꿔 준다
+     (그러지 않으면 "강남역 기준" 이라고 적힌 채 다른 동네 결과가 보인다). */
+  async function searchHere(c: { x: number; y: number }) {
+    fetchNearby(c.x, c.y, sort, searchProvider);
+    try {
+      const r = await fetch(`/api/reverse-geocode?x=${c.x}&y=${c.y}`);
+      const d = await r.json();
+      setLocationLabel(d.address || null);
+    } catch { setLocationLabel(null); }
+  }
+
   // 현재 기준 위치로 목록만 다시 조회 (위치 재감지 없음)
   function refresh() {
     if (!coords || loading || locating) return;
@@ -393,6 +404,8 @@ function NearbyContent() {
           onSelect={setPickedIdx}
           onFindGroup={(p) => { setFindGroupModal(p as Place); setGroupNameInput(`${p.title} 같이 먹어요`); }}
           onUnavailable={() => { if (!mapBroken) { setMapBroken(true); setView("list"); } }}
+          onSearchHere={searchHere}
+          searching={loading}
         />
       )}
 

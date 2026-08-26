@@ -158,6 +158,18 @@ function SearchContent() {
     return () => window.removeEventListener("meogja-location-change", onLocChange);
   }, []);
 
+  /* 지도를 밀어 옮긴 자리에서 다시 찾기. location 이 바뀌면 위 effect 가 재검색한다.
+     동네 이름도 같이 바꾼다 — 헤더에 옛 지역명이 남아 있으면 결과와 어긋난다. */
+  async function searchHere(c: { x: number; y: number }) {
+    let label: string | undefined;
+    try {
+      const r = await fetch(`/api/reverse-geocode?x=${c.x}&y=${c.y}`);
+      const d = await r.json();
+      label = d.address || undefined;
+    } catch { /* 이름은 없어도 검색은 된다 */ }
+    setLocation({ lat: c.y, lng: c.x, label });
+  }
+
   // 같은 기준 위치로 결과만 다시 조회
   function refresh() {
     if (!location || loading || locating) return;
@@ -449,6 +461,8 @@ function SearchContent() {
               setGroupNameInput(`${p.title} 같이 먹어요`);
             }}
             onUnavailable={() => { if (!mapBroken) { setMapBroken(true); setView("list"); } }}
+            onSearchHere={searchHere}
+            searching={loading}
           />
         </div>
       )}
