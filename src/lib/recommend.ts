@@ -1,4 +1,5 @@
 import { FoodPreference } from "./supabase";
+import { expandDislikes } from "./ingredients";
 
 export type MenuItem = {
   name: string;
@@ -291,47 +292,160 @@ export function getAllCategories(): string[] {
   return [...getAllLargeCategories(), ...getAllMediumCategories()];
 }
 
-export function getRecommendations(
+/* ── 점수 약속 (마이그레이션 20260826000001 과 같은 값) ────────────────
+   +3 최고 / +2 좋아 / -1 별로 / -9 못 먹음. -5 이하는 "아예 제외". */
+const HARD_LIMIT = -5;
+const DEFAULT_LIKE = 2;
+const DEFAULT_DISLIKE = -9;
+
+function prefScore(p: FoodPreference): number {
+  if (typeof p.score === "number") return p.score;
+  return p.preference_type === "dislike" ? DEFAULT_DISLIKE : DEFAULT_LIKE; // 옛 행
+}
+
+/** 문자열 → 32비트 해시. 같은 씨앗이면 같은 순서가 나오게 하는 데 쓴다. */
+function hashSeed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/** mulberry32 — 씨앗이 같으면 늘 같은 수열. Math.random 을 비교 함수 안에서
+ *  쓰면 안 된다(비교가 흔들려 정렬 결과가 엔진에 따라 달라지고, 새로 그릴 때마다
+ *  순서가 바뀌어 사용자가 신뢰를 잃는다). */
+function seededRandom(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export type Recommendation = {
+  menu: string;
+  large: string;
+  medium: string;
+  score: number;
+  likedByIds: string[];
+  /** 참여자 전원이 좋아하는가 */
+  likedByAll: boolean;
+};
+
+export type RecommendResult = {
+  items: Recommendation[];
+  /** 제외 조건이 너무 세서 아무것도 안 남아 어쩔 수 없이 되살린 경우 */
+  relaxed: boolean;
+  /** 제외로 사라진 후보 수 (안내 문구용) */
+  excludedCount: number;
+};
+
+/**
+ * 모임원들의 선호로 메뉴를 고른다.
+ *
+ * 규칙:
+ *  1. 누구든 **못 먹는 것(-5 이하)** 은 먼저 뺀다. 재료로 표시한 것은 `expandDislikes`
+ *     가 실제 메뉴 목록으로 펼친다(마라 → 마라탕·마라샹궈·훠궈…).
+ *  2. 좋아함은 **구체적인 쪽에 무게를 더** 준다(메뉴 x3 / 중분류 x2 / 대분류 x1).
+ *     예전에는 "한식 좋아요" 와 "김치찌개 좋아요" 가 같은 1점이었다.
+ *  3. **전원이 좋아하는 것**을 먼저 올린다. 그다음 점수.
+ *  4. 같은 입력에 늘 같은 1등만 나오지 않도록 아주 작은 흔들림을 준다. 단 씨앗을
+ *     받아서 흔든다 — 같은 씨앗이면 결과가 같다(새로고침해도 순서가 안 바뀐다).
+ *  5. 다 빼서 아무것도 안 남으면 빈 화면 대신 되살려 주고 `relaxed` 로 알린다.
+ */
+export function getRecommendationsDetailed(
   preferences: FoodPreference[],
   participantIds: string[],
-  count: number = 5
-): { menu: string; large: string; medium: string; score: number; likedByIds: string[] }[] {
-  const participantPrefs = preferences.filter((p) =>
-    participantIds.includes(p.member_id)
-  );
+  count: number = 5,
+  seed?: string
+): RecommendResult {
+  const participantPrefs = preferences.filter((p) => participantIds.includes(p.member_id));
 
-  const dislikes = new Set(
-    participantPrefs
-      .filter((p) => p.preference_type === "dislike")
-      .map((p) => p.food_name)
-  );
-
-  const likesByFood: Record<string, Set<string>> = {};
+  // 1. 못 먹는 것 — 이름을 실제 메뉴로 펼친다
+  const dislikeNames = participantPrefs.filter(p => prefScore(p) <= HARD_LIMIT).map(p => p.food_name);
+  const { hard, soft } = expandDislikes(dislikeNames);
+  // 별로(-1 등)는 빼지 않고 점수만 깎는다
+  const mildPenalty = new Map<string, number>();
   participantPrefs
-    .filter((p) => p.preference_type === "like")
-    .forEach((p) => {
-      if (!likesByFood[p.food_name]) likesByFood[p.food_name] = new Set();
-      likesByFood[p.food_name].add(p.member_id);
-    });
+    .filter(p => { const s = prefScore(p); return s < 0 && s > HARD_LIMIT; })
+    .forEach(p => mildPenalty.set(p.food_name, (mildPenalty.get(p.food_name) ?? 0) + 1));
 
-  const candidates: { menu: string; large: string; medium: string; score: number; likedByIds: string[] }[] = [];
+  // 2. 좋아함 — 이름별로 누가 좋아하는지 + 세기
+  type Like = { by: Set<string>; sum: number };
+  const likes: Record<string, Like> = {};
+  participantPrefs.filter(p => prefScore(p) > 0).forEach(p => {
+    const e = likes[p.food_name] ?? (likes[p.food_name] = { by: new Set(), sum: 0 });
+    e.by.add(p.member_id);
+    e.sum += prefScore(p);
+  });
+
+  const rand = seededRandom(hashSeed(seed ?? participantIds.join(",")));
+  const items: Recommendation[] = [];
+  let excludedCount = 0;
 
   for (const large of MENU_DATA) {
-    if (dislikes.has(large.name)) continue;
     for (const medium of large.medium) {
-      if (dislikes.has(medium.name)) continue;
       for (const menu of medium.items) {
-        if (dislikes.has(menu)) continue;
-        const likedByIds = Array.from(new Set([
-          ...(likesByFood[menu] ?? []),
-          ...(likesByFood[medium.name] ?? []),
-          ...(likesByFood[large.name] ?? []),
-        ])).filter(id => participantIds.includes(id));
-        candidates.push({ menu, large: large.name, medium: medium.name, score: likedByIds.length, likedByIds });
+        if (hard.has(menu) || hard.has(medium.name) || hard.has(large.name)) { excludedCount++; continue; }
+
+        const lMenu = likes[menu], lMed = likes[medium.name], lLarge = likes[large.name];
+        const likedBy = new Set<string>([
+          ...(lMenu?.by ?? []), ...(lMed?.by ?? []), ...(lLarge?.by ?? []),
+        ]);
+        // 구체적인 쪽에 무게를 더 준다
+        let score = (lMenu?.sum ?? 0) * 3 + (lMed?.sum ?? 0) * 2 + (lLarge?.sum ?? 0);
+        score -= (mildPenalty.get(menu) ?? 0) * 3;
+        score -= (mildPenalty.get(medium.name) ?? 0) * 2;
+        score -= (mildPenalty.get(large.name) ?? 0);
+        score -= (soft.get(menu) ?? 0) * 1.5; // 양파·마늘처럼 흔한 재료는 뒤로만 밀기
+
+        items.push({
+          menu, large: large.name, medium: medium.name,
+          score, likedByIds: Array.from(likedBy),
+          likedByAll: participantIds.length > 0 && likedBy.size === participantIds.length,
+        });
       }
     }
   }
 
-  candidates.sort((a, b) => b.score - a.score || Math.random() - 0.5);
-  return candidates.slice(0, count);
+  // 4. 흔들림은 정렬 전에 한 번만 계산한다(비교 함수 안에서 난수를 쓰면 안 된다)
+  const jitter = new Map<string, number>();
+  items.forEach(it => jitter.set(it.menu, rand() * 1.2));
+
+  const sorted = [...items].sort((a, b) => {
+    if (a.likedByAll !== b.likedByAll) return a.likedByAll ? -1 : 1;
+    const sa = a.score + (jitter.get(a.menu) ?? 0);
+    const sb = b.score + (jitter.get(b.menu) ?? 0);
+    return sb - sa;
+  });
+
+  // 5. 다 빠졌으면 빈 화면 대신 되살린다
+  if (sorted.length === 0) {
+    const fallback: Recommendation[] = [];
+    for (const large of MENU_DATA) {
+      for (const medium of large.medium) {
+        for (const menu of medium.items) {
+          fallback.push({ menu, large: large.name, medium: medium.name, score: 0, likedByIds: [], likedByAll: false });
+        }
+      }
+    }
+    fallback.sort(() => rand() - 0.5);
+    return { items: fallback.slice(0, count), relaxed: true, excludedCount };
+  }
+
+  return { items: sorted.slice(0, count), relaxed: false, excludedCount };
+}
+
+/** 예전 형태 그대로 쓰는 화면을 위한 얇은 껍데기 */
+export function getRecommendations(
+  preferences: FoodPreference[],
+  participantIds: string[],
+  count: number = 5,
+  seed?: string
+): { menu: string; large: string; medium: string; score: number; likedByIds: string[] }[] {
+  return getRecommendationsDetailed(preferences, participantIds, count, seed).items;
 }

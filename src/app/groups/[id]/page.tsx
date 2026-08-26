@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getSupabase, Group, Member, FoodPreference } from "@/lib/supabase";
-import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendations } from "@/lib/recommend";
+import { expandDislikes } from "@/lib/ingredients";
+import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySubItems, getAllMediumCategories, getRecommendationsDetailed } from "@/lib/recommend";
 import { getTimeSlot, TIME_FOODS, getAgeGroupFoods } from "@/lib/foodRecommend";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import { toast, showAlert, showConfirm, showPrompt } from "@/lib/dialog";
@@ -201,7 +202,9 @@ export default function GroupPage() {
   const [excludeDelivery, setExcludeDelivery] = useState(true);
   // 검색 모드
   const [searchMode, setSearchMode] = useState<"restaurant" | "menu">("restaurant");
-  const [menuRecommendations, setMenuRecommendations] = useState<{ menu: string; large: string; medium: string; score: number; likedByIds: string[] }[]>([]);
+  const [menuRecommendations, setMenuRecommendations] = useState<{ menu: string; large: string; medium: string; score: number; likedByIds: string[]; likedByAll?: boolean }[]>([]);
+  /* 못 먹는 것이 너무 많아 후보가 남지 않아 되살린 경우 — 화면에 알려 준다 */
+  const [recRelaxed, setRecRelaxed] = useState(false);
   const [selectedMenus, setSelectedMenus] = useState<string[]>([]);
   const [voteUrl, setVoteUrl] = useState<string | null>(null);
   const [creatingVote, setCreatingVote] = useState(false);
@@ -816,8 +819,12 @@ export default function GroupPage() {
     setSelectedMenus([]);
     const { data: prefs } = await getSupabase().from("food_preferences").select("*").in("member_id", selected);
     if (prefs) {
-      const recs = getRecommendations(prefs, selected, 15);
-      setMenuRecommendations(recs);
+      /* 씨앗을 넣어 순서를 흔든다. 모임+날짜 기준이라 같은 날 다시 눌러도 순서가
+         그대로고(신뢰), 날이 바뀌면 다른 메뉴가 앞으로 온다(같은 것만 나오지 않게). */
+      const seed = `${id}-${new Date().toISOString().slice(0, 10)}`;
+      const res = getRecommendationsDetailed(prefs, selected, 15, seed);
+      setMenuRecommendations(res.items);
+      setRecRelaxed(res.relaxed);
     }
     setLoading(false);
   }
@@ -827,7 +834,12 @@ export default function GroupPage() {
     setLoading(true);
     setScoredRestaurants([]);
     const { data: prefs } = await getSupabase().from("food_preferences").select("*").in("member_id", selected);
-    const dislikes = new Set(prefs?.filter((p) => p.preference_type === "dislike").map((p) => p.food_name) ?? []);
+    /* 못 먹는 것은 재료 이름으로 저장돼 있어 카테고리 문자열과 그냥 비교하면
+       엉뚱하게 걸린다(파 → 파스타). 실제 메뉴 이름으로 펼쳐서 쓴다. */
+    const dislikeNames = (prefs ?? [])
+      .filter((p) => (typeof p.score === "number" ? p.score <= -5 : p.preference_type === "dislike"))
+      .map((p) => p.food_name);
+    const dislikes = expandDislikes(dislikeNames).hard;
     const results = await Promise.all(selectedMenus.map((q) => searchNearbyFromProvider(q, [...providers][0] || "naver")));
     const all = results.flat();
     const seen = new Set<string>();
@@ -863,7 +875,12 @@ export default function GroupPage() {
 
     const { data: prefs } = await getSupabase().from("food_preferences").select("*").in("member_id", selected);
     const likes = prefs?.filter((p) => p.preference_type === "like").map((p) => p.food_name) ?? [];
-    const dislikes = new Set(prefs?.filter((p) => p.preference_type === "dislike").map((p) => p.food_name) ?? []);
+    /* 못 먹는 것은 재료 이름으로 저장돼 있어 카테고리 문자열과 그냥 비교하면
+       엉뚱하게 걸린다(파 → 파스타). 실제 메뉴 이름으로 펼쳐서 쓴다. */
+    const dislikeNames = (prefs ?? [])
+      .filter((p) => (typeof p.score === "number" ? p.score <= -5 : p.preference_type === "dislike"))
+      .map((p) => p.food_name);
+    const dislikes = expandDislikes(dislikeNames).hard;
 
     // 카테고리 필터 우선 적용
     const DEFAULT_QUERIES = ["한식", "중식", "일식", "양식", "분식", "고기", "카페"];
@@ -2378,6 +2395,12 @@ export default function GroupPage() {
                   <img src="/mascot/tabs/refresh.png" style={{width:18,height:18,objectFit:"contain",marginRight:4}}/>다시 추천
                 </button>
               </div>
+              {/* 못 먹는 것이 너무 많아 겹치는 메뉴가 없을 때 — 빈 화면 대신 알려 준다 */}
+              {recRelaxed && (
+                <div style={{ padding: "10px 14px", borderRadius: 12, background: "#FFF4CC", border: "1.5px solid #F5A623", color: "#7A5A00", fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>
+                  🙃 모두가 먹을 수 있는 메뉴가 없어서 일단 골라봤어요. 못 먹는 음식이 겹쳐요 — 프로필에서 조금 줄여보면 더 잘 맞춰드릴 수 있어요.
+                </div>
+              )}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
                 {menuRecommendations.map((rec) => {
                   const isSel = selectedMenus.includes(rec.menu);

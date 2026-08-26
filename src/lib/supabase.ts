@@ -99,5 +99,9 @@ export type FoodPreference = {
   member_id: string;
   food_name: string;
   preference_type: "like" | "dislike";
+  /** 세기: +3 최고 / +2 좋아 / -1 별로 / -9 못 먹음(제외). 옛 행은 없을 수 있다 */
+  score?: number | null;
+  /** 이 이름의 정체: 재료 / 메뉴 / 카테고리 */
+  kind?: "ingredient" | "menu" | "category" | null;
   created_at: string;
 };

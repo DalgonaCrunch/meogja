@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import { toast, showAlert, showConfirm, showPrompt } from "@/lib/dialog";
 import { getCategorySubItems } from "@/lib/recommend";
+import { expandDislikes } from "@/lib/ingredients";
 import MenuBattle from "./MenuBattle";
 import { MENU_CATEGORIES, MEAL_POOL, ROULETTE_POOL } from "@/lib/menus";
 import { getFoodIconUrl } from "@/lib/foodIcons";
@@ -230,6 +231,10 @@ export default function Home() {
   const [weatherCondition, setWeatherCondition] = useState<WeatherCondition | null>(null);
   const [weatherEmoji, setWeatherEmoji] = useState<string>("");
   const [homeDislikedFoods, setHomeDislikedFoods] = useState<string[]>([]);
+  /* 못 먹는 이름(재료일 수도, 메뉴일 수도)을 실제 메뉴 목록으로 펼친 것.
+     예전에는 문자열 부분일치로 걸렀는데 양쪽으로 다 틀렸다 —
+     `마라` 가 마라탕을 못 잡고, `파` 는 파스타·짜파게티까지 지웠다. */
+  const homeHardDislikes = useMemo(() => expandDislikes(homeDislikedFoods).hard, [homeDislikedFoods]);
   const [homeUserScores, setHomeUserScores] = useState<Map<string,number>>(new Map());
   const [homeSettings, setHomeSettings] = useState<{
     show_roulette:boolean; show_battle:boolean; show_ranking:boolean; show_trending_bar:boolean;
@@ -421,7 +426,7 @@ export default function Home() {
     ]);
     let pool = Array.from(rCandidates)
       .filter(n => !ROULETTE_CATEGORY_EXCLUDE.has(n))
-      .filter(n => !homeDislikedFoods.some(d => n.includes(d) || d.includes(n)))
+      .filter(n => !homeHardDislikes.has(n))
       .sort(() => Math.random() - 0.5)
       .slice(0, 40);
     if (pool.length === 0) pool = [...MEAL_POOL];
@@ -715,7 +720,7 @@ export default function Home() {
         ]);
         const algoRanked = Array.from(candidateSet)
           .filter(name => !ROULETTE_CATEGORY_EXCLUDE.has(name))
-          .filter(name => !homeDislikedFoods.some(d => name.includes(d) || d.includes(name)))
+          .filter(name => !homeHardDislikes.has(name))
           .map(name => {
           const timeScore = timeScoreMap.get(name) || 0;
           const ageScore = ageScoreMap.get(name) || 0;
@@ -738,7 +743,7 @@ export default function Home() {
 
         // 고정 메뉴를 맨 앞에 삽입
         const pinnedItems = homeSettings.pinned_menus
-          .filter(m => !homeDislikedFoods.some(d => m.includes(d) || d.includes(m)))
+          .filter(m => !homeHardDislikes.has(m))
           .map(name => ({ name, matchPct: 99, tags: ["📌 고정"] as string[] }));
         const nonPinned = algoRanked.filter(r => !homeSettings.pinned_menus.includes(r.name));
         const ranked = [...pinnedItems, ...nonPinned].slice(0, 10);
