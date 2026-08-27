@@ -726,19 +726,22 @@ export default function Home() {
                 ✨ 이걸로 찾기 →
               </button>
             )}
+            {/* 정해진 결과가 밖으로 나가야 사람들이 우리를 안다 — 공유가 성장 수단이다.
+               한 줄 안에 두어야 버튼이 혼자 떠 보이지 않는다 */}
+            {rouletteResult && !rouletteRunning && (
+              <button className="tap" aria-label="결과 공유하기" onClick={async () => {
+                /* 화면에 나온 먹자냥 얼굴을 같이 보낸다 — 받은 사람이 같은 카드를 본다 */
+                const r = await shareResult({ menus: [rouletteResult], mascot: catImg });
+                if (r === "copied") toast("링크를 복사했어요");
+              }} style={{
+                flex:"0 0 auto", padding:"11px 15px", borderRadius:"var(--r-pill)", border:"none",
+                background:"rgba(255,255,255,.2)", color:"#fff",
+                fontSize:17, lineHeight:1, cursor:"pointer",
+              }}>
+                🔗
+              </button>
+            )}
           </div>
-          {/* 정해진 결과가 밖으로 나가야 사람들이 우리를 안다 — 공유가 성장 수단이다 */}
-          {rouletteResult && !rouletteRunning && (
-            <button className="tap" onClick={async () => {
-              /* 화면에 나온 먹자냥 얼굴을 같이 보낸다 — 받은 사람이 같은 카드를 본다 */
-              const r = await shareResult({ menus: [rouletteResult], mascot: catImg });
-              if (r === "copied") toast("링크를 복사했어요");
-            }} style={{ marginTop:10, background:"rgba(255,255,255,.2)", border:"none", color:"#fff",
-              padding:"9px 14px", borderRadius:"var(--r-pill)", fontSize:13, fontWeight:700, cursor:"pointer" }}>
-              🔗 결과 공유하기
-            </button>
-          )}
-
         </div>
       </div>}
 
