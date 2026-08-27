@@ -734,11 +734,15 @@ export default function Home() {
                 const r = await shareResult({ menus: [rouletteResult], mascot: catImg });
                 if (r === "copied") toast("링크를 복사했어요");
               }} style={{
-                flex:"0 0 auto", padding:"11px 15px", borderRadius:"var(--r-pill)", border:"none",
-                background:"rgba(255,255,255,.2)", color:"#fff",
-                fontSize:17, lineHeight:1, cursor:"pointer",
+                flex:"0 0 auto", padding:"6px 13px", borderRadius:"var(--r-pill)", border:"none",
+                /* 히어로 그라데이션 위에서 .2 는 거의 안 보인다 — 배경을 진하게 하고 테두리로 경계를 준다 */
+                background:"rgba(255,255,255,.32)", boxShadow:"inset 0 0 0 1px rgba(255,255,255,.5)",
+                color:"#fff", cursor:"pointer",
+                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:1,
               }}>
-                🔗
+                <span style={{ fontSize:17, lineHeight:1.1 }}>🔗</span>
+                {/* 아이콘만 두면 무슨 버튼인지 모른다 — 공유는 우리 성장 수단이라 놓치면 안 된다 */}
+                <span style={{ fontSize:10, fontWeight:800, lineHeight:1, letterSpacing:"-.2px" }}>공유</span>
               </button>
             )}
           </div>

@@ -1,0 +1,79 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - button "meogja" [ref=e4] [cursor=pointer]:
+        - img "meogja"
+      - button "로그인" [ref=e6] [cursor=pointer]
+    - generic [ref=e7]:
+      - button "위치 확인 중… 위치 변경" [ref=e8] [cursor=pointer]:
+        - generic [ref=e9]: 위치 확인 중…
+        - generic [ref=e10]: 위치 변경
+      - button "현재 위치로 다시 찾기" [disabled] [ref=e11]: ↺
+  - main [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - paragraph [ref=e17]: 오늘 뭐 먹지?
+          - generic [ref=e18]:
+            - button "🍚 식사" [pressed] [ref=e19] [cursor=pointer]
+            - button "🍰 디저트" [ref=e20] [cursor=pointer]
+        - button "메뉴 다시 뽑기" [ref=e22] [cursor=pointer]: 랜덤 추천
+      - generic [ref=e23]:
+        - generic [ref=e25]:
+          - paragraph [ref=e26]: 지금 가장 잘 맞는 메뉴
+          - paragraph [ref=e27]: 🧋 오후
+        - generic [ref=e29]:
+          - generic [ref=e30]: BEST
+          - button "떡볶이 떡볶이 🧋 오후 57%" [ref=e31] [cursor=pointer]:
+            - img "떡볶이"
+            - paragraph [ref=e32]: 떡볶이
+            - generic [ref=e33]: 🧋 오후
+            - generic [ref=e35]: 57%
+      - paragraph [ref=e45]: 모임 불러오는 중…
+      - generic [ref=e46]:
+        - generic [ref=e47]: 메뉴 고르기
+        - generic [ref=e49]:
+          - button "고기" [ref=e50] [cursor=pointer]
+          - button "🍜 국물" [ref=e51] [cursor=pointer]:
+            - generic [ref=e52]: 🍜
+            - text: 국물
+          - button "일식" [ref=e53] [cursor=pointer]
+          - button "양식" [ref=e54] [cursor=pointer]
+          - button "치킨" [ref=e55] [cursor=pointer]
+          - button "🍟 사이드" [ref=e56] [cursor=pointer]:
+            - generic [ref=e57]: 🍟
+            - text: 사이드
+          - button "카페" [ref=e58] [cursor=pointer]
+          - button "🌶️ 매운맛" [ref=e59] [cursor=pointer]:
+            - generic [ref=e60]: 🌶️
+            - text: 매운맛
+          - button "🍰 디저트" [ref=e61] [cursor=pointer]:
+            - generic [ref=e62]: 🍰
+            - text: 디저트
+          - button "한식" [ref=e63] [cursor=pointer]
+          - button "중식" [ref=e64] [cursor=pointer]
+          - button "해산물" [ref=e65] [cursor=pointer]
+      - generic [ref=e67]:
+        - button "✕" [ref=e68] [cursor=pointer]
+        - paragraph [ref=e69]: 오늘 뭐 먹지?
+        - paragraph [ref=e70]: 랜덤으로 오늘 메뉴를 정해드려요
+        - button "돌리기" [ref=e72] [cursor=pointer]
+        - button "나중에" [ref=e73] [cursor=pointer]
+  - navigation [ref=e74]:
+    - button "홈 홈" [ref=e75] [cursor=pointer]:
+      - img "홈"
+      - generic [ref=e76]: 홈
+    - button "모임 모임" [ref=e77] [cursor=pointer]:
+      - img "모임"
+      - generic [ref=e78]: 모임
+    - button "주변맛집 주변맛집" [ref=e79] [cursor=pointer]:
+      - img "주변맛집"
+      - generic [ref=e80]: 주변맛집
+    - button "플레이 플레이" [ref=e81] [cursor=pointer]:
+      - img "플레이"
+      - generic [ref=e82]: 플레이
+    - button "내 정보 내 정보" [ref=e83] [cursor=pointer]:
+      - img "내 정보"
+      - generic [ref=e84]: 내 정보
+  - button "Open Next.js Dev Tools" [ref=e90] [cursor=pointer]
+  - alert [ref=e94]
