@@ -272,6 +272,12 @@
 - [x] 푸시 알림 (투표 시작, 채팅 메시지, 쪽지 수신)
 - [x] VAPID Web Push 설정 (`push_subscriptions` 테이블)
 - [x] 프로필 페이지 알림 켜기/끄기 버튼
+- [x] 앱 실행 스플래시 화면 (2026-08-28)
+  - `src/app/SplashScreen.tsx` — 브랜드 이미지(`public/splash.jpg`) 전체화면 오버레이
+  - 1.2초 노출 → 0.45초 페이드아웃, 등장 시 pop 애니메이션
+  - 세션당 1회만 노출 (`sessionStorage.meogja_splash`)
+  - 하이드레이션 전 inline script 로 `html.splash-seen` 처리 → 재방문 깜빡임 없음
+  - 이미지 가장자리 색(#FFF9ED→#FFF4E2) 그라데이션 배경 + manifest `background_color` 일치
 
 ---
 
@@ -418,4 +424,4 @@
 
 ---
 
-*마지막 업데이트: 2026-08-27 (홈 룰렛 공유 버튼: 한 줄 정렬 + 배경 진하게 + 공유 라벨)*
+*마지막 업데이트: 2026-08-28 (앱 실행 스플래시 화면 추가)*

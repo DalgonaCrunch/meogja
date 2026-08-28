@@ -164,3 +164,14 @@ img[src^="/mascot/tabs/"] {
   scrollbar-width: none;
 }
 .scroll-x::-webkit-scrollbar { display: none; }
+
+/* ── 앱 실행 스플래시 ─────────────────────────────── */
+@keyframes meogjaSplashPop {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+/* 같은 세션에서 이미 본 경우 React 하이드레이션 전에 숨김 (깜빡임 방지) */
+html.splash-seen .meogja-splash { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .meogja-splash img { animation: none !important; }
+}

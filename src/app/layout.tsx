@@ -5,6 +5,7 @@ import BottomNav from "./BottomNav";
 import ThemeLoader from "./ThemeLoader";
 import InstallBanner from "./InstallBanner";
 import DialogProvider from "./DialogProvider";
+import SplashScreen from "./SplashScreen";
 
 export const metadata: Metadata = {
   title: "오늘 뭐 먹지? — meogja",
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="ko" className="h-full">
       <head>
         <link rel="manifest" href="/manifest.json" />
+        <link rel="preload" as="image" href="/splash.jpg" />
         <link rel="apple-touch-icon" href="/icon-512.png" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
         <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
@@ -54,6 +56,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')` }} />
       </head>
       <body className="min-h-full flex flex-col" style={{ background: "var(--bg)" }}>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(sessionStorage.getItem('meogja_splash')==='1')document.documentElement.classList.add('splash-seen')}catch(e){}`,
+          }}
+        />
+        <SplashScreen />
         <ThemeLoader />
         <DialogProvider />
         <AuthHeader />
