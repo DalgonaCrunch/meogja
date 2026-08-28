@@ -277,7 +277,8 @@
   - 1.2초 노출 → 0.45초 페이드아웃, 등장 시 pop 애니메이션
   - 세션당 1회만 노출 (`sessionStorage.meogja_splash`)
   - 하이드레이션 전 inline script 로 `html.splash-seen` 처리 → 재방문 깜빡임 없음
-  - 이미지 가장자리 색(#FFF9ED→#FFF4E2) 그라데이션 배경 + manifest `background_color` 일치
+  - 이미지 가장자리 색(#FEF7EF) 배경 + manifest `background_color` 일치 → 여백까지 한 화면으로 보임
+  - 정사각 이미지를 화면 정중앙 정렬 (contain, 상하 여백 동일)
 
 ---
 
@@ -424,4 +425,4 @@
 
 ---
 
-*마지막 업데이트: 2026-08-28 (앱 실행 스플래시 화면 추가)*
+*마지막 업데이트: 2026-08-28 (앱 실행 스플래시 이미지 교체 + 정중앙 정렬)*

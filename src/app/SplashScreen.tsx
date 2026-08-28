@@ -58,7 +58,7 @@ export default function SplashScreen() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(180deg, #FFF9ED 0%, #FFF8EE 45%, #FFF4E2 100%)",
+        background: "#FEF7EF",
         opacity: fading ? 0 : 1,
         transition: `opacity ${FADE_MS}ms ease-out`,
         pointerEvents: fading ? "none" : "auto",
@@ -68,7 +68,8 @@ export default function SplashScreen() {
         src="/splash.jpg"
         alt="meogja — 오늘 뭐 먹지?"
         style={{
-          position: "relative",
+          display: "block",
+          margin: "auto",
           maxWidth: "100%",
           maxHeight: "100%",
           width: "auto",
