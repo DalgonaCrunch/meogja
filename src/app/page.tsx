@@ -437,7 +437,23 @@ export default function Home() {
           .filter(n => !homeHardDislikes.has(n))
           .sort(() => Math.random() - 0.5)
           .slice(0, 40);
-    if (pool.length === 0) pool = wantDessert ? [...CAFE_DESSERT_POOL] : [...MEAL_POOL];
+    /* 🔴 후보가 한두 개로 쪼그라드는 자리가 있다.
+       첫 진입에는 트렌딩·나이·날씨가 아직 로드되지 않아 시간대 목록만 남는데,
+       거기서 한 끼만 걸러내면 오후(14~17시) 목록은 "떡볶이" 하나만 남는다.
+       그러면 돌려도 늘 같은 결과라 사용자에게는 버튼이 죽은 것으로 보인다.
+       (owner 지적: "가끔 돌리기를 눌러도 떡볶이로 고정된다. 최초에만 그렇다.")
+       그래서 후보가 모자라면 전체 풀에서 채워 최소 개수를 보장한다. */
+    const MIN_POOL = 12;
+    const basePool = wantDessert ? CAFE_DESSERT_POOL : MEAL_POOL;
+    if (pool.length < MIN_POOL) {
+      const have = new Set(pool);
+      const fill = basePool
+        .filter(n => !have.has(n) && !homeHardDislikes.has(n))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, MIN_POOL - pool.length);
+      pool = [...pool, ...fill];
+    }
+    if (pool.length === 0) pool = [...basePool];
 
     let i = 0;
     const total = 20;
@@ -1096,7 +1112,8 @@ export default function Home() {
                 {!rouletteRunning && getFoodIconUrl(rouletteResult) && (
                   <img src={getFoodIconUrl(rouletteResult)!} alt={rouletteResult} style={{ width:52, height:52, objectFit:"contain", flexShrink:0 }} />
                 )}
-                <p style={{ fontFamily:"var(--font-display)", fontSize:32, color:"#fff" }}>
+                {/* data-testid: 팝업 결과도 확인 스크립트가 집어야 한다 — 이 팝업이 첫 진입에 뜨는 자리다 */}
+                <p data-testid="roulette-popup-result" style={{ fontFamily:"var(--font-display)", fontSize:32, color:"#fff" }}>
                   {rouletteRunning ? rouletteResult : `${rouletteResult}!`}
                 </p>
                 {!rouletteRunning && (
