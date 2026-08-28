@@ -269,6 +269,10 @@
 - [x] iOS Safari 대응
 - [x] 삼성 브라우저 대응
 - [x] Kakao WebView 앱추가 팝업 위치 수정
+- [x] 뒤로가기 종료 확인 → 실제 종료 동작 (2026-08-28)
+  - 종료를 눌러도 popstate 리스너가 살아 있어 대화상자가 다시 떠 종료되지 않던 문제 수정
+  - 확인 시 리스너 해제 → `window.close()` → 안 닫히면 `history.go(-2)` 폴백
+  - 대화상자가 떠 있는 동안 뒤로가기 연타해도 중복으로 뜨지 않음
 - [x] 푸시 알림 (투표 시작, 채팅 메시지, 쪽지 수신)
 - [x] VAPID Web Push 설정 (`push_subscriptions` 테이블)
 - [x] 프로필 페이지 알림 켜기/끄기 버튼
@@ -277,8 +281,9 @@
   - 1.2초 노출 → 0.45초 페이드아웃, 등장 시 pop 애니메이션
   - 세션당 1회만 노출 (`sessionStorage.meogja_splash`)
   - 하이드레이션 전 inline script 로 `html.splash-seen` 처리 → 재방문 깜빡임 없음
-  - 이미지 가장자리 색(#FEF7EF) 배경 + manifest `background_color` 일치 → 여백까지 한 화면으로 보임
-  - 정사각 이미지를 화면 정중앙 정렬 (contain, 상하 여백 동일)
+  - 9:16 세로 이미지(720x1280) — 폰 화면을 거의 꽉 채움
+  - 이미지 가장자리 색(#FDF6EE) 배경 + manifest `background_color` 일치 → 여백까지 한 화면으로 보임
+  - 화면 정중앙 정렬 (contain, 상하 여백 동일)
 
 ---
 

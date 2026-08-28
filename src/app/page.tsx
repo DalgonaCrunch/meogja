@@ -358,10 +358,28 @@ export default function Home() {
     let cleanupPop: (() => void) | null = null;
     if (isStandalone) {
       window.history.pushState({ backGuard: true }, '');
+      let confirming = false;
       const onPop = async () => {
+        // 뒤로가기로 빠져나간 만큼 가드 항목을 다시 넣어 앱 안에 남긴다
         window.history.pushState({ backGuard: true }, '');
-        const ok = await showConfirm("앱을 종료하시겠습니까?", { title: "종료", confirmLabel: "종료" });
-        if (ok) window.history.go(-2);
+        if (confirming) return; // 대화상자가 떠 있는 동안 다시 뒤로가기를 눌러도 중복으로 띄우지 않는다
+        confirming = true;
+        let ok = false;
+        try {
+          ok = await showConfirm("앱을 종료하시겠습니까?", { title: "종료", confirmLabel: "종료" });
+        } finally {
+          confirming = false;
+        }
+        if (!ok) return;
+        // 리스너가 살아 있으면 아래 히스토리 이동이 다시 이 대화상자를 띄워 종료가 취소된다
+        window.removeEventListener('popstate', onPop);
+        cleanupPop = null;
+        // 설치형 PWA 창은 close() 로 닫힌다
+        window.close();
+        // 닫히지 않는 브라우저에서는 앱 히스토리 밖으로 빠져나간다
+        setTimeout(() => {
+          try { window.history.go(-2); } catch { /* 되돌아갈 항목이 없으면 무시 */ }
+        }, 120);
       };
       window.addEventListener('popstate', onPop);
       cleanupPop = () => window.removeEventListener('popstate', onPop);

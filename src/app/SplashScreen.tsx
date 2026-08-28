@@ -58,7 +58,7 @@ export default function SplashScreen() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "#FEF7EF",
+        background: "#FDF6EE",
         opacity: fading ? 0 : 1,
         transition: `opacity ${FADE_MS}ms ease-out`,
         pointerEvents: fading ? "none" : "auto",
