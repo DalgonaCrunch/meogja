@@ -1,4 +1,11 @@
-const CACHE = "meogja-v2";
+/*
+ * 🔴 CACHE 이름을 올리면 install 에서 새 HTML 을 다시 받고 activate 에서 옛 캐시를 지운다.
+ *    옛 캐시에는 그때의 "/" HTML 이 들어 있고, 그 HTML 은 그때의 청크를 가리킨다.
+ *    청크 파일은 Vercel 에 계속 남아 있어서 네트워크가 한 번 흔들려 캐시로 떨어지면
+ *    아주 오래된 앱이 그대로 살아난다(지운 기능이 되살아나 보인다).
+ *    그래서 아래 fetch 에서 성공한 화면 요청을 캐시에 덮어써 폴백을 늘 최신으로 유지한다.
+ */
+const CACHE = "meogja-v3";
 const STATIC = ["/", "/login"];
 
 self.addEventListener("install", (e) => {
@@ -13,8 +20,20 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+  const isPage = e.request.mode === "navigate";
   e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
+    fetch(e.request)
+      .then((res) => {
+        // 화면(HTML)은 성공할 때마다 캐시를 갱신한다. 폴백이 옛 청크를 가리키면 안 된다.
+        if (isPage && res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        }
+        return res;
+      })
+      // 🔴 "/" 폴백은 화면 요청에만 준다. API·청크·이미지 요청에 HTML 을 돌려주면
+      //    JSON 파싱이 엉뚱하게 깨져서 원인 찾기가 훨씬 어려워진다. 깨끗하게 실패하는 게 낫다.
+      .catch(() => caches.match(e.request).then((hit) => hit || (isPage ? caches.match("/") : undefined)))
   );
 });
 
