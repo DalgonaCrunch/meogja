@@ -7,7 +7,7 @@
  *   node scripts/check-map-cluster.mjs
  *   BASE=https://meogja.vercel.app node scripts/check-map-cluster.mjs
  */
-import { chromium } from "playwright";
+import { launchBrowser } from "./_browser.mjs";
 
 const BASE = process.env.BASE || "http://localhost:3000";
 const OUT = process.env.OUT || "/tmp/meogja-cluster";
@@ -28,7 +28,7 @@ const FAKE = [
 ];
 
 const problems = [];
-const browser = await chromium.launch();
+const { browser, close: closeBrowser } = await launchBrowser();
 const ctx = await browser.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "ko-KR",
   geolocation: { latitude: CENTER.lat, longitude: CENTER.lng },
@@ -112,5 +112,5 @@ if (researchBtn > 0) problems.push('클러스터 확대만으로 "이 지역에�
 console.log(JSON.stringify({ clusterCount, namesShown, clusterLabel, farShown, expandedOk, keepBothOpen, researchBtn, problems, consoleErrors: consoleErrors.slice(0, 6) }, null, 2));
 console.log(problems.length ? "\n❌ 문제 " + problems.length + "건" : "\n✅ 클러스터 확인 통과");
 
-await browser.close();
+await closeBrowser();
 process.exit(problems.length ? 1 : 0);

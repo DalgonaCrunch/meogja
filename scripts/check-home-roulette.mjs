@@ -7,13 +7,13 @@
  *
  *   node scripts/check-home-roulette.mjs
  */
-import { chromium } from "playwright";
+import { launchBrowser } from "./_browser.mjs";
 
 const BASE = process.env.BASE || "http://localhost:3000";
 const OUT = process.env.OUT || "/tmp/meogja-home";
 const problems = [];
 
-const browser = await chromium.launch();
+const { browser, close: closeBrowser } = await launchBrowser();
 const ctx = await browser.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "ko-KR",
   serviceWorkers: "block",
@@ -72,5 +72,5 @@ if (notDessert.length === picks.length && picks.length > 0) {
 
 console.log(JSON.stringify({ picks, errs, problems }, null, 1));
 console.log(problems.length ? "\n❌ 문제 " + problems.length + "건" : "\n✅ 홈 랜덤 확인 통과");
-await browser.close();
+await closeBrowser();
 process.exit(problems.length ? 1 : 0);

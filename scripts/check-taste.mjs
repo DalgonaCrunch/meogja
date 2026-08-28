@@ -6,14 +6,14 @@
  *
  *   node scripts/check-taste.mjs
  */
-import { chromium } from "playwright";
+import { launchBrowser } from "./_browser.mjs";
 
 const BASE = process.env.BASE || "http://localhost:3000";
 const OUT = process.env.OUT || "/tmp/meogja-taste";
 const UID = "11111111-2222-3333-4444-555555555555";
 
 const problems = [];
-const browser = await chromium.launch();
+const { browser, close: closeBrowser } = await launchBrowser();
 const ctx = await browser.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "ko-KR",
   serviceWorkers: "block",
@@ -100,5 +100,5 @@ if (await page.locator("text=먼저 로그인해 주세요").count()) {
 
 console.log(JSON.stringify({ writes: writes.length, problems, consoleErrors: consoleErrors.slice(0, 6) }, null, 2));
 console.log(problems.length ? "\n❌ 문제 " + problems.length + "건" : "\n✅ 취향 화면 확인 통과");
-await browser.close();
+await closeBrowser();
 process.exit(problems.length ? 1 : 0);

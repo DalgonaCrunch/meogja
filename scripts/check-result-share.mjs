@@ -8,14 +8,14 @@
  *
  *   node scripts/check-result-share.mjs
  */
-import { chromium } from "playwright";
+import { launchBrowser } from "./_browser.mjs";
 import fs from "node:fs";
 
 const BASE = process.env.BASE || "http://localhost:3000";
 const OUT = process.env.OUT || "/tmp/meogja-result";
 const problems = [];
 
-const browser = await chromium.launch();
+const { browser, close: closeBrowser } = await launchBrowser();
 const ctx = await browser.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "ko-KR",
   serviceWorkers: "block",
@@ -91,5 +91,5 @@ if (again !== shots["초밥"]) problems.push(`같은 메뉴인데 카드가 달�
 
 console.log(JSON.stringify({ title, ogMeta, placeTitle, shots, errs, problems }, null, 1));
 console.log(problems.length ? "\n❌ 문제 " + problems.length + "건" : "\n✅ 결과 카드 확인 통과");
-await browser.close();
+await closeBrowser();
 process.exit(problems.length ? 1 : 0);

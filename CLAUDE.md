@@ -24,9 +24,18 @@
 - 중간에 멈추지 말고 끝까지 진행
 
 ## 개발 워크플로우
-- 배포: `vercel --prod` (Hobby 플랜 100회/일 제한)
+- 배포: `vercel --prod` (Hobby 플랜 100회/일 제한). CLI 인증이 만료된 경우 `git push` → Vercel Git 연동 배포
 - DB 마이그레이션: `supabase db push --linked`
 - 빌드 확인: `npx next build`
+
+## 브라우저 테스트 규칙 (중요)
+- **화면 확인은 `scripts/check-*.mjs` 로 한다.** 이 스크립트들은 `scripts/_browser.mjs` 를 쓰고,
+  기본 headless 라 창이 뜨지 않으며 예외·Ctrl+C 로 끝나도 **자기가 띄운 브라우저만** 닫는다.
+- 눈으로 봐야 할 때만 `HEADED=1 node scripts/check-....mjs` — 창을 화면 밖(-4000,-4000)에 띄운다.
+- MCP playwright(`browser_navigate` 등)는 창이 남는다. 쓸 일이 있으면 **끝나고 `browser_close`**,
+  그래도 프로세스가 남으면 `ms-playwright-mcp` user-data-dir 을 가진 PID 만 종료한다
+  (사용자가 열어 둔 브라우저는 절대 건드리지 않는다).
+- 테스트용 dev/prod 서버(`next start -p ...`)도 확인이 끝나면 종료한다.
 
 ## 기능 명세 문서 (SPEC.md)
 - `SPEC.md` = 살아있는 기능 설계 문서

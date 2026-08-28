@@ -9,7 +9,7 @@
  *   node scripts/check-search-map.mjs
  *   BASE=http://localhost:3311 node scripts/check-search-map.mjs
  */
-import { chromium } from "playwright";
+import { launchBrowser } from "./_browser.mjs";
 
 const BASE = process.env.BASE || "http://localhost:3000";
 const OUT = process.env.OUT || "/tmp/meogja-search-map";
@@ -25,7 +25,7 @@ const FAKE_KAKAO = [
 
 const problems = [];
 
-const browser = await chromium.launch();
+const { browser, close: closeBrowser } = await launchBrowser();
 const ctx = await browser.newContext({
   viewport: { width: 390, height: 844 },
   deviceScaleFactor: 2,
@@ -139,5 +139,5 @@ if (!listShown) problems.push("목록 전환이 동작하지 않음(좌표 없�
 console.log(JSON.stringify({ diag, cardShown, listShown, keepPick, modalOk, problems, consoleErrors: consoleErrors.slice(0, 8) }, null, 2));
 console.log(problems.length ? "\n❌ 문제 " + problems.length + "건" : "\n✅ /search 지도 확인 통과");
 
-await browser.close();
+await closeBrowser();
 process.exit(problems.length ? 1 : 0);

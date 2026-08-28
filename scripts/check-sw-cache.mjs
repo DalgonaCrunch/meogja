@@ -16,12 +16,12 @@
  *   node scripts/check-sw-cache.mjs
  *   BASE=https://meogja.vercel.app node scripts/check-sw-cache.mjs
  */
-import { chromium } from "playwright";
+import { launchBrowser } from "./_browser.mjs";
 
 const BASE = process.env.BASE || "http://localhost:3000";
 const problems = [];
 
-const browser = await chromium.launch();
+const { browser, close: closeBrowser } = await launchBrowser();
 // serviceWorkers 를 block 하면 이 검사 자체가 헛돈다 — 반드시 allow
 const ctx = await browser.newContext({
   viewport: { width: 390, height: 844 }, locale: "ko-KR", serviceWorkers: "allow",
@@ -94,7 +94,7 @@ console.log("오프라인 API 응답:", apiFallback === "__failed__" ? "정상 �
 
 await ctx.setOffline(false);
 await ctx.close();
-await browser.close();
+await closeBrowser();
 
 if (problems.length) {
   console.error("\n❌ 문제\n" + problems.map(p => " - " + p).join("\n"));

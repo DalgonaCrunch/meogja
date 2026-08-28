@@ -7,7 +7,7 @@
  *   node scripts/check-nearby-map.mjs            (기본 http://localhost:3000)
  *   BASE=http://localhost:3311 node scripts/...
  */
-import { chromium } from "playwright";
+import { launchBrowser } from "./_browser.mjs";
 
 const BASE = process.env.BASE || "http://localhost:3000";
 const OUT = process.env.OUT || "/tmp/meogja-map";
@@ -34,7 +34,7 @@ const ctxOpts = {
   serviceWorkers: "block",
 };
 
-const browser = await chromium.launch();
+const { browser, close: closeBrowser } = await launchBrowser();
 const ctx = await browser.newContext(ctxOpts);
 const page = await ctx.newPage();
 
@@ -156,5 +156,5 @@ if (diag.sdk && !diag.errText && !cardShown) problems.push("마커를 눌러도 
 console.log(JSON.stringify({ diag, cardShown, keepPick, searchHereOk, nearbyCalls, problems, consoleErrors: consoleErrors.slice(0, 8) }, null, 2));
 console.log(problems.length ? "\n❌ 문제 " + problems.length + "건" : "\n✅ 지도 확인 통과");
 
-await browser.close();
+await closeBrowser();
 process.exit(problems.length ? 1 : 0);

@@ -17,7 +17,7 @@
  *   node scripts/check-roulette-pool.mjs
  *   BASE=https://meogja.vercel.app node scripts/check-roulette-pool.mjs
  */
-import { chromium } from "playwright";
+import { launchBrowser } from "./_browser.mjs";
 
 const BASE = process.env.BASE || "http://localhost:3000";
 const SPINS = Number(process.env.SPINS || 6);
@@ -26,7 +26,7 @@ const MIN_UNIQUE = Number(process.env.MIN_UNIQUE || 3);
 const HOURS = (process.env.HOURS || "2,7,10,12,15,19,23").split(",").map(Number);
 
 const problems = [];
-const browser = await chromium.launch();
+const { browser, close: closeBrowser } = await launchBrowser();
 
 for (const hour of HOURS) {
   const ctx = await browser.newContext({
@@ -81,7 +81,7 @@ for (const hour of HOURS) {
   await ctx.close();
 }
 
-await browser.close();
+await closeBrowser();
 
 if (problems.length) {
   console.error("\n❌ 문제\n" + problems.map(p => " - " + p).join("\n"));
