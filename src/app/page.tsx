@@ -27,6 +27,13 @@ const PAT_TITLES = [
   (menu: string) => `${menu} 오늘 먹어볼 사람 손! ✋`,
 ];
 
+/** 로컬 시간대 기준 오늘 날짜(YYYY-MM-DD).
+ *  toISOString() 은 UTC 라 한국에서는 오전 9시에 날짜가 바뀐다 — "하루 한 번"이 깨진다. */
+function localDateKey(d: Date = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 const ROULETTE_CATEGORY_EXCLUDE = new Set([
   "한식","양식","일식","중식","이탈리안","분식","고기","해산물","술안주",
   "카페","베이커리","디저트","야식","파인다이닝","덮밥",
@@ -280,10 +287,19 @@ export default function Home() {
     // 오늘 이미 배틀 투표 여부
     const today = new Date().toISOString().slice(0,10);
     if (localStorage.getItem("meogja_battle_voted") === today) setBattleVoted(true);
-    // 첫 방문 시 룰렛 팝업
-    if (!sessionStorage.getItem("meogja_roulette_seen")) {
+    /* 룰렛 팝업은 하루 한 번만 띄운다.
+       예전에는 sessionStorage 라 앱을 닫고 다시 열 때마다 떴다 — 하루에도 여러 번이다.
+       날짜는 로컬 기준으로 만든다. toISOString() 은 UTC 라 한국에서는 오전 9시에
+       날이 바뀌어, 아침에 본 팝업이 9시에 또 뜬다. */
+    try {
+      const seen = localStorage.getItem("meogja_roulette_seen_date");
+      if (seen !== localDateKey()) {
+        setShowRoulettePopup(true);
+        localStorage.setItem("meogja_roulette_seen_date", localDateKey());
+      }
+    } catch {
+      /* 저장을 못 쓰는 환경(사생활 보호 모드 등)에서는 그냥 띄운다 */
       setShowRoulettePopup(true);
-      sessionStorage.setItem("meogja_roulette_seen", "1");
     }
     // 첫 방문 시 온보딩 투어
     try {
