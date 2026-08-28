@@ -43,7 +43,7 @@ for (const n of [...FOOD_KEYS, ...leaves]) {
 }
 console.log(missing.length ? "❌ 못 찾음:\n" + missing.map(m => "  - " + m).join("\n") : "✅ 전부 아이콘 매칭됨");
 // 기존 매핑이 깨지지 않았는지 표본 확인
-const spot = { "삼겹살":"삼겹살", "김치찌개":"김치찌개", "초밥":"초밥", "파스타":"파스타", "아메리카노":"아메리카노", "떡볶이":"떡볶이", "짜장면":"짜장면", "스시":"초밥" };
+const spot = { "삼겹살":"삼겹살", "김치찌개":"김치찌개", "초밥":"일식", "파스타":"파스타", "아메리카노":"아메리카노", "떡볶이":"떡볶이", "짜장면":"짜장면", "스시":"일식" };
 const broke = Object.entries(spot).filter(([k,v]) => getFoodIconUrl(k) !== `/food-icons/${v}.png`);
 console.log(broke.length ? "❌ 기존 매핑 변화: " + JSON.stringify(broke) : "✅ 기존 매핑 그대로");
 
