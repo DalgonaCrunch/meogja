@@ -303,7 +303,13 @@ export default function ProfilePage() {
 
     const update: Record<string, string> = {};
     if (avatarUrl) update.profile_image = avatarUrl;
-    if (fullName) { update.display_name = fullName; update.name = fullName; }
+    /* 소셜에서 받아온 이름은 "이름" 에 넣는다. 사용자가 닉네임을 정해 뒀으면
+       화면 이름(display_name)은 건드리지 않는다 — 정보 초기화 한 번에 닉네임이
+       날아가면 네이버 계정에서는 되돌릴 방법이 없다. */
+    if (fullName) {
+      update.name = fullName;
+      if (!myProfile.nickname) update.display_name = fullName;
+    }
     if (email) update.email = email;
     if (mobile) update.mobile = mobile;
 
@@ -322,8 +328,11 @@ export default function ProfilePage() {
     setRefreshingSocial(false);
   }
 
-  const displayName = currentUser.type === "auth" ? currentUser.user.display_name : currentUser.type === "guest" ? currentUser.user.name : "";
   const [myProfile, setMyProfile] = useState<Record<string,string>>({});
+  /* 맨 위 이름 = 아래 "닉네임" 칸과 같은 값이다. 따로 놀면 고칠 방법이 없다. */
+  const displayName = currentUser.type === "auth"
+    ? (myProfile.nickname || myProfile.display_name || currentUser.user.display_name)
+    : currentUser.type === "guest" ? currentUser.user.name : "";
   const [earnedBadges, setEarnedBadges] = useState<{badge_id:string;earned_at:string}[]>([]);
   const [newBadges, setNewBadges] = useState<string[]>([]);
   const [showBadgeSelect, setShowBadgeSelect] = useState(false);

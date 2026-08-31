@@ -68,7 +68,10 @@ export async function getCurrentUser(): Promise<CurrentUser> {
       user.user_metadata?.name ||
       user.user_metadata?.preferred_username ||
       user.user_metadata?.display_name;
-    const displayName = profile?.display_name || metaName || user.email?.split("@")[0] || "";
+    /* 🔴 화면 맨 위에 뜨는 이름. 사용자가 프로필에서 고칠 수 있는 것은 nickname 이므로
+       그것을 먼저 본다 — 예전에는 소셜에서 받아온 display_name 이 이겨서, 닉네임을
+       바꿔도 이름이 그대로였다(네이버 로그인은 계정 이름을 고칠 방법도 없었다). */
+    const displayName = profile?.nickname || profile?.display_name || metaName || user.email?.split("@")[0] || "";
     if (!profile) {
       const profileImage = user.user_metadata?.avatar_url || "/mascot/avatars/cat-00.png";
       getSupabase().from("user_profiles").insert({

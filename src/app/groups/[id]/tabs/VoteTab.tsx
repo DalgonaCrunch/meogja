@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase, Member } from "@/lib/supabase";
+import { groupMemberName } from "@/lib/memberName";
 import { getCurrentUser } from "@/lib/auth";
 import { trackPlaceClick } from "@/lib/placeClicks";
 import { getFoodIconUrl } from "@/lib/foodIcons";
@@ -31,7 +32,14 @@ interface VoteResponse {
 
 type DecideCallback = (foodName: string, restaurantName: string | null, address: string | null, link: string | null, voteId: string) => void;
 
-export default function VoteTab({ groupId, isOwnerOrAdmin, onDecide }: { groupId: string; isOwnerOrAdmin: boolean; onDecide?: DecideCallback }) {
+export default function VoteTab({ groupId, isOwnerOrAdmin, onDecide, members = [], myMemberName }: {
+  groupId: string;
+  isOwnerOrAdmin: boolean;
+  onDecide?: DecideCallback;
+  members?: Member[];
+  /** 이 모임에서 내가 쓰는 이름 — 투표에는 계정 이름이 아니라 이것이 남는다 */
+  myMemberName?: string;
+}) {
   const [votes, setVotes] = useState<MenuVote[]>([]);
   const [responses, setResponses] = useState<Record<string, VoteResponse[]>>({});
   const [myVotes, setMyVotes] = useState<Record<string, string>>({}); // voteId → chosen
@@ -64,7 +72,8 @@ export default function VoteTab({ groupId, isOwnerOrAdmin, onDecide }: { groupId
         uid = u.user.id;
         setCurrentUserId(uid);
         const { data: profile } = await getSupabase().from("user_profiles").select("display_name").eq("id", uid).single();
-        const name = profile?.display_name || u.user.email?.split("@")[0] || "사용자";
+        /* 모임 안에서는 모임 이름이 먼저다 */
+        const name = myMemberName || profile?.display_name || u.user.email?.split("@")[0] || "사용자";
         setCurrentUserName(name);
         // 멤버십 확인
         const { data: owner } = await getSupabase().from("groups").select("owner_id").eq("id", groupId).single();
@@ -323,7 +332,7 @@ export default function VoteTab({ groupId, isOwnerOrAdmin, onDecide }: { groupId
                         )}
                         {showResults && !vote.is_anonymous && resps.filter(r => r.chosen_option === opt.name).length > 0 && (
                           <p style={{ fontSize:10, color:"var(--text-3)", marginTop:3 }}>
-                            {resps.filter(r => r.chosen_option === opt.name).map(r => r.voter_name).join(", ")}
+                            {resps.filter(r => r.chosen_option === opt.name).map(r => groupMemberName(members, r.voter_id, r.voter_name)).join(", ")}
                           </p>
                         )}
                       </div>

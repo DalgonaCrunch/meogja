@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { getSupabase, Favorite, Review, Member } from "@/lib/supabase";
+import { groupMemberName } from "@/lib/memberName";
 import { getFoodIconUrl } from "@/lib/foodIcons";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -63,7 +64,7 @@ export default function HistoryTab({ groupId, members, mapProvider }: Props) {
       group_id: groupId,
       member_id: null,
       user_id: currentUserId,
-      reviewer_name: currentUserName,
+      reviewer_name: groupMemberName(members, currentUserId, currentUserName),
       restaurant_name: reviewTarget.name,
       rating: reviewRating,
       comment: reviewComment,
@@ -261,7 +262,11 @@ export default function HistoryTab({ groupId, members, mapProvider }: Props) {
             <p style={{ fontSize: 14, color: "var(--text-muted)", padding: "20px 0" }}>아직 리뷰가 없습니다</p>
           )}
           {reviews.map((r) => {
-            const authorName = (r as ReviewWithUser).reviewer_name || members.find(m => m.id === r.member_id)?.name || null;
+            /* 모임 안에서는 모임 이름으로 보여준다(리뷰에 계정 이름이 남아 있어도) */
+            const authorName = groupMemberName(
+              members, (r as ReviewWithUser).user_id,
+              (r as ReviewWithUser).reviewer_name || members.find(m => m.id === r.member_id)?.name || null,
+            );
             return (
               <div key={r.id} style={{ background: "var(--bg-card)", borderRadius: 14, border: "1px solid var(--border)", boxShadow: "var(--shadow)", padding: "14px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
@@ -288,7 +293,7 @@ export default function HistoryTab({ groupId, members, mapProvider }: Props) {
           <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, width: "100%", maxWidth: 400, boxShadow: "var(--shadow-lg)" }}>
             <p style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, marginBottom: 4 }}>{reviewTarget.name}</p>
             <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{reviewTarget.address}</p>
-            {currentUserName && <p style={{ fontSize: 12, color: "var(--primary)", fontWeight: 600, marginBottom: 16 }}>✍️ {currentUserName}으로 작성</p>}
+            {currentUserName && <p style={{ fontSize: 12, color: "var(--primary)", fontWeight: 600, marginBottom: 16 }}>✍️ {groupMemberName(members, currentUserId, currentUserName)}으로 작성</p>}
             {!currentUserId && <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 16 }}>로그인 후 리뷰를 남길 수 있어요</p>}
 
             {/* 별점 */}

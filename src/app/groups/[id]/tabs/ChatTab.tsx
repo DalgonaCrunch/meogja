@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase, Member } from "@/lib/supabase";
+import { groupMemberName } from "@/lib/memberName";
 import { getCurrentUser } from "@/lib/auth";
 import { HANDSUP_POSES, POSE_WAVE } from "@/lib/mascot";
 import LoadingCat from "@/components/LoadingCat";
@@ -15,8 +16,11 @@ interface ChatMessage {
   created_at: string;
 }
 
-export default function ChatTab({ groupId, groupName, groupImageUrl, groupEmoji, onClose }: {
+export default function ChatTab({ groupId, groupName, groupImageUrl, groupEmoji, onClose, members = [], myMemberName }: {
   groupId: string;
+  members?: Member[];
+  /** 이 모임에서 내가 쓰는 이름 — 계정 이름이 아니라 이것으로 말한다 */
+  myMemberName?: string;
   groupName?: string;
   groupImageUrl?: string;
   groupEmoji?: string;
@@ -61,16 +65,16 @@ export default function ChatTab({ groupId, groupName, groupImageUrl, groupEmoji,
     getCurrentUser().then(async u => {
       if (u.type === "auth") {
         setCurrentUserId(u.user.id);
-        setCurrentUserName(u.user.display_name || u.user.email?.split("@")[0] || "사용자");
-        // 프로필 이미지 조회
+        /* 모임 안에서는 모임 이름으로 말한다. 모임 이름이 없을 때만 계정 이름으로 떨어진다. */
+        setCurrentUserName(myMemberName || u.user.display_name || u.user.email?.split("@")[0] || "사용자");
         const { data } = await getSupabase().from("user_profiles").select("profile_image, display_name").eq("id", u.user.id).single();
         if (data?.profile_image) setCurrentUserImage(data.profile_image);
-        if (data?.display_name) setCurrentUserName(data.display_name);
+        if (!myMemberName && data?.display_name) setCurrentUserName(data.display_name);
       } else if (u.type === "guest") {
-        setCurrentUserName(u.user.name || "게스트");
+        setCurrentUserName(myMemberName || u.user.name || "게스트");
       }
     });
-  }, []);
+  }, [myMemberName]);
 
   useEffect(() => {
     loadMessages();
@@ -247,7 +251,7 @@ export default function ChatTab({ groupId, groupName, groupImageUrl, groupEmoji,
                   </div>
                 )}
                 <div style={{ maxWidth:"72%", display:"flex", flexDirection:"column", alignItems: isMine ? "flex-end" : "flex-start", gap:3 }}>
-                  {!isMine && <span style={{ fontSize:11, color:"var(--text-2)", fontWeight:600 }}>{msg.display_name}</span>}
+                  {!isMine && <span style={{ fontSize:11, color:"var(--text-2)", fontWeight:600 }}>{groupMemberName(members, msg.user_id, msg.display_name)}</span>}
                   {sticker ? (
                     <img src={stickerSrc(msg.content)} alt="스티커" style={{ width:80, height:80, objectFit:"contain" }} />
                   ) : (

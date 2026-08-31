@@ -126,6 +126,9 @@ export default function GroupPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUser>({ type: "none" });
   const [isOwner, setIsOwner] = useState(false);
   const [myMemberId, setMyMemberId] = useState<string | null>(null);
+  /* 모임 안에서 쓰는 이름 고치기 — 채팅·투표·팟에 이 이름이 나온다 */
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editingMemberName, setEditingMemberName] = useState("");
   const [myHasPrefs, setMyHasPrefs] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showPrefSetup, setShowPrefSetup] = useState(false);
@@ -401,6 +404,19 @@ export default function GroupPage() {
         .eq("group_id", id).neq("user_id", userId).gt("created_at", lastRead);
       setChatUnread(chatCount || 0);
     }
+  }
+
+  /** 모임 안에서 쓰는 이름 바꾸기. 본인 것과, 모임장은 멤버 것도 고칠 수 있다. */
+  async function saveMemberName(memberId: string) {
+    const name = editingMemberName.trim();
+    const before = members.find(m => m.id === memberId)?.name || "";
+    if (!name || name === before) { setEditingMemberId(null); return; }
+    if (!(memberId === myMemberId || isOwner || isAdmin)) { setEditingMemberId(null); return; }
+    const { error } = await getSupabase().from("members").update({ name }).eq("id", memberId);
+    if (error) { await showAlert("이름 변경에 실패했습니다.", { icon: "⚠️" }); return; }
+    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, name } : m));
+    setEditingMemberId(null);
+    toast(`이 모임에서 "${name}" 으로 보여요`);
   }
 
   async function saveGroupName() {
@@ -2829,12 +2845,22 @@ export default function GroupPage() {
       )}
 
       {/* ── 투표 탭 ── */}
-      {tab === "vote" && (myMemberId || isOwner || isAdmin) && <VoteTab groupId={id} isOwnerOrAdmin={isOwner || isAdmin} onDecide={(food, rest, addr, link, voteId) => saveDecision(food, rest, addr, link, voteId)} />}
+      {tab === "vote" && (myMemberId || isOwner || isAdmin) && (
+        <VoteTab
+          groupId={id}
+          isOwnerOrAdmin={isOwner || isAdmin}
+          members={members}
+          myMemberName={ownerName && isOwner ? ownerName : members.find(m => m.id === myMemberId)?.name || undefined}
+          onDecide={(food, rest, addr, link, voteId) => saveDecision(food, rest, addr, link, voteId)}
+        />
+      )}
 
       {/* ── 채팅 탭 ── */}
       {tab === "chat" && (myMemberId || isOwner || isAdmin) && (
         <ChatTab
           groupId={id}
+          members={members}
+          myMemberName={ownerName && isOwner ? ownerName : members.find(m => m.id === myMemberId)?.name || undefined}
           groupName={group?.name}
           groupImageUrl={(group as { image_url?: string })?.image_url}
           groupEmoji={(group as { emoji?: string })?.emoji}
@@ -2935,7 +2961,27 @@ export default function GroupPage() {
                         ? <img src={memberImages[m.id]} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         : m.name[0]}
                     </div>
-                    <span style={{ fontSize: 15, fontWeight: 600 }}>{m.name}</span>
+                    {editingMemberId === m.id ? (
+                      <input
+                        autoFocus
+                        value={editingMemberName}
+                        onChange={e => setEditingMemberName(e.target.value)}
+                        onBlur={() => saveMemberName(m.id)}
+                        onKeyDown={e => { if (e.key === "Enter") saveMemberName(m.id); if (e.key === "Escape") setEditingMemberId(null); }}
+                        maxLength={20}
+                        style={{ fontSize: 15, fontWeight: 600, padding: "5px 10px", borderRadius: 10, border: "1.5px solid var(--primary)", background: "var(--bg)", color: "var(--text)", width: 140, outline: "none" }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: 15, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        {m.name}
+                        {(m.id === myMemberId || isOwner || isAdmin) && (
+                          <button className="tap" onClick={() => { setEditingMemberId(m.id); setEditingMemberName(m.name); }}
+                            title="이 모임에서 쓸 이름 바꾸기"
+                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--text-3)", padding: 0 }}>✏️</button>
+                        )}
+                        {m.id === myMemberId && <span style={{ fontSize: 10.5, color: "var(--text-3)" }}>나</span>}
+                      </span>
+                    )}
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
                     {/* 선호도 편집: 모임장 or 본인 멤버만 */}
