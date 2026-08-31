@@ -18,6 +18,8 @@ export default function HistoryTab({ groupId, members, mapProvider }: Props) {
   const [reviews, setReviews] = useState<ReviewWithUser[]>([]);
   const [decisions, setDecisions] = useState<GroupDecision[]>([]);
   const [activeSection, setActiveSection] = useState<"history" | "favorites" | "reviews">("history");
+  /* 기록 보기: 날짜순 / 식당별 */
+  const [histSort, setHistSort] = useState<"date" | "place">("date");
   const [reviewTarget, setReviewTarget] = useState<{ name: string; address: string; link: string; category: string } | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
@@ -97,6 +99,50 @@ export default function HistoryTab({ groupId, members, mapProvider }: Props) {
     }}>{label}</button>
   );
 
+  const decisionCard = (d: GroupDecision) => {
+            const name = d.restaurant_name || d.food_name;
+            const icon = getFoodIconUrl(d.food_name) || getFoodIconUrl(name);
+            const avg = avgRating(name);
+            return (
+              <div key={d.id} style={{ background: "var(--bg-card)", borderRadius: 16, border: "1px solid var(--border)", boxShadow: "var(--shadow)", padding: "13px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 14, background: "var(--bg-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                  {icon
+                    ? <img src={icon} alt="" style={{ width: 34, height: 34, objectFit: "contain" }} />
+                    : <span style={{ fontSize: 22 }}>🍽️</span>}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {safeUrl(d.restaurant_link)
+                      ? <a href={safeUrl(d.restaurant_link)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", textDecoration: "none" }}>{name}</a>
+                      : <span style={{ fontSize: 15, fontWeight: 700 }}>{name}</span>}
+                    {avg && <span style={{ fontSize: 11, color: "#C77800" }}>★ {avg}</span>}
+                  </div>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {new Date(d.decided_at).toLocaleDateString("ko-KR", { month: "long", day: "numeric" })}
+                    {d.restaurant_name && d.food_name !== d.restaurant_name ? ` · ${d.food_name}` : ""}
+                    {d.decided_by_name ? ` · ${d.decided_by_name}님 결정` : ""}
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => setReviewTarget({ name, address: d.restaurant_address || "", link: d.restaurant_link || "", category: d.food_name })} style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)", cursor: "pointer" }}>리뷰</button>
+                  {d.restaurant_name && (
+                    <a href={mapLink({ restaurant_name: d.restaurant_name, restaurant_address: d.restaurant_address || "" })} target="_blank" rel="noopener noreferrer" style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)", textDecoration: "none" }}>🗺️</a>
+                  )}
+                </div>
+              </div>
+            );
+  };
+
+  const groupedDecisions = (() => {
+    const m = new Map<string, GroupDecision[]>();
+    decisions.forEach(d => {
+      const key = d.restaurant_name || d.food_name;
+      if (!m.has(key)) m.set(key, []);
+      m.get(key)!.push(d);
+    });
+    return [...m.entries()].sort((a, b) => b[1].length - a[1].length);
+  })();
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
@@ -151,39 +197,32 @@ export default function HistoryTab({ groupId, members, mapProvider }: Props) {
               </p>
             </div>
           )}
-          {decisions.map((d) => {
-            const name = d.restaurant_name || d.food_name;
-            const icon = getFoodIconUrl(d.food_name) || getFoodIconUrl(name);
-            const avg = avgRating(name);
-            return (
-              <div key={d.id} style={{ background: "var(--bg-card)", borderRadius: 16, border: "1px solid var(--border)", boxShadow: "var(--shadow)", padding: "13px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 14, background: "var(--bg-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
-                  {icon
-                    ? <img src={icon} alt="" style={{ width: 34, height: 34, objectFit: "contain" }} />
-                    : <span style={{ fontSize: 22 }}>🍽️</span>}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {safeUrl(d.restaurant_link)
-                      ? <a href={safeUrl(d.restaurant_link)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", textDecoration: "none" }}>{name}</a>
-                      : <span style={{ fontSize: 15, fontWeight: 700 }}>{name}</span>}
-                    {avg && <span style={{ fontSize: 11, color: "#C77800" }}>★ {avg}</span>}
-                  </div>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {new Date(d.decided_at).toLocaleDateString("ko-KR", { month: "long", day: "numeric" })}
-                    {d.restaurant_name && d.food_name !== d.restaurant_name ? ` · ${d.food_name}` : ""}
-                    {d.decided_by_name ? ` · ${d.decided_by_name}님 결정` : ""}
-                  </p>
-                </div>
-                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <button onClick={() => setReviewTarget({ name, address: d.restaurant_address || "", link: d.restaurant_link || "", category: d.food_name })} style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)", cursor: "pointer" }}>리뷰</button>
-                  {d.restaurant_name && (
-                    <a href={mapLink({ restaurant_name: d.restaurant_name, restaurant_address: d.restaurant_address || "" })} target="_blank" rel="noopener noreferrer" style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)", textDecoration: "none" }}>🗺️</a>
-                  )}
-                </div>
+          {decisions.length > 0 && (
+            <div style={{ display:"flex", justifyContent:"flex-end" }}>
+              <div style={{ display:"flex", background:"var(--bg-2)", borderRadius:99, padding:2, gap:2 }}>
+                {([["date","날짜순"],["place","식당별"]] as const).map(([k, label]) => (
+                  <button key={k} onClick={() => setHistSort(k)} style={{
+                    padding:"5px 12px", borderRadius:99, border:"none", cursor:"pointer", fontSize:11.5, fontWeight:700,
+                    background: histSort === k ? "var(--text)" : "transparent",
+                    color: histSort === k ? "#fff" : "var(--text-3)",
+                  }}>{label}</button>
+                ))}
               </div>
-            );
-          })}
+            </div>
+          )}
+
+          {histSort === "place" && groupedDecisions.map(([place, list]) => (
+            <div key={place}>
+              <p style={{ fontSize:12.5, fontWeight:700, marginBottom:6 }}>
+                {place} <span style={{ color:"var(--text-3)", fontWeight:500 }}>· {list.length}번</span>
+              </p>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {list.map(decisionCard)}
+              </div>
+            </div>
+          ))}
+
+          {histSort === "date" && decisions.map(decisionCard)}
         </div>
       )}
 

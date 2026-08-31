@@ -16,6 +16,7 @@ import { getAllLargeCategories, getMediumCategories, getMenuItems, getCategorySu
 import { getTimeSlot, TIME_FOODS, getAgeGroupFoods } from "@/lib/foodRecommend";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import { toast, showAlert, showConfirm, showPrompt } from "@/lib/dialog";
+import { getSizeModifier, getSizeLabel } from "@/lib/searchQuery";
 import JoinModal from "./JoinModal";
 import AddFavLocationForm from "./AddFavLocationForm";
 import HistoryTab from "./tabs/HistoryTab";
@@ -52,18 +53,6 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string
   "패스트푸드":{ bg: "#FBE9E7", text: "#BF360C", border: "#FF5722" },
   "기타":    { bg: "#F3E5F5", text: "#4A148C", border: "#9C27B0" },
 };
-
-function getSizeModifier(count: number): string {
-  if (count >= 6 && count <= 10) return "단체석";
-  if (count > 10) return "단체석 대관";
-  return "";
-}
-
-function getSizeLabel(count: number): string {
-  if (count >= 6 && count <= 10) return "단체석 식당 우선";
-  if (count > 10) return "대규모 단체 식당 우선";
-  return "";
-}
 
 const ATMOSPHERES = [
   { id: "", label: "🍽 전체", modifier: "" },
@@ -202,6 +191,10 @@ export default function GroupPage() {
   const [placeClicks, setPlaceClicks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  /* 검색 API 가 429(분당 10회) 를 돌려준 경우 — 예전에는 조용히 0건으로 보였다 */
+  const [searchLimited, setSearchLimited] = useState(false);
+  /* 못 먹는 음식으로 다 걸러져 후보가 0이 되어 되살린 경우 */
+  const [dislikeRelaxed, setDislikeRelaxed] = useState(false);
   const EMPTY_CATS = ["cat-31","cat-16","cat-32"];
   const [emptyCatImg] = useState(() => EMPTY_CATS[Math.floor(Math.random() * EMPTY_CATS.length)]);
   const [locating, setLocating] = useState(false);
@@ -535,17 +528,13 @@ export default function GroupPage() {
       const notifTitle = `🎯 ${restaurantName || foodName}으로 결정됐어요!`;
       const notifBody = decidedByName ? `${decidedByName}님이 오늘 메뉴를 결정했어요` : "오늘 메뉴가 결정됐어요";
       const notifUrl = `/groups/${id}`;
-      if (voteId) {
-        // 투표 참여자들에게 알림
-        const { data: voters } = await getSupabase().from("menu_vote_responses").select("voter_id").eq("vote_id", voteId).not("voter_id", "is", null);
-        const voterIds = [...new Set((voters || []).map((v: { voter_id: string }) => v.voter_id).filter((vid: string) => vid && vid !== currentUserId))];
-        if (voterIds.length > 0) {
-          fetch("/api/push/notify-group", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userIds: voterIds, title: notifTitle, body: notifBody, url: notifUrl, excludeUserId: currentUserId }) });
-        }
-      } else {
-        // 전체 멤버에게 알림
-        fetch("/api/push/notify-group", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ groupId: id, title: notifTitle, body: notifBody, url: notifUrl, excludeUserId: currentUserId }) });
-      }
+      /* 🔴 예전에는 투표로 결정하면 **투표한 사람에게만** 알렸다. 실제 호출부는 늘
+         투표에서 오므로, 투표에 참여하지 않은 멤버는 오늘 뭘 먹는지 영영 몰랐다.
+         오늘의 결정은 모임 전체의 일이라 모든 멤버에게 알린다. */
+      fetch("/api/push/notify-group", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupId: id, title: notifTitle, body: notifBody, url: notifUrl, excludeUserId: currentUserId }),
+      }).catch(() => {/* 알림 실패는 넘긴다 */});
       // 결정 카드로 스크롤
       setTimeout(() => decisionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
     }
@@ -678,6 +667,19 @@ export default function GroupPage() {
           member_name: members.find(m => m.id === memberId)?.name || myMemberName,
         }))
       );
+      /* 팟이 생겼다고 멤버에게 알린다. 팟 탭에서 만든 것만 알리고 있었는데,
+         추천 카드에서 만든 팟은 아무도 몰라서 모이지 않았다. */
+      fetch("/api/push/notify-group", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          groupId: id,
+          title: `🍚 ${myMemberName}님이 먹자팟을 만들었어요!`,
+          body: `${r.title} · ${menu}`,
+          url: `/groups/${id}?tab=pat&pat=${pat.id}`,
+          excludeUserId: currentUser.type === "auth" ? currentUser.user.id : undefined,
+        }),
+      }).catch(() => {/* 알림 실패는 넘긴다 */});
       setTab("pat");
     }
     setSavingDecision(false);
@@ -802,13 +804,29 @@ export default function GroupPage() {
         params.set("location", location.label);
       }
     }
-    try {
-      const res = await fetch(`${endpoint}?${params}`);
-      const data = await res.json();
-      return (data.items || []).map((r: Record<string, string | number | null>) => ({
-        ...r, score: 0, matchedLikes: [], distance: r.distance ?? null, _provider: provider,
-      }));
-    } catch { return []; }
+    const run = async (q: string): Promise<ScoredRestaurant[] | "limited"> => {
+      const pr = new URLSearchParams(params);
+      pr.set("query", q);
+      try {
+        const res = await fetch(`${endpoint}?${pr}`);
+        if (res.status === 429) return "limited";
+        const data = await res.json();
+        return (data.items || []).map((r: Record<string, string | number | null>) => ({
+          ...r, score: 0, matchedLikes: [], distance: r.distance ?? null, _provider: provider,
+        }));
+      } catch { return []; }
+    };
+
+    let out = await run(fullQuery);
+    if (out === "limited") { setSearchLimited(true); return []; }
+    /* 수식어("단체석", "분위기 좋은" …)를 붙이면 검색어가 길어져 0건이 되는 일이 잦다.
+       비어 있으면 수식어 없이 한 번 더 찾는다 — 빈 화면보다 낫다. */
+    if (out.length === 0 && modifiers) {
+      const retry = await run(query);
+      if (retry === "limited") { setSearchLimited(true); return []; }
+      out = retry;
+    }
+    return out;
   }
 
   async function searchNearby(query: string): Promise<ScoredRestaurant[]> {
@@ -872,6 +890,8 @@ export default function GroupPage() {
 
   async function handleRestaurantByMenus() {
     if (selectedMenus.length === 0) return;
+    setSearchLimited(false);
+    setDislikeRelaxed(false);
     /* 이 메뉴로 식당을 찾아본 것 자체가 취향 신호다 — 뒤에서 점수로 쌓는다.
        (같은 메뉴는 세션에서 한 번만 — 다시 찾기를 누를 때마다 쌓이면 한 메뉴가
        다른 모든 신호를 덮는다) */
@@ -925,6 +945,8 @@ export default function GroupPage() {
     if (selected.length === 0) return;
     setLoading(true);
     setScoredRestaurants([]);
+    setSearchLimited(false);
+    setDislikeRelaxed(false);
 
     const { data: prefs } = await getSupabase().from("food_preferences").select("*").in("member_id", selected);
     const likes = prefs?.filter((p) => p.preference_type === "like").map((p) => p.food_name) ?? [];
@@ -995,9 +1017,15 @@ export default function GroupPage() {
       return true;
     });
 
+    /* 🔴 못 먹는 음식은 **참가자 전원의 합집합**으로 걸러진다. 사람이 늘수록 걸러지는
+       범위가 커져서, 여럿이 고르면 결과가 통째로 사라지는 일이 생긴다. 하나도 안 남으면
+       거르지 않은 목록으로 되살리고 화면에 알려 준다 — 빈 화면보다 낫다. */
+    const usable = filtered.length > 0 ? filtered : unique;
+    if (filtered.length === 0 && unique.length > 0) setDislikeRelaxed(true);
+
     // 선호도 스코어링
     const allMedium = getAllMediumCategories();
-    const scored: ScoredRestaurant[] = filtered.map((r) => {
+    const scored: ScoredRestaurant[] = usable.map((r) => {
       const cat = (r.category || "").toLowerCase();
       const matchedLikes: string[] = [];
       let score = 0;
@@ -1325,6 +1353,17 @@ export default function GroupPage() {
             {getClickCount(r.title, placeClicks) >= 5 && (
               <div style={{ fontSize:11.5, color:"#D65000", fontWeight:700, marginBottom:6 }}>🔥 많이 찾아봤어요</div>
             )}
+            {/* 🍚 먹자팟 만들기 — 이 카드의 진짜 기능이다. 지도 버튼 위에 한 줄로 크게 둔다 */}
+            {(isOwner || myMemberId) && (
+              <button className="tap" onClick={() => saveDecisionAndPat(r)} style={{
+                width:"100%", padding:"12px", borderRadius:12, marginBottom:8,
+                background:"var(--primary)", color:"#fff", fontSize:15, fontWeight:800,
+                border:"none", cursor:"pointer", boxShadow:"0 6px 16px rgba(255,122,69,.28)",
+                display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+              }}>
+                {savingDecision ? "만드는 중…" : "🍚 이 집으로 먹자팟 만들기"}
+              </button>
+            )}
             <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
               <a href={getKakaoMapUrl(r)} target="_blank" rel="noopener noreferrer"
                 onClick={() => trackPlaceClick(r.title)}
@@ -1355,11 +1394,6 @@ export default function GroupPage() {
               }} style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", color:"var(--text-2)", border:"1px solid var(--border)", fontSize:12, fontWeight:700, cursor:"pointer" }}>
                 🔗 공유
               </button>
-              {(isOwner || myMemberId) && (
-                <button className="tap" onClick={() => saveDecisionAndPat(r)} style={{ padding:"5px 12px", borderRadius:8, background:"var(--primary)", color:"#fff", fontSize:12, fontWeight:800, border:"none", cursor:"pointer" }}>
-                  {savingDecision ? "만드는 중…" : "🍚 먹자팟 만들기!"}
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -1487,30 +1521,37 @@ export default function GroupPage() {
                     <p style={{ fontSize:12, color:"var(--text-2)", marginTop:3 }}>{r.address}</p>
                   </div>
                 </div>
-                {/* 액션 버튼들 */}
-                <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-                  <button className="tap" onClick={() => toggleFavorite(r)} style={{ flex:1, padding:"10px", borderRadius:12, border:`1.5px solid ${isFav ? "#F5A623" : "var(--border)"}`, background: isFav ? "#FFF4CC" : "var(--bg-2)", color: isFav ? "#C77800" : "var(--text-2)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
-                    {isFav ? "★ 즐겨찾기" : "☆ 즐겨찾기"}
+                {/* 액션 버튼들 — 즐겨찾기 + 지도 3종은 한 줄에 작게, 아래 줄이 진짜 행동 */}
+                <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+                  <button className="tap" onClick={() => toggleFavorite(r)} style={{ flex:"0 0 auto", padding:"8px 12px", borderRadius:10, border:`1.5px solid ${isFav ? "#F5A623" : "var(--border)"}`, background: isFav ? "#FFF4CC" : "var(--bg-2)", color: isFav ? "#C77800" : "var(--text-2)", fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+                    {isFav ? "★" : "☆"}
                   </button>
                   <a href={getKakaoMapUrl(r)} target="_blank" rel="noopener noreferrer"
                     onClick={() => { trackPlaceClick(r.title); fetch("/api/food-stats", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ food_name: r.category?.split(">")?.[0]?.trim() || r.title, event_type:"restaurant_click" }) }); }}
-                    style={{ flex:1, padding:"10px", borderRadius:12, background:"#FAE100", color:"#3A1D1D", fontSize:13, fontWeight:800, textDecoration:"none", textAlign:"center" }}>카카오맵</a>
+                    style={{ flex:1, padding:"8px 4px", borderRadius:10, background:"#FAE100", color:"#3A1D1D", fontSize:12, fontWeight:800, textDecoration:"none", textAlign:"center", whiteSpace:"nowrap" }}>카카오맵</a>
                   <a href={getNaverMapUrl(r)} target="_blank" rel="noopener noreferrer"
                     onClick={() => { trackPlaceClick(r.title); fetch("/api/food-stats", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ food_name: r.category?.split(">")?.[0]?.trim() || r.title, event_type:"restaurant_click" }) }); }}
-                    style={{ flex:1, padding:"10px", borderRadius:12, background:"#03C75A", color:"#fff", fontSize:13, fontWeight:800, textDecoration:"none", textAlign:"center" }}>네이버맵</a>
+                    style={{ flex:1, padding:"8px 4px", borderRadius:10, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:800, textDecoration:"none", textAlign:"center", whiteSpace:"nowrap" }}>네이버맵</a>
                   <a href={getGoogleMapUrl(r)} target="_blank" rel="noopener noreferrer"
                     onClick={() => trackPlaceClick(r.title)}
-                    style={{ flex:1, padding:"10px", borderRadius:12, background:"#4285F4", color:"#fff", fontSize:13, fontWeight:800, textDecoration:"none", textAlign:"center" }}>구글맵</a>
+                    style={{ flex:1, padding:"8px 4px", borderRadius:10, background:"#4285F4", color:"#fff", fontSize:12, fontWeight:800, textDecoration:"none", textAlign:"center", whiteSpace:"nowrap" }}>구글맵</a>
                 </div>
-                <button className="tap" onClick={() => {
-                  const list = sortedRestaurants;
-                  if (!list.length) return;
-                  let next;
-                  do { next = list[Math.floor(Math.random() * list.length)]; } while (next.title === randomPick && list.length > 1);
-                  setRandomPick(next.title);
-                }} style={{ width:"100%", padding:"12px", borderRadius:12, border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer", boxShadow:"0 6px 16px rgba(255,122,69,.3)" }}>
-                  <img src="/mascot/tabs/dice.png" style={{width:18,height:18,objectFit:"contain",marginRight:4}}/>다른 곳 보기
-                </button>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button className="tap" onClick={() => {
+                    const list = sortedRestaurants;
+                    if (!list.length) return;
+                    let next;
+                    do { next = list[Math.floor(Math.random() * list.length)]; } while (next.title === randomPick && list.length > 1);
+                    setRandomPick(next.title);
+                  }} style={{ flex:1, padding:"12px", borderRadius:12, border:"1.5px solid var(--border)", background:"var(--bg-2)", color:"var(--text-2)", fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:4 }}>
+                    <img src="/mascot/tabs/dice.png" style={{width:18,height:18,objectFit:"contain"}}/>다른 곳 보기
+                  </button>
+                  {(isOwner || myMemberId) && (
+                    <button className="tap" onClick={() => { setRandomPick(null); saveDecisionAndPat(r); }} style={{ flex:1, padding:"12px", borderRadius:12, border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer", boxShadow:"0 6px 16px rgba(255,122,69,.3)" }}>
+                      🍚 먹자팟 만들기
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -2015,7 +2056,28 @@ export default function GroupPage() {
 
           {/* 오늘 참가자 */}
           <div ref={participantsRef} style={{ background: "var(--bg-card)", borderRadius: 16, padding: 22, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 14 }}>오늘 참가자</p>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: 14, gap: 10 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)" }}>
+                오늘 참가자 {selected.length > 0 ? `· ${selected.length}명` : ""}
+              </p>
+              {members.length > 0 && (() => {
+                const allOn = selected.length === members.length;
+                return (
+                  <button className="tap" onClick={() => {
+                    setShowSearchGuidance(false);
+                    setSelected(allOn ? [] : members.map(m => m.id));
+                  }} style={{
+                    display:"flex", alignItems:"center", gap:6, padding:"6px 12px", borderRadius:100,
+                    border: allOn ? "2px solid var(--primary)" : "2px solid var(--border)",
+                    background: allOn ? "var(--primary)" : "transparent",
+                    color: allOn ? "#fff" : "var(--text-2)",
+                    fontSize:12.5, fontWeight:700, cursor:"pointer", flexShrink:0,
+                  }}>
+                    {allOn ? "☑" : "☐"} 전체 {allOn ? "해제" : "선택"}
+                  </button>
+                );
+              })()}
+            </div>
             {members.length === 0 ? (
               <p style={{ fontSize: 14, color: "var(--text-muted)" }}>
                 멤버가 없습니다.{" "}
@@ -2588,8 +2650,22 @@ export default function GroupPage() {
           {!loading && scoredRestaurants.length === 0 && hasSearched && (
             <div style={{ textAlign:"center", padding:"32px 16px" }}>
               <img src={`/mascot/avatars/${emptyCatImg}.png`} alt="" style={{ width:80, height:80, objectFit:"contain", marginBottom:12, mixBlendMode:"multiply" }} />
-              <p style={{ fontFamily:"var(--font-display)", fontSize:16, color:"var(--text)", marginBottom:6 }}>검색 결과가 없습니다</p>
-              <p style={{ fontSize:13, color:"var(--text-3)" }}>위치나 검색 조건을 바꿔서 다시 시도해보세요</p>
+              <p style={{ fontFamily:"var(--font-display)", fontSize:16, color:"var(--text)", marginBottom:6 }}>
+                {searchLimited ? "잠깐 쉬었다 다시 찾아요" : "검색 결과가 없습니다"}
+              </p>
+              <p style={{ fontSize:13, color:"var(--text-3)" }}>
+                {searchLimited
+                  ? "1분에 10번까지만 찾을 수 있어요. 조금 뒤에 다시 눌러주세요"
+                  : "위치나 검색 조건을 바꿔서 다시 시도해보세요"}
+              </p>
+            </div>
+          )}
+
+          {scoredRestaurants.length > 0 && dislikeRelaxed && (
+            <div style={{ margin:"0 0 10px", padding:"10px 14px", borderRadius:12, background:"var(--bg-2)", border:"1px solid var(--border)" }}>
+              <p style={{ fontSize:12.5, color:"var(--text-2)" }}>
+                🙅 참가자들이 못 먹는 음식으로 다 걸러져서, 이번에는 걸러내지 않고 보여드려요
+              </p>
             </div>
           )}
 

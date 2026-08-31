@@ -88,6 +88,10 @@ export default function PatTab({
   const [creating, setCreating] = useState(false);
   const [expandedPatId, setExpandedPatId] = useState<string | null>(initialExpandId ?? null);
   const [copiedPatId, setCopiedPatId] = useState<string | null>(null);
+  /* 종료된 팟 보기: 날짜순 / 식당별 */
+  const [closedSort, setClosedSort] = useState<"date" | "place">("date");
+  const [expandedClosedId, setExpandedClosedId] = useState<string | null>(null);
+  const [showAllClosed, setShowAllClosed] = useState(false);
   const [placeClicks, setPlaceClicks] = useState<Record<string, number>>({});
   /* "또 갈래?" 에 답한 팟. 기기에만 남긴다 — 표를 만들 만큼 무거운 값이 아니고,
      한 번 더 물어봐도 점수만 한 번 더 오를 뿐이라 위험하지 않다. */
@@ -234,19 +238,35 @@ export default function PatTab({
       .eq("pat_id", pat.id).eq("member_id", myMemberId);
   }
 
-  async function closePat(patId: string) {
-    await getSupabase().from("meal_pats").update({ status: "closed" }).eq("id", patId);
-    const pat = pats.find(p => p.id === patId);
-    if (!pat) return;
+  /** 확정 — 이 팟으로 간다. 오늘의 결정으로 기록하고 멤버에게 알린다.
+   *  🔴 만든 사람과 모임장만 부를 수 있다(호출부에서 막고, 여기서 한 번 더 본다). */
+  async function confirmPat(pat: MealPat) {
+    if (!(pat.creator_member_id === myMemberId || isOwner)) return;
+    const target = pat.restaurant_name || pat.menu;
+    const ok = await showConfirm(
+      `${target}(으)로 확정하고 오늘의 메뉴로 기록할까요?`,
+      { title: "먹자팟 확정", icon: "🎯", confirmLabel: "확정하기" },
+    );
+    if (!ok) return;
 
-    /* 🔴 예전에는 **닫는 사람에게만** 물었다. 실제로 같이 먹은 참여자들이 답하지 않으니
-       신호의 대부분이 버려졌다. 참여자에게는 알림으로 물어본다(들어오면 카드에서 답한다). */
-    const patJoins = joins[patId] || [];
-    const memberIds = patJoins.map(j => j.member_id).filter(id => id !== myMemberId);
+    await getSupabase().from("meal_pats").update({ status: "closed" }).eq("id", pat.id);
+
+    // 오늘의 결정으로 남긴다 — 기록 탭이 이걸 보여준다
+    await getSupabase().from("group_decisions").insert({
+      group_id: groupId,
+      food_name: pat.menu,
+      restaurant_name: pat.restaurant_name,
+      restaurant_address: pat.restaurant_address,
+      restaurant_link: pat.restaurant_link,
+      decided_by_name: myMemberName || pat.creator_name,
+    });
+
+    // 참여자에게 알린다
+    const patJoins = joins[pat.id] || [];
+    const memberIds = patJoins.map(j => j.member_id).filter(mid => mid !== myMemberId);
     if (memberIds.length > 0) {
       try {
-        const { data: mem } = await getSupabase()
-          .from("members").select("user_id").in("id", memberIds);
+        const { data: mem } = await getSupabase().from("members").select("user_id").in("id", memberIds);
         const userIds = (mem || []).map(m => m.user_id).filter(Boolean);
         if (userIds.length > 0) {
           fetch("/api/push/notify-group", {
@@ -254,17 +274,46 @@ export default function PatTab({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               groupId: null, userIds,
-              title: `🍚 ${pat.menu} 어땠어요?`,
-              body: "또 갈 만했는지 한 번만 눌러주면 다음 추천이 좋아져요",
-              url: `/groups/${groupId}?tab=pat&rate=${patId}`,
+              title: `🎯 ${target}(으)로 확정!`,
+              body: `${myMemberName || pat.creator_name}님이 먹자팟을 확정했어요`,
+              url: `/groups/${groupId}?tab=pat&pat=${pat.id}`,
               excludeUserId: currentUserId || undefined,
             }),
           }).catch(() => {/* 알림 실패는 넘긴다 */});
         }
       } catch { /* 알림 실패는 넘긴다 */ }
     }
+    toast(`${target}(으)로 확정했어요 🎉`);
+    loadPats();
+  }
 
-    await askWouldRepeat(patId, pat.menu);
+  /** 취소 — 팟을 지운다. 확정된 팟이면 그때 남긴 결정 기록도 함께 지운다
+   *  (안 지우면 가지도 않은 가게가 기록에 남는다). */
+  async function deletePat(pat: MealPat) {
+    if (!(pat.creator_member_id === myMemberId || isOwner)) return;
+    const ok = await showConfirm(
+      "먹자팟을 취소하고 삭제할까요? 참여자 목록도 함께 사라져요.",
+      { title: "먹자팟 취소", icon: "🗑️", danger: true, confirmLabel: "삭제" },
+    );
+    if (!ok) return;
+
+    if (pat.status === "closed") {
+      /* 이 팟을 확정하며 남긴 기록만 지운다. 팟이 만들어지기 전에 남은 결정은
+         다른 경로(투표·결정하기)로 정한 것이라 건드리면 안 된다. */
+      const q = getSupabase().from("group_decisions").select("id").eq("group_id", groupId)
+        .gte("decided_at", pat.created_at)
+        .order("decided_at", { ascending: false }).limit(1);
+      const { data: dec } = pat.restaurant_name
+        ? await q.eq("restaurant_name", pat.restaurant_name)
+        : await q.eq("food_name", pat.menu).is("restaurant_name", null);
+      if (dec?.[0]) await getSupabase().from("group_decisions").delete().eq("id", dec[0].id);
+    }
+
+    await getSupabase().from("meal_pat_joins").delete().eq("pat_id", pat.id);
+    await getSupabase().from("meal_pats").delete().eq("id", pat.id);
+    setExpandedPatId(prev => prev === pat.id ? null : prev);
+    toast("먹자팟을 삭제했어요");
+    loadPats();
   }
 
   /** 내가 이 팟에 참여했나 (또 갈래? 는 같이 먹은 사람에게만 묻는다) */
@@ -473,13 +522,22 @@ export default function PatTab({
                       }}>
                         {copiedPatId === pat.id ? "✓ 복사됨" : "🔗 초대"}
                       </button>
+                      {/* 확정·취소는 만든 사람과 모임장만 */}
                       {(isCreator || isOwner) && (
-                        <button className="tap" onClick={() => closePat(pat.id)} style={{
-                          padding:"9px 14px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)",
-                          background:"transparent", color:"var(--text-3)", fontSize:12, cursor:"pointer",
-                        }}>
-                          마감
-                        </button>
+                        <>
+                          <button className="tap" onClick={() => confirmPat(pat)} style={{
+                            padding:"9px 14px", borderRadius:"var(--r-pill)", border:"none",
+                            background:"var(--green, #17A34A)", color:"#fff", fontSize:12.5, fontWeight:800, cursor:"pointer",
+                          }}>
+                            ✅ 확정
+                          </button>
+                          <button className="tap" onClick={() => deletePat(pat)} style={{
+                            padding:"9px 12px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)",
+                            background:"transparent", color:"var(--text-3)", fontSize:12, cursor:"pointer",
+                          }}>
+                            🗑️ 취소
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -490,33 +548,145 @@ export default function PatTab({
         </div>
       )}
 
-      {/* 종료된 팟 */}
-      {closed.length > 0 && (
-        <div style={{ padding:"16px 16px 0" }}>
-          <p style={{ fontSize:12, color:"var(--text-3)", fontWeight:700, marginBottom:8 }}>종료된 팟</p>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {closed.slice(0, 5).map(pat => {
-              const patJoins = joins[pat.id] || [];
-              return (
-                <div key={pat.id} style={{ padding:"12px 14px", borderRadius:14, background:"var(--bg-2)", opacity: joinedThis(pat.id) && !rated.includes(pat.id) ? 1 : 0.7 }}>
-                  <p style={{ fontSize:14, color:"var(--text-2)", marginBottom:4 }}>{pat.title}</p>
-                  <span style={{ fontSize:11, color:"var(--text-3)" }}>{patJoins.length}명 참여 · {timeSince(pat.created_at)}</span>
-                  {/* 같이 먹은 사람에게만 묻는다. 한 번 답하면 사라진다. */}
-                  {joinedThis(pat.id) && !rated.includes(pat.id) && (
-                    <button className="tap" onClick={() => askWouldRepeat(pat.id, pat.menu)} style={{
-                      display:"block", marginTop:8, padding:"8px 14px", borderRadius:"var(--r-pill)",
-                      border:"1.5px solid var(--primary)", background:"transparent", color:"var(--primary)",
-                      fontSize:12.5, fontWeight:700, cursor:"pointer",
-                    }}>
-                      🍚 {pat.menu} 또 갈래요?
-                    </button>
-                  )}
+      {/* 종료된 팟 — 눌러서 누가 갔고 어디였는지 다 볼 수 있다 */}
+      {closed.length > 0 && (() => {
+        const mapUrl = (kind: "kakao" | "naver" | "google", pat: MealPat) => {
+          const name = pat.restaurant_name || "";
+          const addr = pat.restaurant_address ? " " + pat.restaurant_address : "";
+          if (kind === "kakao") return `https://map.kakao.com/link/search/${encodeURIComponent(name)}`;
+          if (kind === "naver") return `https://map.naver.com/p/search/${encodeURIComponent(name + addr)}`;
+          return `https://www.google.com/maps/search/?q=${encodeURIComponent(name + addr)}&hl=ko`;
+        };
+
+        const card = (pat: MealPat) => {
+          const patJoins = joins[pat.id] || [];
+          const isExpanded = expandedClosedId === pat.id;
+          const canManage = pat.creator_member_id === myMemberId || isOwner;
+          return (
+            <div key={pat.id} style={{ borderRadius:14, background:"var(--bg-2)", overflow:"hidden" }}>
+              <button className="tap" onClick={() => setExpandedClosedId(isExpanded ? null : pat.id)}
+                style={{ width:"100%", textAlign:"left", background:"none", border:"none", cursor:"pointer", padding:"12px 14px" }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+                  <p style={{ fontSize:14, color:"var(--text-2)", margin:0, flex:1, minWidth:0 }}>{pat.title}</p>
+                  <span style={{ fontSize:13, color:"var(--text-3)", transform: isExpanded ? "rotate(180deg)" : "none", transition:"transform .2s" }}>▾</span>
                 </div>
-              );
-            })}
+                <span style={{ fontSize:11, color:"var(--text-3)" }}>
+                  {pat.restaurant_name ? `📍 ${pat.restaurant_name} · ` : ""}{patJoins.length}명 참여 · {new Date(pat.created_at).toLocaleDateString("ko-KR", { month:"numeric", day:"numeric" })}
+                </span>
+              </button>
+
+              {isExpanded && (
+                <div style={{ padding:"0 14px 14px", borderTop:"1px solid var(--border)" }}>
+                  <p style={{ fontSize:11, fontWeight:700, color:"var(--text-3)", margin:"12px 0 6px" }}>같이 먹은 사람</p>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
+                    {patJoins.length === 0 && <span style={{ fontSize:12, color:"var(--text-3)" }}>참여자 기록이 없어요</span>}
+                    {patJoins.map(j => (
+                      <span key={j.id} style={{ fontSize:12, padding:"3px 9px", borderRadius:"var(--r-pill)", background: j.member_id === pat.creator_member_id ? "#FFF4CC" : "var(--surface)", color: j.member_id === pat.creator_member_id ? "#9A7B00" : "var(--text-2)", fontWeight: j.member_id === pat.creator_member_id ? 700 : 400 }}>
+                        {j.member_id === pat.creator_member_id ? "👑 " : ""}{j.member_name}
+                      </span>
+                    ))}
+                  </div>
+
+                  {pat.restaurant_name ? (
+                    <div style={{ background:"var(--surface)", borderRadius:12, padding:"12px 14px", border:"1px solid var(--border)" }}>
+                      <p style={{ fontFamily:"var(--font-display)", fontSize:15, margin:"0 0 3px" }}>{pat.restaurant_name}</p>
+                      {pat.restaurant_address && <p style={{ fontSize:12, color:"var(--text-2)", margin:"0 0 10px" }}>📍 {pat.restaurant_address}</p>}
+                      <div style={{ display:"flex", gap:6 }}>
+                        <a href={mapUrl("kakao", pat)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(pat.restaurant_name!)}
+                          style={{ flex:1, padding:"7px", borderRadius:9, background:"#FAE100", color:"#3A1D1D", fontSize:12, fontWeight:800, textDecoration:"none", textAlign:"center" }}>카카오맵</a>
+                        <a href={mapUrl("naver", pat)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(pat.restaurant_name!)}
+                          style={{ flex:1, padding:"7px", borderRadius:9, background:"#03C75A", color:"#fff", fontSize:12, fontWeight:800, textDecoration:"none", textAlign:"center" }}>네이버맵</a>
+                        <a href={mapUrl("google", pat)} target="_blank" rel="noopener noreferrer" onClick={() => trackPlaceClick(pat.restaurant_name!)}
+                          style={{ flex:1, padding:"7px", borderRadius:9, background:"#4285F4", color:"#fff", fontSize:12, fontWeight:800, textDecoration:"none", textAlign:"center" }}>구글맵</a>
+                      </div>
+                    </div>
+                  ) : (
+                    <p style={{ fontSize:12.5, color:"var(--text-3)" }}>메뉴만 정한 팟이에요 · {pat.menu}</p>
+                  )}
+
+                  <div style={{ display:"flex", gap:8, marginTop:12, flexWrap:"wrap" }}>
+                    {joinedThis(pat.id) && !rated.includes(pat.id) && (
+                      <button className="tap" onClick={() => askWouldRepeat(pat.id, pat.menu)} style={{
+                        flex:1, padding:"9px 14px", borderRadius:"var(--r-pill)",
+                        border:"1.5px solid var(--primary)", background:"transparent", color:"var(--primary)",
+                        fontSize:12.5, fontWeight:700, cursor:"pointer",
+                      }}>
+                        🍚 {pat.menu} 또 갈래요?
+                      </button>
+                    )}
+                    {canManage && (
+                      <button className="tap" onClick={() => deletePat(pat)} style={{
+                        padding:"9px 12px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)",
+                        background:"transparent", color:"var(--text-3)", fontSize:12, cursor:"pointer",
+                      }}>
+                        🗑️ 삭제
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        const list = showAllClosed ? closed : closed.slice(0, 8);
+        /* 식당별 보기: 같은 가게에 몇 번 갔는지 한눈에 보인다.
+           🔴 세는 것은 전체 기록이다 — 화면에 보이는 8개만 세면 "3번" 이 거짓말이 된다. */
+        const byPlace = (() => {
+          const m = new Map<string, MealPat[]>();
+          closed.forEach(pat => {
+            const key = pat.restaurant_name || pat.menu;
+            if (!m.has(key)) m.set(key, []);
+            m.get(key)!.push(pat);
+          });
+          return [...m.entries()].sort((a, b) => b[1].length - a[1].length);
+        })();
+
+        return (
+          <div style={{ padding:"16px 16px 0" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, gap:8 }}>
+              <p style={{ fontSize:12, color:"var(--text-3)", fontWeight:700, margin:0 }}>종료된 팟 {closed.length}개</p>
+              <div style={{ display:"flex", background:"var(--bg-2)", borderRadius:99, padding:2, gap:2 }}>
+                {([["date","날짜순"],["place","식당별"]] as const).map(([k, label]) => (
+                  <button key={k} onClick={() => setClosedSort(k)} style={{
+                    padding:"5px 12px", borderRadius:99, border:"none", cursor:"pointer", fontSize:11.5, fontWeight:700,
+                    background: closedSort === k ? "var(--text)" : "transparent",
+                    color: closedSort === k ? "#fff" : "var(--text-3)",
+                  }}>{label}</button>
+                ))}
+              </div>
+            </div>
+
+            {closedSort === "date" ? (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {list.map(card)}
+              </div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+                {byPlace.map(([place, pats2]) => (
+                  <div key={place}>
+                    <p style={{ fontSize:12.5, fontWeight:700, marginBottom:6 }}>
+                      {place} <span style={{ color:"var(--text-3)", fontWeight:500 }}>· {pats2.length}번</span>
+                    </p>
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                      {pats2.map(card)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {closed.length > 8 && !showAllClosed && (
+              <button className="tap" onClick={() => setShowAllClosed(true)} style={{
+                width:"100%", marginTop:10, padding:"10px", borderRadius:12, border:"1.5px solid var(--border)",
+                background:"transparent", color:"var(--text-2)", fontSize:12.5, fontWeight:700, cursor:"pointer",
+              }}>
+                지난 팟 더 보기 ({closed.length - 8}개)
+              </button>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 팟 만들기 모달 */}
       {showCreate && (

@@ -167,13 +167,39 @@ export default function VoteTab({ groupId, isOwnerOrAdmin, onDecide }: { groupId
     }
   }
 
+  /** 만든 사람 또는 모임장만 — 호출부에서도 막지만 여기서 한 번 더 본다 */
+  function mayManage(vote: MenuVote): boolean {
+    return !!(isOwnerOrAdmin || (currentUserId && vote.created_by === currentUserId));
+  }
+
   async function closeVote(voteId: string) {
+    const vote = votes.find(v => v.id === voteId);
+    if (!vote || !mayManage(vote)) return;
     await getSupabase().from("menu_votes").update({ is_closed: true }).eq("id", voteId);
     setVotes(prev => prev.map(v => v.id === voteId ? { ...v, is_closed: true } : v));
     setCollapsedVotes(prev => new Set([...prev, voteId]));
+
+    /* 투표한 사람에게 끝났다고 알린다 — 예전에는 아무 알림이 없어서
+       마감된 줄 모르고 계속 기다리는 사람이 생겼다. */
+    const voterIds = [...new Set((responses[voteId] || [])
+      .map(r => r.voter_id).filter((vid): vid is string => !!vid && vid !== currentUserId))];
+    if (voterIds.length > 0) {
+      fetch("/api/push/notify-group", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userIds: voterIds,
+          title: "🗳️ 투표가 마감됐어요",
+          body: vote.title,
+          url: `/groups/${groupId}?tab=vote`,
+          excludeUserId: currentUserId || undefined,
+        }),
+      }).catch(() => {/* 알림 실패는 넘긴다 */});
+    }
   }
 
   async function deleteVote(voteId: string) {
+    const vote = votes.find(v => v.id === voteId);
+    if (!vote || !mayManage(vote)) return;
     await getSupabase().from("menu_vote_responses").delete().eq("vote_id", voteId);
     await getSupabase().from("menu_votes").delete().eq("id", voteId);
     setVotes(prev => prev.filter(v => v.id !== voteId));
@@ -218,7 +244,9 @@ export default function VoteTab({ groupId, isOwnerOrAdmin, onDecide }: { groupId
         const winner = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
 
         const isCollapsed = collapsedVotes.has(vote.id);
-        const canDelete = isOwnerOrAdmin || (currentUserId && vote.created_by === currentUserId);
+        /* 마감·삭제는 만든 사람과 모임장(관리자)만. 아무나 남의 투표를 닫거나 지울 수 없다. */
+        const canManage = !!(isOwnerOrAdmin || (currentUserId && vote.created_by === currentUserId));
+        const canDelete = canManage;
         return (
           <div key={vote.id} style={{ borderRadius:16, background:"var(--surface)", border: isClosed ? "var(--card-border)" : "2px solid var(--primary)", boxShadow:"var(--card-shadow)", overflow:"hidden" }}>
             {/* 헤더 — 항상 표시 */}
@@ -235,7 +263,7 @@ export default function VoteTab({ groupId, isOwnerOrAdmin, onDecide }: { groupId
                 </div>
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }} onClick={e => e.stopPropagation()}>
-                {isOwnerOrAdmin && !isClosed && (
+                {canManage && !isClosed && (
                   <button onClick={() => closeVote(vote.id)} style={{ padding:"4px 10px", borderRadius:99, border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-3)", fontSize:11, cursor:"pointer" }}>마감</button>
                 )}
                 {canDelete && (
