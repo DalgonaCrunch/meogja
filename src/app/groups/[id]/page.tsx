@@ -235,6 +235,8 @@ export default function GroupPage() {
   const [menuRecommendations, setMenuRecommendations] = useState<{ menu: string; large: string; medium: string; score: number; likedByIds: string[]; likedByAll?: boolean }[]>([]);
   /* 못 먹는 것이 너무 많아 후보가 남지 않아 되살린 경우 — 화면에 알려 준다 */
   const [recRelaxed, setRecRelaxed] = useState(false);
+  /* "다시 추천" 을 누른 횟수 — 씨앗을 돌리는 데 쓴다 */
+  const [menuRoll, setMenuRoll] = useState(0);
   /* 모임 화면은 **목록이 기본**이다. 여기서는 여러 명이 카드를 훑어보며 고르기 때문에
      지도부터 보여주면 정보가 줄어든다(/nearby·/search 는 반대로 지도가 기본). */
   const [restaurantView, setRestaurantView] = useState<"list" | "map">("list");
@@ -983,19 +985,24 @@ export default function GroupPage() {
     finally { setCreatingVote(false); }
   }
 
-  async function handleMenuRecommend() {
+  async function handleMenuRecommend(reroll = false) {
     if (selected.length === 0) return;
     setLoading(true);
     setMenuRecommendations([]);
     setSelectedMenus([]);
+    /* 🔴 씨앗이 모임+날짜 고정이라 "다시 추천" 을 눌러도 하루 종일 같은 목록이
+       나왔다. 다시 누를 때마다 씨앗을 돌리고 흔들림도 키운다 — 선호가 뚜렷하면
+       점수 차이가 커서 작은 흔들림으로는 순서가 바뀌지 않는다. */
+    const roll = reroll ? menuRoll + 1 : menuRoll;
+    if (roll !== menuRoll) setMenuRoll(roll);
     const { data: prefs } = await getSupabase().from("food_preferences").select("*").in("member_id", selected);
     if (prefs) {
-      /* 씨앗을 넣어 순서를 흔든다. 모임+날짜 기준이라 같은 날 다시 눌러도 순서가
-         그대로고(신뢰), 날이 바뀌면 다른 메뉴가 앞으로 온다(같은 것만 나오지 않게). */
-      const seed = `${id}-${new Date().toISOString().slice(0, 10)}`;
+      /* 첫 추천은 모임+날짜로 고정한다 — 새로고침해도 같은 목록이라 신뢰가 생긴다.
+         다시 누른 만큼(roll) 씨앗을 바꾼다. */
+      const seed = `${id}-${new Date().toISOString().slice(0, 10)}${roll > 0 ? `-r${roll}` : ""}`;
       /* 재료 표는 DB 에서 받는다(없으면 코드에 있는 씨앗 표로 간다) */
       const ingMap = await loadIngredientMap();
-      const res = getRecommendationsDetailed(prefs, selected, 15, seed, ingMap);
+      const res = getRecommendationsDetailed(prefs, selected, 15, seed, ingMap, roll > 0 ? 4 : 1.2);
       setMenuRecommendations(res.items);
       setRecRelaxed(res.relaxed);
     }
@@ -2720,7 +2727,8 @@ export default function GroupPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               {searchMode === "menu" ? (
-                <button onClick={handleMenuRecommend} disabled={loading} style={{
+                /* 결과가 이미 있는데 또 누르면 새로 뽑는 뜻이다 */
+                <button onClick={() => handleMenuRecommend(menuRecommendations.length > 0)} disabled={loading} style={{
                   background: loading ? "var(--border)" : "var(--green)", color: loading ? "var(--text-muted)" : "#fff",
                   border: "none", borderRadius: 100, padding: "12px 28px", fontSize: 15, fontWeight: 600,
                   cursor: loading ? "default" : "pointer", transition: "all 0.15s",
@@ -2788,7 +2796,7 @@ export default function GroupPage() {
                 <p style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600 }}>
                   추천 메뉴 <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)" }}>— 먹고 싶은 메뉴를 골라보세요</span>
                 </p>
-                <button onClick={handleMenuRecommend} style={{ padding: "6px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                <button onClick={() => handleMenuRecommend(true)} disabled={loading} style={{ padding: "6px 14px", borderRadius: 100, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 600, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1 }}>
                   <img src="/mascot/tabs/refresh.png" style={{width:18,height:18,objectFit:"contain",marginRight:4}}/>다시 추천
                 </button>
               </div>

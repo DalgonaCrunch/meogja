@@ -364,7 +364,11 @@ export function getRecommendationsDetailed(
   count: number = 5,
   seed?: string,
   /** DB 에서 받아 온 재료 표(없으면 코드에 있는 씨앗 표를 쓴다) */
-  ingredientMap?: IngredientMap
+  ingredientMap?: IngredientMap,
+  /** 흔들림의 크기. "다시 추천" 처럼 다른 결과를 보고 싶을 때 크게 준다.
+   *  🔴 기본값(1.2)은 점수 차이를 못 넘는다 — 선호가 뚜렷하면 씨앗만 바꿔도 상위
+   *  목록이 그대로였다. 다시 눌렀는데 같은 것이 나오면 버튼이 죽은 것으로 읽힌다. */
+  jitterScale: number = 1.2
 ): RecommendResult {
   const participantPrefs = preferences.filter((p) => participantIds.includes(p.member_id));
 
@@ -417,9 +421,18 @@ export function getRecommendationsDetailed(
 
   // 4. 흔들림은 정렬 전에 한 번만 계산한다(비교 함수 안에서 난수를 쓰면 안 된다)
   const jitter = new Map<string, number>();
-  items.forEach(it => jitter.set(it.menu, rand() * 1.2));
+  items.forEach(it => jitter.set(it.menu, rand() * jitterScale));
 
-  const sorted = [...items].sort((a, b) => {
+  /* 같은 메뉴가 여러 분류에 들어 있어 목록에 두 번 나오는 일이 있었다
+     (초밥 = 일식 / 해산물). 점수가 높은 쪽만 남긴다. */
+  const bestByMenu = new Map<string, Recommendation>();
+  items.forEach((it) => {
+    const prev = bestByMenu.get(it.menu);
+    if (!prev || it.score > prev.score) bestByMenu.set(it.menu, it);
+  });
+  const uniqueItems = [...bestByMenu.values()];
+
+  const sorted = [...uniqueItems].sort((a, b) => {
     if (a.likedByAll !== b.likedByAll) return a.likedByAll ? -1 : 1;
     const sa = a.score + (jitter.get(a.menu) ?? 0);
     const sb = b.score + (jitter.get(b.menu) ?? 0);
@@ -438,6 +451,25 @@ export function getRecommendationsDetailed(
     }
     fallback.sort(() => rand() - 0.5);
     return { items: fallback.slice(0, count), relaxed: true, excludedCount };
+  }
+
+  /* "다시 추천" 은 순서만 바뀌면 같은 목록처럼 보인다. 흔들림을 크게 준 경우
+     (다시 뽑기)에는 상위 후보를 넉넉히 뽑아 그 안에서 골라, 나오는 메뉴 자체가
+     달라지게 한다. 여전히 상위권 안에서만 고르므로 취향은 지킨다. */
+  if (jitterScale > 1.5 && sorted.length > count) {
+    const pool = sorted.slice(0, Math.min(sorted.length, count * 2));
+    const picked: Recommendation[] = [];
+    const rest = [...pool];
+    while (picked.length < count && rest.length > 0) {
+      /* 앞쪽(점수가 높은 쪽)이 더 자주 뽑히게 기울인다 — 그냥 고르게 뽑으면
+         취향과 상관없는 메뉴가 앞에 오고, 추천이 아니라 무작위가 된다. */
+      const r = rand();
+      const idx = Math.floor(r * r * rest.length);
+      picked.push(...rest.splice(idx, 1));
+    }
+    /* 전원이 좋아하는 것은 그래도 앞에 둔다 */
+    picked.sort((a, b) => (a.likedByAll === b.likedByAll ? 0 : a.likedByAll ? -1 : 1));
+    return { items: picked, relaxed: false, excludedCount };
   }
 
   return { items: sorted.slice(0, count), relaxed: false, excludedCount };
