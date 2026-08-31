@@ -206,6 +206,8 @@ export default function GroupPage() {
   const [providers, setProviders] = useState<Set<"naver" | "kakao">>(new Set(["naver", "kakao"]));
   const [location, setLocation] = useState<{ lat: number; lng: number; label?: string; address?: string } | null>(null);
   const [radius, setRadius] = useState(1000);
+  /* 실제로 결과를 얻은 반경 — 자동으로 넓혔으면 화면에 알린다 */
+  const [usedRadius, setUsedRadius] = useState(1000);
   const [sortBy, setSortBy] = useState<"distance" | "rating" | "score" | "fit" | "category">("distance");
   // 카테고리 필터
   const [filterLarge, setFilterLarge] = useState<string>("");
@@ -809,7 +811,7 @@ export default function GroupPage() {
   /* 여러 검색어를 **한 요청**으로 보낸다.
      🔴 예전에는 검색어 하나가 요청 하나여서, 추천 한 번(검색어 5~7개)이면 분당 10회
      제한에 곧바로 걸렸다. 서버가 검색어 목록을 받아 병렬로 돌리므로 제한은 1회다. */
-  async function searchNearbyFromProvider(queriesIn: string[], provider: "naver" | "kakao"): Promise<ScoredRestaurant[]> {
+  async function searchNearbyFromProvider(queriesIn: string[], provider: "naver" | "kakao", radiusOverride?: number): Promise<ScoredRestaurant[]> {
     const endpoint = provider === "naver" ? "/api/search" : "/api/search-kakao";
     // 인원 + 분위기 수정자 추가
     const sizeModifier = getSizeModifier(selected.length);
@@ -819,7 +821,7 @@ export default function GroupPage() {
     /* 서버도 8개까지만 받는다. 여기서 잘라 두면 무엇이 빠졌는지 예측할 수 있다. */
     const queries = queriesIn.slice(0, 8);
 
-    const base = new URLSearchParams({ radius: String(radius) });
+    const base = new URLSearchParams({ radius: String(radiusOverride ?? radius) });
     /* 카카오는 한 검색어에 최대 45곳(15 × 3페이지)까지 준다. 15곳에서 끊으면 늘 가장
        가까운 곳만 나와서 반경을 늘려도 목록이 그대로다 — 넉넉히 받아 온다.
        네이버 지역검색은 한 검색어에 5곳이 상한이라 더 받을 방법이 없다. */
@@ -856,10 +858,29 @@ export default function GroupPage() {
     return out;
   }
 
-  async function searchNearby(queries: string[]): Promise<ScoredRestaurant[]> {
+  async function searchNearby(queries: string[], radiusOverride?: number): Promise<ScoredRestaurant[]> {
     const providerList = [...providers];
-    const results = await Promise.all(providerList.map((p) => searchNearbyFromProvider(queries, p)));
+    const results = await Promise.all(providerList.map((p) => searchNearbyFromProvider(queries, p, radiusOverride)));
     return results.flat();
+  }
+
+  /* 후보가 너무 적으면 반경을 넓혀 한 번 더 찾는다.
+     한적한 곳에서는 반경이 실제로 크게 작동한다(정선 사북 실측: 500m 1곳 → 1km 9곳
+     → 2km 45곳). 반대로 도심은 500m 만으로도 상한까지 차서 넓혀도 그대로다.
+     그래서 "넓히기" 를 사용자에게 맡기지 않고, 적을 때만 자동으로 넓힌다.
+     주변 맛집 화면이 쓰는 방식과 같다. */
+  const MIN_CANDIDATES = 10;
+  async function searchNearbyWidening(queries: string[]): Promise<{ items: ScoredRestaurant[]; radius: number }> {
+    const steps = [radius, radius * 2, 3000].filter((r, i, arr) => r <= 3000 && arr.indexOf(r) === i);
+    let items: ScoredRestaurant[] = [];
+    let used = steps[0] ?? radius;
+    for (const r of steps) {
+      items = await searchNearby(queries, r);
+      used = r;
+      if (items.length >= MIN_CANDIDATES) break;
+    }
+    setUsedRadius(used);
+    return { items, radius: used };
   }
 
   function openVotePicker() {
@@ -933,7 +954,7 @@ export default function GroupPage() {
       .filter((p) => (typeof p.score === "number" ? p.score <= -5 : p.preference_type === "dislike"))
       .map((p) => p.food_name);
     const dislikes = expandDislikes(dislikeNames, await loadIngredientMap()).hard;
-    const all = await searchNearbyFromProvider(selectedMenus, [...providers][0] || "naver");
+    const { items: all, radius: searchedRadius } = await searchNearbyWidening(selectedMenus);
     /* 메뉴마다 검색해 합치므로 같은 가게가 여러 번 들어온다. 이름+주소 완전일치로는
        주소 표기가 갈린 같은 집을 못 잡는다 → 이름을 다듬고 좌표로 견준다. */
     const unique = dedupePlaces(all);
@@ -947,7 +968,7 @@ export default function GroupPage() {
       return true;
     });
     /* 네이버는 반경을 무시한다 — 여기서 걸러 준다(거리를 모르는 결과는 남긴다) */
-    const inRadius = filtered.filter((r) => r.distance === null || r.distance <= radius);
+    const inRadius = filtered.filter((r) => r.distance === null || r.distance <= searchedRadius);
     const usable = inRadius.length > 0 ? inRadius : filtered;
     const scored: ScoredRestaurant[] = usable.map((r) => {
       /* "이 모임에 맞는가" — 광고가 개입할 수 없는 축이다(lib/fitScore.ts 주석 참고) */
@@ -1018,7 +1039,7 @@ export default function GroupPage() {
     });
 
     // 검색어 전부를 한 요청으로 (제공자별 1회)
-    const all = await searchNearby(queries);
+    const { items: all, radius: searchedRadius } = await searchNearbyWidening(queries);
 
     // 중복 제거 (title+address 기준)
     const seen = new Set<string>();
@@ -1053,7 +1074,7 @@ export default function GroupPage() {
     /* 🔴 네이버 지역검색은 반경을 아예 무시한다. 그래서 1km 로 줄여도 2km 로 늘려도
        같은 목록이 나왔다. 좌표를 아는 결과는 여기서 반경으로 걸러 준다(거리 모르는
        결과는 남긴다 — 지역명으로만 찾은 경우다). */
-    const inRadius = filtered.filter((r) => r.distance === null || r.distance <= radius);
+    const inRadius = filtered.filter((r) => r.distance === null || r.distance <= searchedRadius);
     const byRadius = inRadius.length > 0 ? inRadius : filtered;
 
     const usable = byRadius.length > 0 ? byRadius : unique;
@@ -2425,9 +2446,14 @@ export default function GroupPage() {
               }}>🔍 직접 지정</button>
             </div>
 
-            {/* 반경 선택 */}
+            {/* 걷는 거리 선택.
+                🔴 "검색 반경" 이라고 적혀 있어서 넓히면 결과가 늘어날 것처럼 보였다.
+                실제로는 지도 API 가 가까운 순으로 상한(카카오 45곳)까지만 주기 때문에
+                도심에서는 넓혀도 그대로다 — 좁히는 필터로만 작동한다. 이름과 설명을
+                그렇게 바꾸고, 결과가 적으면 앱이 알아서 넓힌다. */}
             <div style={{ marginBottom: 14 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 8 }}>검색 반경</p>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 4 }}>여기까지만 걸어요</p>
+              <p style={{ fontSize: 11.5, color: "var(--text-3)", marginBottom: 8 }}>이 거리 안에서 찾아요. 후보가 적으면 알아서 넓혀 찾아드려요</p>
               <div style={{ display: "flex", gap: 6 }}>
                 {[300, 500, 1000, 2000, 5000].map((r) => (
                   <button key={r} onClick={() => setRadius(r)} style={{
@@ -2695,6 +2721,15 @@ export default function GroupPage() {
                 {searchLimited
                   ? "1분에 10번까지만 찾을 수 있어요. 조금 뒤에 다시 눌러주세요"
                   : "위치나 검색 조건을 바꿔서 다시 시도해보세요"}
+              </p>
+            </div>
+          )}
+
+          {scoredRestaurants.length > 0 && usedRadius > radius && (
+            <div style={{ margin:"0 0 10px", padding:"10px 14px", borderRadius:12, background:"var(--primary-light)", border:"1.5px solid var(--primary)", display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:17 }}>🔍</span>
+              <p style={{ fontSize:12.5, color:"var(--primary)", fontWeight:700, margin:0 }}>
+                {radius >= 1000 ? `${radius/1000}km` : `${radius}m`} 안에 후보가 적어 {usedRadius >= 1000 ? `${usedRadius/1000}km` : `${usedRadius}m`} 까지 넓혀 찾았어요
               </p>
             </div>
           )}

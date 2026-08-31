@@ -209,7 +209,9 @@ function NearbyContent() {
            봤다). 이름을 다듬고 좌표가 80m 안이면 하나로 본다. */
         items = dedupePlaces(data.items || []);
         finalRadius = radius;
-        if (items.length > 0) break;
+        /* 🔴 예전에는 **한 곳이라도** 나오면 멈췄다. 한적한 곳에서 1km 에 한 집만
+           걸리면 그 한 집만 보여주고 끝났다 — 고를 수가 없다. 몇 곳은 모이도록 넓힌다. */
+        if (items.length >= 5) break;
       }
       setUsedRadius(finalRadius);
       setExpandedRadius(finalRadius > 1000);
@@ -361,7 +363,7 @@ function NearbyContent() {
         <div style={{ margin:"10px 16px 0", padding:"10px 14px", borderRadius:12, background:"var(--primary-light)", border:"1.5px solid var(--primary)", display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontSize:18 }}>🔍</span>
           <p style={{ fontSize:13, color:"var(--primary)", fontWeight:600, margin:0 }}>
-            1km 내 결과 없어 {usedRadius / 1000}km 범위로 확장했어요
+            1km 안에 식당이 적어 {usedRadius / 1000}km 범위로 넓혀 찾았어요
           </p>
         </div>
       )}
