@@ -201,6 +201,9 @@ export default function GroupPage() {
   /* 영업시간·전화번호 — 목록을 그릴 때가 아니라 누를 때 받아 온다(구글 요금) */
   const [placeInfo, setPlaceInfo] = useState<Record<string, { phone: string | null; openNow: boolean | null; hours: string[]; error?: string }>>({});
   const [placeInfoLoading, setPlaceInfoLoading] = useState<string | null>(null);
+  /* 서버가 "이 기능은 지금 못 쓴다"(구글 한도 소진·열쇠 없음)고 하면 버튼을 감춘다.
+     사용자에게 오류를 보여줄 이유가 없다 — 알림은 관리자에게 간다. */
+  const [hoursDisabled, setHoursDisabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   /* 한 번에 다 뿌리면 스크롤이 끝나지 않는다 — 20곳씩 늘려 보여준다 */
@@ -505,6 +508,7 @@ export default function GroupPage() {
     try {
       const res = await fetch(`/api/place-hours?name=${encodeURIComponent(r.title)}&address=${encodeURIComponent(r.address || "")}`);
       const d = await res.json();
+      if (d.disabled) { setHoursDisabled(true); setPlaceInfoLoading(null); return; }
       setPlaceInfo((prev) => ({ ...prev, [key]: { phone: d.phone ?? null, openNow: d.openNow ?? null, hours: d.hours || [], error: d.error } }));
     } catch {
       setPlaceInfo((prev) => ({ ...prev, [key]: { phone: null, openNow: null, hours: [], error: "failed" } }));
@@ -1583,7 +1587,7 @@ export default function GroupPage() {
               {(() => {
                 const key = placeKey(r.title);
                 const info = placeInfo[key];
-                if (info) return null;
+                if (info || hoursDisabled) return null;
                 return (
                   <button className="tap" onClick={() => loadPlaceInfo(r)} disabled={placeInfoLoading === key}
                     style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", color:"var(--text-2)", border:"1px solid var(--border)", fontSize:12, fontWeight:700, cursor:"pointer" }}>

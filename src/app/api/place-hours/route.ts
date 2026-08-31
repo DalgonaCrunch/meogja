@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { trackApiUsage } from "@/lib/apiTracker";
+import { alertAdmin, alertApiFailure } from "@/lib/adminAlert";
 
 /**
  * 가게 영업시간 + 전화번호.
@@ -58,11 +59,22 @@ export async function GET(request: NextRequest) {
     }
   } catch { /* 없으면 새로 받는다 */ }
 
+  /* 🔴 여기서부터는 사용자에게 오류를 보여주지 않는다. 영업시간은 있으면 좋은
+     정보이고, 없다고 사용자가 할 수 있는 일이 없다. 기능을 접고(disabled) 고칠 수
+     있는 사람에게만 알린다. */
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "not_configured" });
+  if (!apiKey) {
+    void alertAdmin("google_places_key_missing", "구글 Places 열쇠가 설정되지 않아 영업시간을 못 보여주고 있어요");
+    return NextResponse.json({ error: "not_configured", disabled: true });
+  }
 
   if (!(await checkMonthlyQuota())) {
-    return NextResponse.json({ error: "quota" });
+    void alertAdmin(
+      `google_places_quota_${new Date().toISOString().slice(0, 7)}`,
+      `구글 Places 월 한도(${MONTHLY_LIMIT}회)를 다 썼어요. 영업시간 표시는 이번 달 동안 조용히 꺼둡니다`,
+      { windowHours: 24 * 30 },
+    );
+    return NextResponse.json({ error: "quota", disabled: true });
   }
 
   const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
@@ -80,7 +92,14 @@ export async function GET(request: NextRequest) {
     body: JSON.stringify({ textQuery: `${name} ${address}`.trim(), languageCode: "ko", maxResultCount: 1 }),
   });
 
-  if (!res.ok) return NextResponse.json({ error: "lookup_failed" });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    void alertApiFailure("google_places", res.status, detail);
+    /* 열쇠·결제 문제(403/429)면 기능을 접는다. 그 밖의 실패는 이 가게만 못 찾은 것일
+       수 있으니 다음 가게는 다시 시도한다. */
+    const disabled = res.status === 403 || res.status === 429 || res.status === 402;
+    return NextResponse.json({ error: "lookup_failed", disabled });
+  }
 
   const data = await res.json();
   const place = (data.places || [])[0] as

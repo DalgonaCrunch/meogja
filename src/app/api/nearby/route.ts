@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { trackApiUsage } from "@/lib/apiTracker";
+import { alertApiFailure } from "@/lib/adminAlert";
 
 export async function GET(request: NextRequest) {
   const limited = await checkRateLimit(request, "nearby", { perMinute: 10, perDay: 100 });
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
 
   if (!res.ok) {
     const text = await res.text();
+    void alertApiFailure("kakao_local", res.status, text);
     return NextResponse.json({ error: "Kakao API error", detail: text }, { status: res.status });
   }
 

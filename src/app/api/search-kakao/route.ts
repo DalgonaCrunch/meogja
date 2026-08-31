@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { trackApiUsage } from "@/lib/apiTracker";
+import { alertApiFailure } from "@/lib/adminAlert";
 
 type Item = {
   title: string; category: string; address: string;
@@ -60,7 +61,11 @@ export async function GET(request: NextRequest) {
     const res = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?${params}`, {
       headers: { Authorization: `KakaoAK ${restKey}` },
     });
-    if (!res.ok) return { items: [], isEnd: true, error: await res.text(), status: res.status };
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      void alertApiFailure("kakao_local", res.status, detail);
+      return { items: [], isEnd: true, error: detail, status: res.status };
+    }
 
     const data = await res.json();
     const items: Item[] = (data.documents || []).map((d: Record<string, string>) => ({

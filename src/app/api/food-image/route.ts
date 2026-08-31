@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { trackApiUsage } from "@/lib/apiTracker";
+import { alertApiFailure } from "@/lib/adminAlert";
 
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("query");
@@ -14,7 +15,11 @@ export async function GET(request: NextRequest) {
     { headers: { "X-Naver-Client-Id": clientId, "X-Naver-Client-Secret": clientSecret } }
   );
 
-  if (!res.ok) return NextResponse.json({ url: null });
+  /* 사진은 없어도 화면이 도니 사용자에겐 조용히 넘기고, 관리자에게만 알린다 */
+  if (!res.ok) {
+    void alertApiFailure("naver_image", res.status, await res.text().catch(() => ""));
+    return NextResponse.json({ url: null });
+  }
 
   const data = await res.json();
   const url = data.items?.[0]?.thumbnail || null;

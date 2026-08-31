@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { trackApiUsage } from "@/lib/apiTracker";
+import { alertApiFailure } from "@/lib/adminAlert";
 import { createClient } from "@supabase/supabase-js";
 
 // 25개 음식 키워드 5배치 (DataLab: 최대 5그룹/요청)
@@ -79,7 +80,10 @@ async function fetchDataLab(): Promise<{ name: string; score: number }[]> {
           keywordGroups: batch,
         }),
       });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        void alertApiFailure("naver_trends", res.status, await res.text().catch(() => ""));
+        continue;
+      }
       const data = await res.json();
       for (const result of data.results ?? []) {
         const pts = result.data as { ratio: number }[];

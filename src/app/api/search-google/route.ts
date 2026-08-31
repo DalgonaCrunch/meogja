@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { trackApiUsage } from "@/lib/apiTracker";
+import { alertApiFailure, alertAdmin } from "@/lib/adminAlert";
 
 const MONTHLY_LIMIT = parseInt(process.env.GOOGLE_PLACES_MONTHLY_LIMIT || "3000");
 
@@ -48,6 +49,11 @@ export async function GET(request: NextRequest) {
 
   const withinQuota = await checkMonthlyQuota();
   if (!withinQuota) {
+    void alertAdmin(
+      `google_places_quota_${new Date().toISOString().slice(0, 7)}`,
+      `구글 Places 월 한도(${MONTHLY_LIMIT}회)를 다 썼어요`,
+      { windowHours: 24 * 30 },
+    );
     return NextResponse.json(
       { error: "이번 달 구글 검색 한도를 초과했습니다. 다음 달에 다시 이용해주세요." },
       { status: 429 }
@@ -83,6 +89,7 @@ export async function GET(request: NextRequest) {
     const text = await res.text();
     let detail = "";
     try { detail = JSON.parse(text)?.error?.message || text; } catch { detail = text; }
+    void alertApiFailure("google_places", res.status, detail);
     return NextResponse.json({ error: `Google API 오류: ${detail}` }, { status: res.status });
   }
 

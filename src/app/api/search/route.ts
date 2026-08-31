@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { trackApiUsage } from "@/lib/apiTracker";
+import { alertApiFailure } from "@/lib/adminAlert";
 
 type Item = {
   title: string; category: string; address: string;
@@ -45,7 +46,11 @@ export async function GET(request: NextRequest) {
     const res = await fetch(`https://openapi.naver.com/v1/search/local.json?${params}`, {
       headers: { "X-Naver-Client-Id": clientId!, "X-Naver-Client-Secret": clientSecret! },
     });
-    if (!res.ok) return { items: [], error: await res.text(), status: res.status };
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      void alertApiFailure("naver_search", res.status, detail);
+      return { items: [], error: detail, status: res.status };
+    }
 
     const data = await res.json();
     const items: Item[] = (data.items || []).map((d: Record<string, string>) => {
