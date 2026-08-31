@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     });
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      void alertApiFailure("kakao_local", res.status, detail);
+      await alertApiFailure("kakao_local", res.status, detail);
       return { items: [], isEnd: true, error: detail, status: res.status };
     }
 

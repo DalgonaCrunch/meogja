@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
   const withinQuota = await checkMonthlyQuota();
   if (!withinQuota) {
-    void alertAdmin(
+    await alertAdmin(
       `google_places_quota_${new Date().toISOString().slice(0, 7)}`,
       `구글 Places 월 한도(${MONTHLY_LIMIT}회)를 다 썼어요`,
       { windowHours: 24 * 30 },
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
     const text = await res.text();
     let detail = "";
     try { detail = JSON.parse(text)?.error?.message || text; } catch { detail = text; }
-    void alertApiFailure("google_places", res.status, detail);
+    await alertApiFailure("google_places", res.status, detail);
     return NextResponse.json({ error: `Google API 오류: ${detail}` }, { status: res.status });
   }
 

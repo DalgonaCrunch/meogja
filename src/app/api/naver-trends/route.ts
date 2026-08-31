@@ -81,7 +81,7 @@ async function fetchDataLab(): Promise<{ name: string; score: number }[]> {
         }),
       });
       if (!res.ok) {
-        void alertApiFailure("naver_trends", res.status, await res.text().catch(() => ""));
+        await alertApiFailure("naver_trends", res.status, await res.text().catch(() => ""));
         continue;
       }
       const data = await res.json();

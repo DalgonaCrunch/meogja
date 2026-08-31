@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   if (!res.ok) {
     const text = await res.text();
-    void alertApiFailure("kakao_local", res.status, text);
+    await alertApiFailure("kakao_local", res.status, text);
     return NextResponse.json({ error: "Kakao API error", detail: text }, { status: res.status });
   }
 

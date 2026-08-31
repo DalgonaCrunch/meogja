@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     });
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      void alertApiFailure("naver_search", res.status, detail);
+      await alertApiFailure("naver_search", res.status, detail);
       return { items: [], error: detail, status: res.status };
     }
 

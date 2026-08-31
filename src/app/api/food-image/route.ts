@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   /* 사진은 없어도 화면이 도니 사용자에겐 조용히 넘기고, 관리자에게만 알린다 */
   if (!res.ok) {
-    void alertApiFailure("naver_image", res.status, await res.text().catch(() => ""));
+    await alertApiFailure("naver_image", res.status, await res.text().catch(() => ""));
     return NextResponse.json({ url: null });
   }
 
