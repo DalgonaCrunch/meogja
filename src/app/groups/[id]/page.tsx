@@ -194,6 +194,8 @@ export default function GroupPage() {
   const [placeClicks, setPlaceClicks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  /* 한 번에 다 뿌리면 스크롤이 끝나지 않는다 — 20곳씩 늘려 보여준다 */
+  const [visibleCount, setVisibleCount] = useState(20);
   /* 검색 API 가 429(분당 10회) 를 돌려준 경우 — 예전에는 조용히 0건으로 보였다 */
   const [searchLimited, setSearchLimited] = useState(false);
   /* 못 먹는 음식으로 다 걸러져 후보가 0이 되어 되살린 경우 */
@@ -818,6 +820,10 @@ export default function GroupPage() {
     const queries = queriesIn.slice(0, 8);
 
     const base = new URLSearchParams({ radius: String(radius) });
+    /* 카카오는 한 검색어에 최대 45곳(15 × 3페이지)까지 준다. 15곳에서 끊으면 늘 가장
+       가까운 곳만 나와서 반경을 늘려도 목록이 그대로다 — 넉넉히 받아 온다.
+       네이버 지역검색은 한 검색어에 5곳이 상한이라 더 받을 방법이 없다. */
+    if (provider === "kakao") { base.set("size", "15"); base.set("pages", "3"); }
     if (location) {
       base.set("x", String(location.lng));
       base.set("y", String(location.lat));
@@ -913,6 +919,7 @@ export default function GroupPage() {
     if (selectedMenus.length === 0) return;
     setSearchLimited(false);
     setDislikeRelaxed(false);
+    setVisibleCount(20);
     /* 이 메뉴로 식당을 찾아본 것 자체가 취향 신호다 — 뒤에서 점수로 쌓는다.
        (같은 메뉴는 세션에서 한 번만 — 다시 찾기를 누를 때마다 쌓이면 한 메뉴가
        다른 모든 신호를 덮는다) */
@@ -939,7 +946,10 @@ export default function GroupPage() {
       }
       return true;
     });
-    const scored: ScoredRestaurant[] = filtered.map((r) => {
+    /* 네이버는 반경을 무시한다 — 여기서 걸러 준다(거리를 모르는 결과는 남긴다) */
+    const inRadius = filtered.filter((r) => r.distance === null || r.distance <= radius);
+    const usable = inRadius.length > 0 ? inRadius : filtered;
+    const scored: ScoredRestaurant[] = usable.map((r) => {
       /* "이 모임에 맞는가" — 광고가 개입할 수 없는 축이다(lib/fitScore.ts 주석 참고) */
       const fit = computeFit(r, prefs ?? [], selected);
       return {
@@ -953,7 +963,7 @@ export default function GroupPage() {
       if (a.distance !== null && b.distance !== null) return a.distance - b.distance;
       return b.score - a.score;
     });
-    const sliced = scored.slice(0, 15);
+    const sliced = scored.slice(0, 60);
     setScoredRestaurants(sliced);
     setPickedRestaurantIdx(null);
     if (sliced.length) fetchPlaceClickStats(sliced.map(r => r.title)).then(setPlaceClicks);
@@ -967,6 +977,7 @@ export default function GroupPage() {
     setScoredRestaurants([]);
     setSearchLimited(false);
     setDislikeRelaxed(false);
+    setVisibleCount(20);
 
     const { data: prefs } = await getSupabase().from("food_preferences").select("*").in("member_id", selected);
     const likes = prefs?.filter((p) => p.preference_type === "like").map((p) => p.food_name) ?? [];
@@ -1039,8 +1050,14 @@ export default function GroupPage() {
     /* 🔴 못 먹는 음식은 **참가자 전원의 합집합**으로 걸러진다. 사람이 늘수록 걸러지는
        범위가 커져서, 여럿이 고르면 결과가 통째로 사라지는 일이 생긴다. 하나도 안 남으면
        거르지 않은 목록으로 되살리고 화면에 알려 준다 — 빈 화면보다 낫다. */
-    const usable = filtered.length > 0 ? filtered : unique;
-    if (filtered.length === 0 && unique.length > 0) setDislikeRelaxed(true);
+    /* 🔴 네이버 지역검색은 반경을 아예 무시한다. 그래서 1km 로 줄여도 2km 로 늘려도
+       같은 목록이 나왔다. 좌표를 아는 결과는 여기서 반경으로 걸러 준다(거리 모르는
+       결과는 남긴다 — 지역명으로만 찾은 경우다). */
+    const inRadius = filtered.filter((r) => r.distance === null || r.distance <= radius);
+    const byRadius = inRadius.length > 0 ? inRadius : filtered;
+
+    const usable = byRadius.length > 0 ? byRadius : unique;
+    if (byRadius.length === 0 && unique.length > 0) setDislikeRelaxed(true);
 
     // 선호도 스코어링
     const allMedium = getAllMediumCategories();
@@ -1072,7 +1089,9 @@ export default function GroupPage() {
       return b.score - a.score;
     });
     setSortBy("distance");
-    const top = scored.slice(0, 15);
+    /* 예전에는 15곳에서 잘랐다. 식당이 많은 동네에서 "생각보다 덜 나온다" 의 절반은
+       이 자르기였다. 넉넉히 담고 화면에서 조금씩 보여준다. */
+    const top = scored.slice(0, 60);
     setScoredRestaurants(top);
     setPickedRestaurantIdx(null);
     if (top.length) fetchPlaceClickStats(top.map(r => r.title)).then(setPlaceClicks);
@@ -2788,7 +2807,15 @@ export default function GroupPage() {
                 })()
               ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {sortedRestaurants.map((r, i) => renderCard(r, i, r.score > 0 ? MEMBER_COLORS[i % MEMBER_COLORS.length] : "var(--border)"))}
+                {sortedRestaurants.slice(0, visibleCount).map((r, i) => renderCard(r, i, r.score > 0 ? MEMBER_COLORS[i % MEMBER_COLORS.length] : "var(--border)"))}
+                {sortedRestaurants.length > visibleCount && (
+                  <button className="tap" onClick={() => setVisibleCount((n) => n + 20)} style={{
+                    padding: "13px", borderRadius: 14, border: "1.5px solid var(--border)", background: "var(--bg-card)",
+                    color: "var(--text-2)", fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  }}>
+                    ↓ 더 보기 (남은 {sortedRestaurants.length - visibleCount}곳)
+                  </button>
+                )}
               </div>
               )}
 
