@@ -55,7 +55,9 @@ export async function GET(request: NextRequest) {
         distance = haversine(userLat, userLng, itemLat, itemLng);
       }
       return {
-        title: d.title?.replace(/<[^>]*>/g, ""),
+        /* 네이버는 제목에 <b> 태그와 HTML 엔티티를 함께 준다.
+           태그만 걷어내면 "덮밥&amp;짜글이" 처럼 남는다. */
+        title: decodeEntities(d.title?.replace(/<[^>]*>/g, "") || ""),
         category: d.category,
         address: d.roadAddress || d.address,
         mapx: d.mapx,
@@ -95,6 +97,12 @@ export async function GET(request: NextRequest) {
   // 실제로 부른 외부 API 횟수만큼 센다
   queries.forEach(() => trackApiUsage("naver_search"));
   return NextResponse.json({ items });
+}
+
+function decodeEntities(t: string): string {
+  return t
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
 }
 
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
