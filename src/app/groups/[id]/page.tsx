@@ -1291,7 +1291,10 @@ export default function GroupPage() {
       });
 
       try {
-        await fetch("/api/push/send", {
+        /* 🔴 예전에는 /api/push/send 로 보냈다. 그 라우트는 관리자만 쓸 수 있어
+           모임장이 강퇴해도 알림이 늘 403 으로 막혔다(catch 가 삼켜서 아무도 몰랐다).
+           멤버 알림 라우트로 보낸다. */
+        await fetch("/api/push/notify-group", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

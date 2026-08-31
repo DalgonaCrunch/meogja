@@ -89,7 +89,14 @@ export default function AdminPage() {
     loadHomeSettings();
     loadAllUsers();
     loadMenuCategories();
-    loadApiStats(user.type === "auth" ? user.user.email || "" : "");
+    loadApiStats();
+  }
+
+  /** 관리자 API 는 로그인 토큰으로 확인한다 — 헤더에 이메일만 적어 보내던 방식은
+   *  누구나 흉내낼 수 있었다. */
+  async function authHeaders(): Promise<Record<string, string>> {
+    const { data: { session } } = await getSupabase().auth.getSession();
+    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
   }
 
   async function loadMenuCategories() {
@@ -101,7 +108,7 @@ export default function AdminPage() {
   async function saveMenuCategories() {
     const res = await fetch("/api/admin/menu-categories", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-admin-email": adminEmail },
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify({ categories: menuCategories }),
     });
     if (!res.ok) { alert("저장 실패"); return; }
@@ -144,7 +151,7 @@ export default function AdminPage() {
   async function saveHomeSettings() {
     const res = await fetch("/api/admin/home-settings", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-admin-email": adminEmail },
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify(homeSettings),
     });
     if (!res.ok) {
@@ -162,10 +169,10 @@ export default function AdminPage() {
     setReports((prev) => prev.map((r) => r.id === id ? { ...r, status } : r));
   }
 
-  async function loadApiStats(email?: string) {
+  async function loadApiStats() {
     setApiStatsLoading(true);
     try {
-      const res = await fetch("/api/admin/api-stats", { headers: { "x-admin-email": email ?? adminEmail } });
+      const res = await fetch("/api/admin/api-stats", { headers: await authHeaders() });
       if (res.ok) { const d = await res.json(); setApiStats(d.stats || []); }
     } catch { /* ignore */ }
     setApiStatsLoading(false);

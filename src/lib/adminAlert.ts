@@ -78,8 +78,12 @@ export async function alertAdmin(
 /**
  * 관리자 계정 id 찾기.
  *
- * 🔴 user_profiles.email 로만 찾으면 못 찾는다 — 소셜 로그인 계정은 그 칸이 비어 있는
- * 경우가 많다(실제 DB 에서 23명 중 8명만 채워져 있었다). auth 쪽 이메일도 함께 본다.
+ * 🔴 **로그인 계정(auth)의 이메일만** 본다. user_profiles.email 은 사용자가 프로필
+ * 화면에서 아무 값으로나 고칠 수 있다 — 그 값으로 관리자를 찾으면, 남의 이메일을
+ * 적어 넣은 사람에게 관리자 알림이 가게 된다(알림 내용이 새는 것이다).
+ * 소셜 로그인 계정은 프로필 이메일이 비어 있는 경우도 많아(23명 중 8명만 채워짐)
+ * 어차피 신뢰할 수도 없는 값이다.
+ *
  * 한 번 찾으면 app_settings 에 적어 두고 다시 찾지 않는다.
  */
 async function findAdminUserId(admin: ReturnType<typeof getAdmin>): Promise<string | null> {
@@ -93,14 +97,8 @@ async function findAdminUserId(admin: ReturnType<typeof getAdmin>): Promise<stri
 
   let found: string | null = null;
 
-  // 1) 프로필의 이메일
-  try {
-    const { data } = await admin.from("user_profiles").select("id").ilike("email", adminEmail).limit(1);
-    if (data?.[0]?.id) found = data[0].id;
-  } catch { /* 넘어간다 */ }
-
-  // 2) 로그인 계정의 이메일 (소셜 로그인은 여기에만 있다)
-  if (!found) {
+  // 로그인 계정의 이메일 (프로필 이메일은 쓰지 않는다 — 위 설명 참고)
+  {
     try {
       for (let page = 1; page <= 5 && !found; page++) {
         const { data } = await admin.auth.admin.listUsers({ page, perPage: 200 });
