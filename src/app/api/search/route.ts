@@ -5,6 +5,8 @@ import { trackApiUsage } from "@/lib/apiTracker";
 type Item = {
   title: string; category: string; address: string;
   mapx: string; mapy: string; link: string; distance: number | null;
+  /** 네이버는 telephone 을 주지만 빈 값이 많다 — 있으면 쓴다 */
+  phone: string | null;
 };
 
 /** 한 번에 받을 수 있는 검색어 개수. 모임 추천은 보통 5~7개를 함께 찾는다. */
@@ -64,6 +66,7 @@ export async function GET(request: NextRequest) {
         mapy: d.mapy,
         link: d.link,
         distance,
+        phone: d.telephone || null,
       };
     });
     return { items };

@@ -115,6 +115,8 @@ type ScoredRestaurant = {
   fitPct?: number | null;
   /** 취향이 맞는 모임원 이름 */
   fitNames?: string[];
+  /** 가게 전화번호 (카카오가 준다) */
+  phone?: string | null;
   _provider?: string;
 };
 
@@ -196,6 +198,9 @@ export default function GroupPage() {
   /* 가게별 따봉 — 내 표와, 모임 멤버들의 합계 */
   const [myPlacePrefs, setMyPlacePrefs] = useState<Record<string, Pref>>({});
   const [placePrefCounts, setPlacePrefCounts] = useState<Record<string, { up: number; down: number }>>({});
+  /* 영업시간·전화번호 — 목록을 그릴 때가 아니라 누를 때 받아 온다(구글 요금) */
+  const [placeInfo, setPlaceInfo] = useState<Record<string, { phone: string | null; openNow: boolean | null; hours: string[]; error?: string }>>({});
+  const [placeInfoLoading, setPlaceInfoLoading] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   /* 한 번에 다 뿌리면 스크롤이 끝나지 않는다 — 20곳씩 늘려 보여준다 */
@@ -490,6 +495,21 @@ export default function GroupPage() {
       if (after === -1) next.down++;
       return { ...prev, [key]: next };
     });
+  }
+
+  /** 영업시간 보기 — 한 번 받은 가게는 다시 부르지 않는다 */
+  async function loadPlaceInfo(r: ScoredRestaurant) {
+    const key = placeKey(r.title);
+    if (placeInfo[key] || placeInfoLoading === key) return;
+    setPlaceInfoLoading(key);
+    try {
+      const res = await fetch(`/api/place-hours?name=${encodeURIComponent(r.title)}&address=${encodeURIComponent(r.address || "")}`);
+      const d = await res.json();
+      setPlaceInfo((prev) => ({ ...prev, [key]: { phone: d.phone ?? null, openNow: d.openNow ?? null, hours: d.hours || [], error: d.error } }));
+    } catch {
+      setPlaceInfo((prev) => ({ ...prev, [key]: { phone: null, openNow: null, hours: [], error: "failed" } }));
+    }
+    setPlaceInfoLoading(null);
   }
 
   async function saveSession(participants: string[], picks: ScoredRestaurant[]) {
@@ -1484,6 +1504,28 @@ export default function GroupPage() {
             {getClickCount(r.title, placeClicks) >= 5 && (
               <div style={{ fontSize:11.5, color:"#D65000", fontWeight:700, marginBottom:6 }}>🔥 많이 찾아봤어요</div>
             )}
+            {/* 영업시간 결과 */}
+            {(() => {
+              const info = placeInfo[placeKey(r.title)];
+              if (!info) return null;
+              if (info.error || (info.hours.length === 0 && !info.phone)) {
+                return <p style={{ fontSize:11.5, color:"var(--text-3)", margin:"4px 0 8px" }}>영업시간 정보를 찾지 못했어요</p>;
+              }
+              const today = (new Date().getDay() + 6) % 7; // 구글은 월요일부터 준다
+              return (
+                <div style={{ margin:"4px 0 8px", padding:"9px 12px", borderRadius:10, background:"var(--bg-2)", border:"1px solid var(--border)" }}>
+                  {info.openNow !== null && (
+                    <p style={{ fontSize:12, fontWeight:800, color: info.openNow ? "var(--green, #17A34A)" : "#E53935", margin:"0 0 4px" }}>
+                      {info.openNow ? "🟢 지금 영업 중" : "🔴 지금은 영업 안 해요"}
+                    </p>
+                  )}
+                  {info.hours.map((h, i) => (
+                    <p key={h} style={{ fontSize:11.5, margin:0, color: i === today ? "var(--text)" : "var(--text-3)", fontWeight: i === today ? 700 : 400 }}>{h}</p>
+                  ))}
+                </div>
+              );
+            })()}
+
             {/* 🍚 먹자팟 만들기 — 이 카드의 진짜 기능이다. 지도 버튼 위에 한 줄로 크게 둔다 */}
             {(isOwner || myMemberId) && (
               <button className="tap" onClick={() => saveDecisionAndPat(r)} style={{
@@ -1525,6 +1567,30 @@ export default function GroupPage() {
               }} style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", color:"var(--text-2)", border:"1px solid var(--border)", fontSize:12, fontWeight:700, cursor:"pointer" }}>
                 🔗 공유
               </button>
+              {/* 전화 — 카카오가 준 번호가 있으면 바로 걸 수 있다 */}
+              {(() => {
+                const info = placeInfo[placeKey(r.title)];
+                const tel = (r.phone || info?.phone || "").replace(/[^0-9+]/g, "");
+                if (!tel) return null;
+                return (
+                  <a href={`tel:${tel}`} onClick={() => trackPlaceClick(r.title)}
+                    style={{ padding:"5px 12px", borderRadius:8, background:"var(--green-soft, #E7F6EC)", color:"var(--green, #17A34A)", border:"1px solid var(--green, #17A34A)", fontSize:12, fontWeight:700, textDecoration:"none" }}>
+                    📞 {r.phone || info?.phone}
+                  </a>
+                );
+              })()}
+              {/* 영업시간 — 누를 때 받아 온다 */}
+              {(() => {
+                const key = placeKey(r.title);
+                const info = placeInfo[key];
+                if (info) return null;
+                return (
+                  <button className="tap" onClick={() => loadPlaceInfo(r)} disabled={placeInfoLoading === key}
+                    style={{ padding:"5px 12px", borderRadius:8, background:"var(--bg-2)", color:"var(--text-2)", border:"1px solid var(--border)", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                    {placeInfoLoading === key ? "확인 중…" : "🕐 영업시간"}
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>

@@ -5,6 +5,8 @@ import { trackApiUsage } from "@/lib/apiTracker";
 type Item = {
   title: string; category: string; address: string;
   mapx: string; mapy: string; link: string; distance: number | null;
+  /** 카카오는 전화번호를 준다 — 화면에서 눌러 바로 걸 수 있게 넘긴다 */
+  phone: string | null;
 };
 
 /** 한 번에 받을 수 있는 검색어 개수 */
@@ -69,6 +71,7 @@ export async function GET(request: NextRequest) {
       mapy: d.y,
       link: d.place_url,
       distance: d.distance ? parseInt(d.distance) : null,
+      phone: d.phone || null,
     }));
     return { items, isEnd: !!data.meta?.is_end || items.length < size };
   }
