@@ -7,6 +7,7 @@ import { expandDislikes } from "@/lib/ingredients";
 import { loadIngredientMap } from "@/lib/ingredientMap";
 import { bumpSearched } from "@/lib/behaviorScore";
 import { dedupePlaces, normalizeStoreName } from "@/lib/dedupePlaces";
+import { fetchPlacePrefs, myPrefsFromRows, countsFromRows, placeKey, togglePlacePref, type Pref } from "@/lib/placePrefs";
 import { shareResult, sharePlace } from "@/lib/shareResult";
 import { computeFit } from "@/lib/fitScore";
 import { densityMap } from "@/lib/density";
@@ -192,6 +193,9 @@ export default function GroupPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [scoredRestaurants, setScoredRestaurants] = useState<ScoredRestaurant[]>([]);
   const [placeClicks, setPlaceClicks] = useState<Record<string, number>>({});
+  /* 가게별 따봉 — 내 표와, 모임 멤버들의 합계 */
+  const [myPlacePrefs, setMyPlacePrefs] = useState<Record<string, Pref>>({});
+  const [placePrefCounts, setPlacePrefCounts] = useState<Record<string, { up: number; down: number }>>({});
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   /* 한 번에 다 뿌리면 스크롤이 끝나지 않는다 — 20곳씩 늘려 보여준다 */
@@ -451,6 +455,41 @@ export default function GroupPage() {
       await getSupabase().from("favorites").upsert({ group_id: id, restaurant_name: r.title, restaurant_address: r.address, restaurant_category: r.category, restaurant_link: r.link }, { onConflict: "group_id,restaurant_name", ignoreDuplicates: true });
       setFavorites((prev) => new Set([...prev, r.title]));
     }
+  }
+
+  /** 결과 목록의 따봉 정보를 읽어 온다(내 표 + 모임 멤버 합계) */
+  async function loadPlacePrefs(list: ScoredRestaurant[]) {
+    const keys = list.map((r) => placeKey(r.title));
+    const memberUserIds = members.map((m) => (m as { user_id?: string | null }).user_id).filter((v): v is string => !!v);
+    const myUserId = currentUser.type === "auth" ? currentUser.user.id : null;
+    const userIds = [...new Set([...memberUserIds, ...(myUserId ? [myUserId] : [])])];
+    const rows = await fetchPlacePrefs(keys, userIds);
+    setMyPlacePrefs(myPrefsFromRows(rows, myUserId));
+    setPlacePrefCounts(countsFromRows(rows));
+  }
+
+  /** 따봉/거꾸로따봉 — 계정당 가게 하나에 한 표. 같은 것을 다시 누르면 취소된다. */
+  async function onPlacePref(r: ScoredRestaurant, pref: Pref) {
+    const myUserId = currentUser.type === "auth" ? currentUser.user.id : null;
+    if (!myUserId) { toast("로그인하면 취향을 저장해드려요"); return; }
+    const key = placeKey(r.title);
+    const before = myPlacePrefs[key] ?? null;
+    const after = await togglePlacePref({ userId: myUserId, name: r.title, address: r.address, pref, current: before });
+
+    setMyPlacePrefs((prev) => {
+      const next = { ...prev };
+      if (after === null) delete next[key]; else next[key] = after;
+      return next;
+    });
+    setPlacePrefCounts((prev) => {
+      const cur = prev[key] || { up: 0, down: 0 };
+      const next = { ...cur };
+      if (before === 1) next.up = Math.max(0, next.up - 1);
+      if (before === -1) next.down = Math.max(0, next.down - 1);
+      if (after === 1) next.up++;
+      if (after === -1) next.down++;
+      return { ...prev, [key]: next };
+    });
   }
 
   async function saveSession(participants: string[], picks: ScoredRestaurant[]) {
@@ -988,6 +1027,7 @@ export default function GroupPage() {
     setScoredRestaurants(sliced);
     setPickedRestaurantIdx(null);
     if (sliced.length) fetchPlaceClickStats(sliced.map(r => r.title)).then(setPlaceClicks);
+    if (sliced.length) void loadPlacePrefs(sliced);
     setLoading(false);
     setHasSearched(true);
   }
@@ -1116,6 +1156,7 @@ export default function GroupPage() {
     setScoredRestaurants(top);
     setPickedRestaurantIdx(null);
     if (top.length) fetchPlaceClickStats(top.map(r => r.title)).then(setPlaceClicks);
+    if (top.length) void loadPlacePrefs(top);
     saveSession(selected, top.slice(0, 5));
     setLoading(false);
     setHasSearched(true);
@@ -1374,9 +1415,40 @@ export default function GroupPage() {
                 style={{ fontFamily:"var(--font-display)", fontSize:16, color:"var(--text)", textDecoration:"none", lineHeight:1.3 }}>
                 {r.title}
               </a>
-              <button className="tap" onClick={() => toggleFavorite(r)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:20, color: isFav ? "var(--primary)" : "var(--text-3)", marginTop:-2, flexShrink:0 }}>
-                {isFav ? "♥" : "♡"}
-              </button>
+              <div style={{ display:"flex", alignItems:"center", gap:2, flexShrink:0, marginTop:-2 }}>
+                {/* 따봉 / 거꾸로 따봉 — 계정당 이 가게에 한 표.
+                    모임이 아니라 계정에 남는다(닉네임이 바뀌어도, 모임을 옮겨도 따라온다). */}
+                {(() => {
+                  const key = placeKey(r.title);
+                  const mine = myPlacePrefs[key] ?? null;
+                  const cnt = placePrefCounts[key] || { up: 0, down: 0 };
+                  const btn = (pref: Pref, onIcon: string, offIcon: string, count: number, onColor: string) => (
+                    <button className="tap" onClick={() => onPlacePref(r, pref)}
+                      title={pref === 1 ? "이 집 좋아요" : "여긴 별로예요"}
+                      style={{
+                        display:"flex", alignItems:"center", gap:3, padding:"3px 7px", borderRadius:99,
+                        border: mine === pref ? `1.5px solid ${onColor}` : "1.5px solid transparent",
+                        background: mine === pref ? `${onColor}18` : "transparent",
+                        color: mine === pref ? onColor : "var(--text-3)",
+                        fontSize:13, fontWeight:700, cursor:"pointer", lineHeight:1.2,
+                        opacity: mine === pref ? 1 : 0.5,
+                        filter: mine === pref ? "none" : "grayscale(1)",
+                      }}>
+                      {mine === pref ? onIcon : offIcon}
+                      {count > 0 && <span style={{ fontSize:11 }}>{count}</span>}
+                    </button>
+                  );
+                  return (
+                    <>
+                      {btn(1, "👍", "👍", cnt.up, "var(--green, #17A34A)")}
+                      {btn(-1, "👎", "👎", cnt.down, "#E53935")}
+                    </>
+                  );
+                })()}
+                <button className="tap" onClick={() => toggleFavorite(r)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:20, color: isFav ? "var(--primary)" : "var(--text-3)", flexShrink:0 }}>
+                  {isFav ? "♥" : "♡"}
+                </button>
+              </div>
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3, flexWrap:"wrap" }}>
               {avg && <span style={{ fontSize:12.5, color:"#E67700", fontWeight:700 }}>★ {avg.toFixed(1)}</span>}
@@ -1420,7 +1492,7 @@ export default function GroupPage() {
                 border:"none", cursor:"pointer", boxShadow:"0 6px 16px rgba(255,122,69,.28)",
                 display:"flex", alignItems:"center", justifyContent:"center", gap:6,
               }}>
-                {savingDecision ? "만드는 중…" : "🍚 이 집으로 먹자팟 만들기"}
+                {savingDecision ? "만드는 중…" : "🍚 여기로 먹자팟 만들기"}
               </button>
             )}
             <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
