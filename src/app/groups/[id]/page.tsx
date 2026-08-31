@@ -804,25 +804,30 @@ export default function GroupPage() {
     setSelected((prev) => prev.includes(memberId) ? prev.filter((x) => x !== memberId) : [...prev, memberId]);
   }
 
-  async function searchNearbyFromProvider(query: string, provider: "naver" | "kakao"): Promise<ScoredRestaurant[]> {
+  /* 여러 검색어를 **한 요청**으로 보낸다.
+     🔴 예전에는 검색어 하나가 요청 하나여서, 추천 한 번(검색어 5~7개)이면 분당 10회
+     제한에 곧바로 걸렸다. 서버가 검색어 목록을 받아 병렬로 돌리므로 제한은 1회다. */
+  async function searchNearbyFromProvider(queriesIn: string[], provider: "naver" | "kakao"): Promise<ScoredRestaurant[]> {
     const endpoint = provider === "naver" ? "/api/search" : "/api/search-kakao";
     // 인원 + 분위기 수정자 추가
     const sizeModifier = getSizeModifier(selected.length);
     const atmosModifier = ATMOSPHERES.find((a) => a.id === atmosphere)?.modifier || "";
     const modifiers = [sizeModifier, atmosModifier].filter(Boolean).join(" ");
-    const fullQuery = modifiers ? `${modifiers} ${query}` : query;
-    const params = new URLSearchParams({ query: fullQuery, radius: String(radius) });
+
+    /* 서버도 8개까지만 받는다. 여기서 잘라 두면 무엇이 빠졌는지 예측할 수 있다. */
+    const queries = queriesIn.slice(0, 8);
+
+    const base = new URLSearchParams({ radius: String(radius) });
     if (location) {
-      params.set("x", String(location.lng));
-      params.set("y", String(location.lat));
+      base.set("x", String(location.lng));
+      base.set("y", String(location.lat));
       // 네이버/카카오 모두 지역명 label 전달 (좌표 없을 때 fallback 검색)
-      if (location.label) {
-        params.set("location", location.label);
-      }
+      if (location.label) base.set("location", location.label);
     }
-    const run = async (q: string): Promise<ScoredRestaurant[] | "limited"> => {
-      const pr = new URLSearchParams(params);
-      pr.set("query", q);
+
+    const run = async (withModifiers: boolean): Promise<ScoredRestaurant[] | "limited"> => {
+      const pr = new URLSearchParams(base);
+      pr.set("queries", queries.map((q) => (withModifiers && modifiers ? `${modifiers} ${q}` : q)).join("|"));
       try {
         const res = await fetch(`${endpoint}?${pr}`);
         if (res.status === 429) return "limited";
@@ -833,21 +838,21 @@ export default function GroupPage() {
       } catch { return []; }
     };
 
-    let out = await run(fullQuery);
+    let out = await run(true);
     if (out === "limited") { setSearchLimited(true); return []; }
     /* 수식어("단체석", "분위기 좋은" …)를 붙이면 검색어가 길어져 0건이 되는 일이 잦다.
-       비어 있으면 수식어 없이 한 번 더 찾는다 — 빈 화면보다 낫다. */
+       전부 비었으면 수식어 없이 한 번 더 찾는다 — 빈 화면보다 낫다. */
     if (out.length === 0 && modifiers) {
-      const retry = await run(query);
+      const retry = await run(false);
       if (retry === "limited") { setSearchLimited(true); return []; }
       out = retry;
     }
     return out;
   }
 
-  async function searchNearby(query: string): Promise<ScoredRestaurant[]> {
+  async function searchNearby(queries: string[]): Promise<ScoredRestaurant[]> {
     const providerList = [...providers];
-    const results = await Promise.all(providerList.map((p) => searchNearbyFromProvider(query, p)));
+    const results = await Promise.all(providerList.map((p) => searchNearbyFromProvider(queries, p)));
     return results.flat();
   }
 
@@ -921,8 +926,7 @@ export default function GroupPage() {
       .filter((p) => (typeof p.score === "number" ? p.score <= -5 : p.preference_type === "dislike"))
       .map((p) => p.food_name);
     const dislikes = expandDislikes(dislikeNames, await loadIngredientMap()).hard;
-    const results = await Promise.all(selectedMenus.map((q) => searchNearbyFromProvider(q, [...providers][0] || "naver")));
-    const all = results.flat();
+    const all = await searchNearbyFromProvider(selectedMenus, [...providers][0] || "naver");
     /* 메뉴마다 검색해 합치므로 같은 가게가 여러 번 들어온다. 이름+주소 완전일치로는
        주소 표기가 갈린 같은 집을 못 잡는다 → 이름을 다듬고 좌표로 견준다. */
     const unique = dedupePlaces(all);
@@ -1002,9 +1006,8 @@ export default function GroupPage() {
         body: JSON.stringify({ food_name: q, event_type: "search", device_id: deviceId, user_id: uid }) });
     });
 
-    // 병렬 검색
-    const results = await Promise.all(queries.map((q) => searchNearby(q)));
-    const all = results.flat();
+    // 검색어 전부를 한 요청으로 (제공자별 1회)
+    const all = await searchNearby(queries);
 
     // 중복 제거 (title+address 기준)
     const seen = new Set<string>();
@@ -2962,15 +2965,21 @@ export default function GroupPage() {
                         : m.name[0]}
                     </div>
                     {editingMemberId === m.id ? (
-                      <input
-                        autoFocus
-                        value={editingMemberName}
-                        onChange={e => setEditingMemberName(e.target.value)}
-                        onBlur={() => saveMemberName(m.id)}
-                        onKeyDown={e => { if (e.key === "Enter") saveMemberName(m.id); if (e.key === "Escape") setEditingMemberId(null); }}
-                        maxLength={20}
-                        style={{ fontSize: 15, fontWeight: 600, padding: "5px 10px", borderRadius: 10, border: "1.5px solid var(--primary)", background: "var(--bg)", color: "var(--text)", width: 140, outline: "none" }}
-                      />
+                      /* 설명 편집과 같은 모양 — 저장/취소 버튼을 둔다.
+                         blur 로 자동 저장하면 취소를 누를 방법이 없다. */
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <input
+                          autoFocus
+                          value={editingMemberName}
+                          onChange={e => setEditingMemberName(e.target.value)}
+                          onKeyDown={e => { if (e.key === "Enter") saveMemberName(m.id); if (e.key === "Escape") setEditingMemberId(null); }}
+                          maxLength={20}
+                          placeholder="이 모임에서 쓸 이름"
+                          style={{ fontSize: 14, fontWeight: 600, padding: "5px 11px", borderRadius: 10, border: "1.5px solid var(--accent)", background: "var(--card)", color: "var(--text)", width: 130, outline: "none" }}
+                        />
+                        <button className="tap" onClick={() => saveMemberName(m.id)} style={{ padding: "5px 12px", borderRadius: "var(--r-pill)", border: "none", background: "var(--accent)", color: "#fff", fontSize: 12, cursor: "pointer", flexShrink: 0 }}>저장</button>
+                        <button onClick={() => setEditingMemberId(null)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 13, flexShrink: 0 }}>✕</button>
+                      </div>
                     ) : (
                       <span style={{ fontSize: 15, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}>
                         {m.name}
