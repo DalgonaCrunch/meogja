@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { getSupabase, Session, SessionPick, Favorite, Review, Member } from "@/lib/supabase";
+import { getSupabase, Favorite, Review, Member } from "@/lib/supabase";
+import { getFoodIconUrl } from "@/lib/foodIcons";
 import { getCurrentUser } from "@/lib/auth";
 
 const STARS = [1, 2, 3, 4, 5];
@@ -12,8 +13,7 @@ type ReviewWithUser = Review & { user_id?: string | null; reviewer_name?: string
 type Props = { groupId: string; members: Member[]; mapProvider: "naver" | "kakao"; };
 
 export default function HistoryTab({ groupId, members, mapProvider }: Props) {
-  type GroupDecision = { id: string; food_name: string; restaurant_name: string | null; decided_at: string };
-  const [sessions, setSessions] = useState<(Session & { picks: SessionPick[] })[]>([]);
+  type GroupDecision = { id: string; food_name: string; restaurant_name: string | null; restaurant_address: string | null; restaurant_link: string | null; decided_by_name: string | null; decided_at: string };
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [reviews, setReviews] = useState<ReviewWithUser[]>([]);
   const [decisions, setDecisions] = useState<GroupDecision[]>([]);
@@ -37,13 +37,13 @@ export default function HistoryTab({ groupId, members, mapProvider }: Props) {
   }, [groupId]);
 
   async function loadAll() {
-    const [sessRes, favRes, revRes, decRes] = await Promise.all([
-      getSupabase().from("sessions").select("*, picks:session_picks(*)").eq("group_id", groupId).order("created_at", { ascending: false }).limit(20),
+    const [favRes, revRes, decRes] = await Promise.all([
       getSupabase().from("favorites").select("*").eq("group_id", groupId).order("created_at", { ascending: false }),
       getSupabase().from("reviews").select("*").eq("group_id", groupId).order("created_at", { ascending: false }),
-      getSupabase().from("group_decisions").select("id,food_name,restaurant_name,decided_at").eq("group_id", groupId).order("decided_at", { ascending: false }).limit(100),
+      getSupabase().from("group_decisions")
+        .select("id,food_name,restaurant_name,restaurant_address,restaurant_link,decided_by_name,decided_at")
+        .eq("group_id", groupId).order("decided_at", { ascending: false }).limit(100),
     ]);
-    if (sessRes.data) setSessions(sessRes.data as (Session & { picks: SessionPick[] })[]);
     if (favRes.data) setFavorites(favRes.data);
     if (revRes.data) setReviews(revRes.data);
     if (decRes.data) setDecisions(decRes.data as GroupDecision[]);
@@ -102,7 +102,7 @@ export default function HistoryTab({ groupId, members, mapProvider }: Props) {
 
       {/* 섹션 탭 */}
       <div style={{ display: "flex", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 100, padding: 3, gap: 3, width: "fit-content" }}>
-        {sectionBtn("history", `📋 히스토리${sessions.length > 0 ? ` (${sessions.length})` : ""}`)}
+        {sectionBtn("history", `📋 히스토리${decisions.length > 0 ? ` (${decisions.length})` : ""}`)}
         {sectionBtn("favorites", <><img src="/mascot/tabs/star.png" style={{width:14, height:14, objectFit:"contain", verticalAlign:"middle", marginRight:3}} />{`즐겨찾기${favorites.length > 0 ? ` (${favorites.length})` : ""}`}</>)}
         {sectionBtn("reviews", <>
           <img src="/mascot/tabs/notes.png" alt="" style={{ width:14, height:14, objectFit:"contain", filter: activeSection === "reviews" ? "brightness(10)" : "none", opacity: activeSection === "reviews" ? 1 : 0.5 }} />
@@ -142,38 +142,48 @@ export default function HistoryTab({ groupId, members, mapProvider }: Props) {
             );
           })()}
 
-          {sessions.length === 0 && (
-            <p style={{ fontSize: 14, color: "var(--text-muted)", padding: "20px 0" }}>아직 추천 기록이 없습니다</p>
-          )}
-          {sessions.map((s, i) => (
-            <div key={s.id} style={{ background: "var(--bg-card)", borderRadius: 16, border: "1px solid var(--border)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
-              <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>{new Date(s.created_at).toLocaleDateString("ko-KR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>참가: {(s.participant_names || []).join(", ")}</p>
-                </div>
-                <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>{s.picks?.length || 0}곳</span>
-              </div>
-              {(s.picks || []).map((p, j) => {
-                const avg = avgRating(p.restaurant_name);
-                return (
-                  <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 18px", borderBottom: j < (s.picks?.length || 0) - 1 ? "1px solid var(--border)" : "none" }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <a href={safeUrl(p.restaurant_link)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", textDecoration: "none" }}>{p.restaurant_name}</a>
-                        {avg && <span style={{ fontSize: 11, color: "#C77800" }}>★ {avg}</span>}
-                      </div>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>{p.restaurant_address}</p>
-                    </div>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => setReviewTarget({ name: p.restaurant_name, address: p.restaurant_address, link: p.restaurant_link, category: p.restaurant_category })} style={{ padding: "4px 10px", borderRadius: 8, fontSize: 11, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)", cursor: "pointer" }}>리뷰</button>
-                      <a href={mapLink(p)} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", borderRadius: 8, fontSize: 11, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)", textDecoration: "none" }}>🗺️</a>
-                    </div>
-                  </div>
-                );
-              })}
+          {decisions.length === 0 && (
+            <div style={{ textAlign: "center", padding: "40px 20px" }}>
+              <div style={{ fontSize: 44, marginBottom: 10 }}>🍚</div>
+              <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>아직 정한 메뉴가 없어요</p>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
+                오늘 뭐 먹을지 정하면 여기에 차곡차곡 쌓여요.<br />추천을 돌리고 <strong style={{ color: "var(--primary)" }}>결정하기</strong>를 눌러보세요!
+              </p>
             </div>
-          ))}
+          )}
+          {decisions.map((d) => {
+            const name = d.restaurant_name || d.food_name;
+            const icon = getFoodIconUrl(d.food_name) || getFoodIconUrl(name);
+            const avg = avgRating(name);
+            return (
+              <div key={d.id} style={{ background: "var(--bg-card)", borderRadius: 16, border: "1px solid var(--border)", boxShadow: "var(--shadow)", padding: "13px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 14, background: "var(--bg-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                  {icon
+                    ? <img src={icon} alt="" style={{ width: 34, height: 34, objectFit: "contain" }} />
+                    : <span style={{ fontSize: 22 }}>🍽️</span>}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {safeUrl(d.restaurant_link)
+                      ? <a href={safeUrl(d.restaurant_link)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", textDecoration: "none" }}>{name}</a>
+                      : <span style={{ fontSize: 15, fontWeight: 700 }}>{name}</span>}
+                    {avg && <span style={{ fontSize: 11, color: "#C77800" }}>★ {avg}</span>}
+                  </div>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {new Date(d.decided_at).toLocaleDateString("ko-KR", { month: "long", day: "numeric" })}
+                    {d.restaurant_name && d.food_name !== d.restaurant_name ? ` · ${d.food_name}` : ""}
+                    {d.decided_by_name ? ` · ${d.decided_by_name}님 결정` : ""}
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => setReviewTarget({ name, address: d.restaurant_address || "", link: d.restaurant_link || "", category: d.food_name })} style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)", cursor: "pointer" }}>리뷰</button>
+                  {d.restaurant_name && (
+                    <a href={mapLink({ restaurant_name: d.restaurant_name, restaurant_address: d.restaurant_address || "" })} target="_blank" rel="noopener noreferrer" style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)", textDecoration: "none" }}>🗺️</a>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
