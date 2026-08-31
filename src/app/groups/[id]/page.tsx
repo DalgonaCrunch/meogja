@@ -7,7 +7,7 @@ import { expandDislikes } from "@/lib/ingredients";
 import { loadIngredientMap } from "@/lib/ingredientMap";
 import { bumpSearched } from "@/lib/behaviorScore";
 import { dedupePlaces, normalizeStoreName } from "@/lib/dedupePlaces";
-import { expandMenuQueries, menuDisplayName } from "@/lib/menus";
+import { expandMenuQueries, menuDisplayName, categoryAllToken } from "@/lib/menus";
 import { fetchPlacePrefs, myPrefsFromRows, countsFromRows, placeKey, togglePlacePref, type Pref } from "@/lib/placePrefs";
 import { shareResult, sharePlace } from "@/lib/shareResult";
 import { computeFit } from "@/lib/fitScore";
@@ -237,6 +237,11 @@ export default function GroupPage() {
   const [recRelaxed, setRecRelaxed] = useState(false);
   /* "다시 추천" 을 누른 횟수 — 씨앗을 돌리는 데 쓴다 */
   const [menuRoll, setMenuRoll] = useState(0);
+  /* 패널 접기. 홈에서 메뉴를 골라 들어오면 메뉴 종류 선택은 접어 둔다 — 이미 고르고
+     왔는데 큰 패널이 펼쳐져 있으면 무엇을 더 해야 하는지 헷갈린다.
+     분위기/상황은 효과가 크지 않아 기본으로 접는다. */
+  const [menuFilterOpen, setMenuFilterOpen] = useState(true);
+  const [atmosOpen, setAtmosOpen] = useState(false);
   /* 모임 화면은 **목록이 기본**이다. 여기서는 여러 명이 카드를 훑어보며 고르기 때문에
      지도부터 보여주면 정보가 줄어든다(/nearby·/search 는 반대로 지도가 기본). */
   const [restaurantView, setRestaurantView] = useState<"list" | "map">("list");
@@ -283,6 +288,8 @@ export default function GroupPage() {
       const items: string[] = JSON.parse(raw);
       if (items.length > 0) {
         setPresetMenus(items);
+        /* 홈에서 이미 골라 왔으니 메뉴 종류 패널은 접어 둔다 (필요하면 펼친다) */
+        setMenuFilterOpen(false);
         // 식당 없이 메뉴만 선택된 채로 진입 → 멤버 선택 안내 표시
         if (!sessionStorage.getItem("meogja_auto_pat")) {
           setShowSearchGuidance(true);
@@ -2329,19 +2336,6 @@ export default function GroupPage() {
             )}
           </div>
 
-          {/* 선택된 메뉴 (홈에서 가져온 프리셋) */}
-          {presetMenus.length > 0 && (
-            <div style={{ background:"linear-gradient(135deg,var(--primary-light),#FFF8F0)", borderRadius:14, padding:"12px 16px", border:"1.5px solid var(--primary)", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-              <span style={{ fontSize:13, fontWeight:700, color:"var(--primary)", flexShrink:0, display:"flex", alignItems:"center", gap:4 }}><img src="/mascot/tabs/food.png" style={{width:14, height:14, objectFit:"contain"}} />선택한 메뉴</span>
-              {presetMenus.map(m => (
-                <span key={m} style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"4px 10px 4px 12px", borderRadius:99, background:"var(--primary)", color:"#fff", fontSize:13, fontWeight:700 }}>
-                  {m}
-                  <button onClick={() => setPresetMenus(prev => prev.filter(x => x !== m))} style={{ background:"rgba(255,255,255,.3)", border:"none", borderRadius:"50%", width:16, height:16, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#fff", fontSize:10, padding:0, lineHeight:1 }}>✕</button>
-                </span>
-              ))}
-              <button onClick={() => setPresetMenus([])} style={{ marginLeft:"auto", background:"none", border:"none", fontSize:11, color:"var(--primary)", cursor:"pointer", fontWeight:600, padding:0 }}>전체 삭제</button>
-            </div>
-          )}
 
           {/* 지금 먹기 좋은 음식 힌트 */}
           {(() => {
@@ -2384,11 +2378,23 @@ export default function GroupPage() {
             );
           })()}
 
-          {/* 카테고리 필터 */}
-          <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: 22, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)" }}>메뉴 종류 선택</p>
-            </div>
+          {/* 카테고리 필터 — 접을 수 있다 */}
+          <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: menuFilterOpen ? 22 : "16px 22px", border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
+            <button className="tap" onClick={() => setMenuFilterOpen(v => !v)} style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: "none", border: "none", padding: 0, cursor: "pointer", marginBottom: menuFilterOpen ? 14 : 0,
+            }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)" }}>
+                메뉴 종류 선택
+                {!menuFilterOpen && presetMenus.length > 0 && (
+                  <span style={{ marginLeft: 8, textTransform: "none", letterSpacing: 0, color: "var(--primary)" }}>
+                    {presetMenus.length}개 선택됨
+                  </span>
+                )}
+              </p>
+              <span style={{ fontSize: 14, color: "var(--text-3)", transform: menuFilterOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }}>▾</span>
+            </button>
+            {menuFilterOpen && (<>
 
             {/* 대분류 */}
             <div style={{ marginBottom: 12 }}>
@@ -2422,6 +2428,24 @@ export default function GroupPage() {
                     background: !filterMedium ? "var(--accent-soft)" : "transparent",
                     color: !filterMedium ? "var(--accent)" : "var(--text-muted)", cursor: "pointer",
                   }}>전체</button>
+                  {/* 대분류 통째로 — 중분류를 고르지 않고 그 갈래 전체에서 찾는다 */}
+                  {(() => {
+                    const token = categoryAllToken(filterLarge);
+                    const sel = presetMenus.includes(token);
+                    const isMaxed = presetMenus.length >= 3 && !sel;
+                    return (
+                      <button onClick={() => {
+                        if (sel) setPresetMenus(prev => prev.filter(x => x !== token));
+                        else if (!isMaxed) setPresetMenus(prev => [...prev, token]);
+                      }} style={{
+                        padding: "6px 14px", borderRadius: 100, fontSize: 12, fontWeight: 700,
+                        border: sel ? "none" : "1.5px dashed var(--primary)",
+                        background: sel ? "var(--primary)" : "var(--primary-light, #FFF1EA)",
+                        color: sel ? "#fff" : "var(--primary)",
+                        cursor: isMaxed ? "default" : "pointer", opacity: isMaxed ? 0.45 : 1,
+                      }}>{sel && "✓ "}{filterLarge} 전체</button>
+                    );
+                  })()}
                   {getMediumCategories(filterLarge).map((cat) => (
                     <button key={cat} onClick={() => setFilterMedium(cat === filterMedium ? "" : cat)} style={{
                       padding: "5px 12px", borderRadius: 100, fontSize: 12, fontWeight: 500,
@@ -2437,17 +2461,30 @@ export default function GroupPage() {
             {/* 소분류 — 다중 선택, presetMenus에 추가 (최대 3개) */}
             {filterMedium && (() => {
               const mediumItems = getMenuItems(filterLarge, filterMedium);
-              const someMediumSelected = mediumItems.some(i => presetMenus.includes(i));
               return (
                 <div>
                   <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 7 }}>소분류</p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 5, maxHeight: 120, overflowY: "auto" }}>
-                    <button onClick={() => setPresetMenus(prev => prev.filter(x => !mediumItems.includes(x)))} style={{
-                      padding: "4px 11px", borderRadius: 100, fontSize: 11, fontWeight: 500,
-                      border: !someMediumSelected ? "2px solid var(--accent)" : "1.5px solid var(--border)",
-                      background: !someMediumSelected ? "var(--accent-soft)" : "transparent",
-                      color: !someMediumSelected ? "var(--accent)" : "var(--text-muted)", cursor: "pointer",
-                    }}>전체</button>
+                    {/* 🔴 예전 "전체" 는 이 분류의 선택을 **지우는** 버튼이었다 — 전체를
+                        찾는 버튼으로 읽혀 헷갈렸다. 이제 정말 그 분류 전체로 찾는다
+                        (고기류 전체 → 고기·삼겹살·갈비). */}
+                    {(() => {
+                      const token = categoryAllToken(filterMedium);
+                      const sel = presetMenus.includes(token);
+                      const isMaxed = presetMenus.length >= 3 && !sel;
+                      return (
+                        <button onClick={() => {
+                          if (sel) setPresetMenus(prev => prev.filter(x => x !== token));
+                          else if (!isMaxed) setPresetMenus(prev => [...prev, token]);
+                        }} style={{
+                          padding: "4px 11px", borderRadius: 100, fontSize: 11, fontWeight: 700,
+                          border: sel ? "none" : "1.5px dashed var(--primary)",
+                          background: sel ? "var(--primary)" : "var(--primary-light, #FFF1EA)",
+                          color: sel ? "#fff" : "var(--primary)",
+                          cursor: isMaxed ? "default" : "pointer", opacity: isMaxed ? 0.45 : 1,
+                        }}>{sel && "✓ "}{filterMedium} 전체</button>
+                      );
+                    })()}
                     {mediumItems.map((item) => {
                       const isSelected = presetMenus.includes(item);
                       const isMaxed = presetMenus.length >= 3 && !isSelected;
@@ -2479,6 +2516,7 @@ export default function GroupPage() {
                 ))}
               </div>
             )}
+            </>)}
           </div>
 
           {/* 선택한 메뉴 */}
@@ -2508,10 +2546,25 @@ export default function GroupPage() {
             )}
           </div>
 
-          {/* 분위기 + 인원 설정 */}
-          <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: 22, border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)" }}>분위기 / 상황</p>
+          {/* 분위기 + 인원 설정 — 기본으로 접어 둔다 */}
+          <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: atmosOpen ? 22 : "16px 22px", border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
+            <button className="tap" onClick={() => setAtmosOpen(v => !v)} style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: "none", border: "none", padding: 0, cursor: "pointer", marginBottom: atmosOpen ? 14 : 0,
+            }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)" }}>
+                분위기 / 상황
+                {!atmosOpen && (
+                  <span style={{ marginLeft: 8, textTransform: "none", letterSpacing: 0, color: atmosphere ? "var(--primary)" : "var(--text-3)" }}>
+                    {atmosphere ? (ATMOSPHERES.find(a => a.id === atmosphere)?.label || "") : "기본"}
+                    {selected.length > 0 && ` · 👥 ${selected.length}명`}
+                  </span>
+                )}
+              </p>
+              <span style={{ fontSize: 14, color: "var(--text-3)", transform: atmosOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }}>▾</span>
+            </button>
+            {atmosOpen && (<>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 14 }}>
               {/* 배달 전용 제외 토글 */}
               <button onClick={() => setExcludeDelivery((v) => !v)} style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 100,
@@ -2551,6 +2604,7 @@ export default function GroupPage() {
                 }}>{a.label}</button>
               ))}
             </div>
+            </>)}
           </div>
 
           {/* 위치 설정 */}

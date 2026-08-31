@@ -43,6 +43,19 @@ for (const c of m.MENU_CATEGORIES) {
   }
 }
 
+/* 모임 화면의 메뉴 분류(lib/recommend.ts 의 MENU_DATA 이름들)도 같은 표를 쓴다.
+   실측에서 0~1곳이던 이름은 반드시 다른 말로 바뀌어야 한다. */
+console.log("모임 메뉴 분류");
+const GROUP_NAMES = ["식사","술안주","디저트","카페/음료","한식","중식","일식","양식","동남아식","분식",
+  "패스트푸드","인도/중동식","치킨/닭","고기류","해산물","안주류","빵/케이크","아이스크림/빙수",
+  "한식디저트","과일/건강","커피","논커피","카페음식"];
+const GROUP_BAD = ["고기류", "안주류", "한식디저트", "카페음식", "논커피", "과일/건강", "인도/중동식", "동남아식"];
+for (const name of GROUP_NAMES) {
+  const terms = m.expandMenuQueries([m.categoryAllToken(name)]);
+  check(`${name} → ${terms.join(", ")}`, terms.length > 0 && !(terms.length === 1 && terms[0] === name && GROUP_BAD.includes(name)),
+    `"${name}" 을 그대로 검색하면 결과가 거의 없다 — 대체 검색어가 필요하다`);
+}
+
 console.log("펼치기 규칙");
 check("보통 메뉴는 그대로", m.expandMenuQueries(["삼겹살", "초밥"]).join() === "삼겹살,초밥");
 check("전체 + 메뉴 섞임", m.expandMenuQueries([m.categoryAllToken("치킨"), "초밥"]).join() === "치킨,초밥");
