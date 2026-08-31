@@ -67,7 +67,7 @@ await page.waitForTimeout(3500);
 await page.screenshot({ path: `${OUT}-2-map.png` });
 
 // 목록 전환도 살아 있는지 (지도가 안 뜨는 환경의 대피로)
-const listBtn = page.getByRole("button", { name: /목록/ });
+const listBtn = page.getByRole("button", { name: /리스트로 보기|목록/ });
 await listBtn.click();
 await page.waitForTimeout(600);
 // 목록 화면은 지도 안내 문구가 사라지고 가게 이름은 그대로 보인다

@@ -221,7 +221,9 @@ export default function GroupPage() {
   const [radius, setRadius] = useState(1000);
   /* 실제로 결과를 얻은 반경 — 자동으로 넓혔으면 화면에 알린다 */
   const [usedRadius, setUsedRadius] = useState(1000);
-  const [sortBy, setSortBy] = useState<"distance" | "rating" | "score" | "fit" | "category">("distance");
+  /* 🔴 "카테고리순" 은 뺐다. 지도 API 가 주는 분류가 제대로 갈리지 않아
+     (같은 집이 음식점>한식 / 음식점>육류,고기 로 흩어진다) 묶어 봐야 도움이 안 됐다. */
+  const [sortBy, setSortBy] = useState<"distance" | "rating" | "score" | "fit">("distance");
   // 카테고리 필터
   const [filterLarge, setFilterLarge] = useState<string>("");
   const [filterMedium, setFilterMedium] = useState<string>("");
@@ -1609,6 +1611,13 @@ export default function GroupPage() {
 
   /* 지도에 넘길 형태. 제공자마다 좌표 형식이 달라(네이버는 1e7 배) normalizeCoord 로
      맞추고, 좌표가 없는 것은 지도에서 뺀다. */
+  /* 지도에 넘길 사진. 지도 쪽 이름은 cleanTitle 로 다듬여 있으므로 그 키로 담는다. */
+  const mapImages: Record<string, string> = {};
+  scoredRestaurants.forEach((r) => {
+    const url = restaurantImages[r.title];
+    if (url) mapImages[cleanTitle(r.title)] = url;
+  });
+
   const restaurantMapPlaces = scoredRestaurants.flatMap((r) => {
     const lng = normalizeCoord(r.mapx);
     const lat = normalizeCoord(r.mapy);
@@ -1647,8 +1656,6 @@ export default function GroupPage() {
         if (a.distance !== null && b.distance !== null) return a.distance - b.distance;
         return 0;
       }
-      case "category":
-        return (a.category || "").localeCompare(b.category || "");
       default:
         return 0;
     }
@@ -2927,7 +2934,7 @@ export default function GroupPage() {
               </div>
               {/* 정렬 버튼 + 목록/지도 — 별도 줄 */}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
-                {([["distance","📍 거리순"],["fit","🎯 우리 취향순"],["score","👍 선호순"],["rating","⭐ 별점"],["category","🏷 카테고리"]] as const).map(([s, label]) => (
+                {([["distance","📍 거리순"],["fit","🎯 우리 취향순"],["score","👍 선호순"],["rating","⭐ 별점"]] as const).map(([s, label]) => (
                   <button key={s} className="tap" onClick={() => setSortBy(s)} style={{
                     padding: "5px 12px", borderRadius: "var(--r-pill)", fontSize: 12, fontWeight: 600,
                     border: sortBy === s ? "2px solid var(--primary)" : "1.5px solid var(--border)",
@@ -2946,6 +2953,10 @@ export default function GroupPage() {
                   <MapPanel
                     places={restaurantMapPlaces}
                     center={location ? { x: location.lng, y: location.lat } : null}
+                    /* 🔴 목록에서 받아 둔 가게 사진을 지도에도 준다. 안 주면 지도는
+                       카테고리 기본 그림으로 떨어져서 모든 가게가 같은 그림이었다.
+                       지도 쪽 이름은 cleanTitle 로 다듬은 값이라 키를 맞춘다. */
+                    images={mapImages}
                     stats={{ clicks: placeClicks }}
                     selectedIndex={pickedRestaurantIdx}
                     onSelect={setPickedRestaurantIdx}
@@ -2962,32 +2973,7 @@ export default function GroupPage() {
                 </p>
               )}
 
-              {restaurantView === "map" ? null : sortBy === "category" ? (
-                // 카테고리별 그룹핑
-                (() => {
-                  const groups: Record<string, typeof sortedRestaurants> = {};
-                  sortedRestaurants.forEach((r) => {
-                    const key = r.category.split(">")[0]?.trim() || "기타";
-                    if (!groups[key]) groups[key] = [];
-                    groups[key].push(r);
-                  });
-                  return Object.entries(groups).map(([groupName, items]) => {
-                    const col = getCategoryColor(groupName);
-                    return (
-                      <div key={groupName} style={{ marginBottom: 16 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                          <span style={{ fontSize: 18 }}>{categoryEmoji(groupName)}</span>
-                          <span style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 700, color: col.text }}>{groupName}</span>
-                          <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: col.bg, color: col.text, border: `1px solid ${col.border}`, fontWeight: 600 }}>{items.length}곳</span>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          {items.map((r, i) => renderCard(r, i, col.border))}
-                        </div>
-                      </div>
-                    );
-                  });
-                })()
-              ) : (
+              {restaurantView === "map" ? null : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {sortedRestaurants.slice(0, visibleCount).map((r, i) => renderCard(r, i, r.score > 0 ? MEMBER_COLORS[i % MEMBER_COLORS.length] : "var(--border)"))}
                 {sortedRestaurants.length > visibleCount && (

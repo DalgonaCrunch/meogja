@@ -93,7 +93,7 @@ if (diag.sdk && !diag.errText) {
 }
 
 // 목록 전환 (지도가 안 뜨는 환경의 대피로)
-await page.getByRole("button", { name: /목록/ }).click().catch(() => problems.push("목록 토글 버튼이 없음"));
+await page.getByRole("button", { name: /리스트로 보기|목록/ }).click().catch(() => problems.push("목록 토글 버튼이 없음"));
 await page.waitForTimeout(500);
 const listShown = await page.locator("text=좌표없는가게").count() > 0;
 await page.screenshot({ path: `${OUT}-3-list.png` });

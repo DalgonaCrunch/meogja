@@ -176,17 +176,25 @@ export default function MapPanel({
 }
 
 /** 목록/지도 전환 토글. 두 화면이 같은 모양을 쓰도록 여기 둔다. */
+/**
+ * 목록 ↔ 지도 전환.
+ *
+ * 🔴 예전에는 회색 바탕에 "목록 / 지도" 두 글자만 있어서 눈에 걸리지 않았다. 지도가
+ * 있는 줄 모르고 목록만 훑는 일이 생긴다. 높이는 그대로 두고(줄이 밀리면 안 된다)
+ * 문구를 늘리고 고른 쪽에 테마색을 채운다.
+ */
 export function ViewToggle({ view, onChange }: { view: "list" | "map"; onChange: (v: "list" | "map") => void }) {
   return (
-    <div style={{ display: "flex", background: "var(--bg-2)", borderRadius: "var(--r-pill)", padding: 3, gap: 2, flexShrink: 0 }}>
-      {([["list", "목록", "☰"], ["map", "지도", "🗺️"]] as const).map(([v, label, icon]) => (
+    <div style={{ display: "flex", background: "var(--bg-2)", borderRadius: "var(--r-pill)", padding: 3, gap: 2, flexShrink: 0, border: "1.5px solid var(--primary)" }}>
+      {([["list", "리스트로 보기", "☰"], ["map", "지도로 보기", "🗺️"]] as const).map(([v, label, icon]) => (
         <button key={v} className="tap" onClick={() => onChange(v)} aria-pressed={view === v} style={{
-          display: "flex", alignItems: "center", gap: 4,
-          padding: "5px 11px", borderRadius: "var(--r-pill)", border: "none", cursor: "pointer",
-          fontSize: 12.5, fontWeight: 700,
-          background: view === v ? "var(--surface)" : "transparent",
-          color: view === v ? "var(--primary)" : "var(--text-3)",
-          boxShadow: view === v ? "0 1px 3px rgba(0,0,0,.12)" : "none",
+          display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap",
+          padding: "5px 14px", borderRadius: "var(--r-pill)", border: "none", cursor: "pointer",
+          fontSize: 12.5, fontWeight: 800,
+          background: view === v ? "var(--primary)" : "transparent",
+          color: view === v ? "#fff" : "var(--primary)",
+          boxShadow: view === v ? "0 2px 8px rgba(255,122,69,.35)" : "none",
+          transition: "all .15s",
         }}>
           <span style={{ fontSize: 13 }}>{icon}</span>{label}
         </button>
