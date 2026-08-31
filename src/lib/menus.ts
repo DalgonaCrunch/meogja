@@ -28,6 +28,64 @@ export const MENU_CATEGORIES: MenuCategory[] = [
   { emoji:"🦞", label:"해산물", menus:["회","회덮밥","초밥사시미","새우튀김","굴요리","홍합요리","간장게장","꽃게찜","해물찜","샤브샤브","낙지볶음","쭈꾸미볶음","갈낙전골","해물파전","매운탕"] },
 ];
 
+/* ── 카테고리 "전체" 선택 ──
+   메뉴 하나가 아니라 "고기 아무거나", "일식 아무거나" 로 찾고 싶을 때 쓴다.
+   선택은 `고기 전체` 같은 표시로 담아 두고, 검색할 때 아래 검색어들로 펼친다.
+
+   🔴 카테고리 이름을 그대로 검색어로 쓰면 되는 것과 안 되는 것이 있다. 실측
+   (카카오, 강남역 1km): 고기 5곳 · 일식 5곳 · 한식 5곳 · 카페 5곳 은 잘 나오지만
+   국물 1곳 · 사이드 1곳 · 매운맛 0곳 이었다. 가게 이름에 그런 말을 쓰지 않기
+   때문이다. 그런 카테고리는 실제로 검색되는 말로 바꿔 둔다. */
+export const CATEGORY_ALL_SUFFIX = " 전체";
+
+export function isCategoryAll(value: string): boolean {
+  return value.endsWith(CATEGORY_ALL_SUFFIX);
+}
+
+export function categoryAllToken(label: string): string {
+  return `${label}${CATEGORY_ALL_SUFFIX}`;
+}
+
+/** 카테고리 → 실제로 검색에 쓸 말들 */
+export const CATEGORY_SEARCH_TERMS: Record<string, string[]> = {
+  고기: ["고기", "삼겹살", "갈비"],
+  국물: ["국밥", "찌개", "탕"],
+  일식: ["일식", "초밥", "라멘"],
+  양식: ["양식", "파스타", "스테이크"],
+  치킨: ["치킨"],
+  사이드: ["분식", "감자튀김"],
+  카페: ["카페"],
+  매운맛: ["마라탕", "떡볶이", "매운탕"],
+  디저트: ["디저트", "케이크"],
+  한식: ["한식"],
+  중식: ["중식", "짜장면"],
+  해산물: ["해산물", "회"],
+};
+
+/**
+ * 선택한 항목들을 실제 검색어로 펼친다.
+ * `고기 전체` → 고기·삼겹살·갈비. 보통 메뉴는 그대로 둔다.
+ * 검색 API 가 한 번에 8개까지 받으므로 그 안에서 자른다.
+ */
+export function expandMenuQueries(selected: string[], max = 8): string[] {
+  const out: string[] = [];
+  for (const item of selected) {
+    if (isCategoryAll(item)) {
+      const label = item.slice(0, -CATEGORY_ALL_SUFFIX.length);
+      const terms = CATEGORY_SEARCH_TERMS[label] || [label];
+      terms.forEach((t) => { if (!out.includes(t)) out.push(t); });
+    } else if (!out.includes(item)) {
+      out.push(item);
+    }
+  }
+  return out.slice(0, max);
+}
+
+/** 화면·기록에 쓸 이름 (`고기 전체` → `고기`) */
+export function menuDisplayName(value: string): string {
+  return isCategoryAll(value) ? value.slice(0, -CATEGORY_ALL_SUFFIX.length) : value;
+}
+
 // 모든 메뉴를 플랫하게 (중복 제거)
 export const ALL_MENUS: string[] = Array.from(new Set(MENU_CATEGORIES.flatMap(c => c.menus)));
 

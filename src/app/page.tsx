@@ -11,7 +11,7 @@ import { shareResult } from "@/lib/shareResult";
 import { loadIngredientMap } from "@/lib/ingredientMap";
 import MenuBattle from "./MenuBattle";
 import PatReminder from "./PatReminder";
-import { MENU_CATEGORIES, MEAL_POOL, ROULETTE_POOL, CAFE_DESSERT_POOL, isMealFood } from "@/lib/menus";
+import { MENU_CATEGORIES, MEAL_POOL, ROULETTE_POOL, CAFE_DESSERT_POOL, isMealFood, categoryAllToken } from "@/lib/menus";
 import { getFoodIconUrl } from "@/lib/foodIcons";
 import { getTimeSlot, TIME_FOODS, getAgeGroupFoods, getWeatherFoods, WeatherCondition } from "@/lib/foodRecommend";
 import TourGuide, { TOUR_KEY } from "@/components/TourGuide";
@@ -1014,6 +1014,27 @@ export default function Home() {
           <div style={{ marginTop:12, padding:"14px 16px", background:"var(--surface)", borderRadius:16, border:"var(--card-border)", boxShadow:"var(--card-shadow)" }}>
             <p style={{ fontSize:12, color:"var(--text-3)", marginBottom:10 }}>먹고 싶은 메뉴를 선택하세요 (다중 선택 가능)</p>
             <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+              {/* 카테고리 전체 — 메뉴 하나를 고르기 싫을 때. "고기 아무거나" 로 찾는다 */}
+              {(() => {
+                const token = categoryAllToken(quickCatSheet.label);
+                const sel = quickSelected.has(token);
+                return (
+                  <button className="tap" onClick={() => {
+                    setQuickSelected(prev => {
+                      const next = new Set(prev);
+                      if (next.has(token)) next.delete(token); else next.add(token);
+                      return next;
+                    });
+                  }} style={{
+                    padding:"7px 14px", borderRadius:"var(--r-pill)", cursor:"pointer", fontSize:13, fontWeight:700,
+                    border: sel ? "none" : `1.5px dashed var(--primary)`,
+                    background: sel ? "var(--primary)" : "var(--primary-light, #FFF1EA)",
+                    color: sel ? "#fff" : "var(--primary)",
+                  }}>
+                    {sel && "✓ "}{quickCatSheet.emoji} {quickCatSheet.label} 전체
+                  </button>
+                );
+              })()}
               {quickCatSheet.items.map((item) => {
                 const sel = quickSelected.has(item);
                 return (

@@ -7,6 +7,7 @@ import { expandDislikes } from "@/lib/ingredients";
 import { loadIngredientMap } from "@/lib/ingredientMap";
 import { bumpSearched } from "@/lib/behaviorScore";
 import { dedupePlaces, normalizeStoreName } from "@/lib/dedupePlaces";
+import { expandMenuQueries, menuDisplayName } from "@/lib/menus";
 import { fetchPlacePrefs, myPrefsFromRows, countsFromRows, placeKey, togglePlacePref, type Pref } from "@/lib/placePrefs";
 import { shareResult, sharePlace } from "@/lib/shareResult";
 import { computeFit } from "@/lib/fitScore";
@@ -725,7 +726,7 @@ export default function GroupPage() {
     if (!myMemberId) return;
     if (savingDecision) return;
     setSavingDecision(true);
-    const menu = presetMenus[0] || r.matchedLikes[0] || r.category.split(">").pop()?.trim() || r.title;
+    const menu = menuDisplayName(presetMenus[0] || r.matchedLikes[0] || r.category.split(">").pop()?.trim() || r.title);
     const myMemberName = (ownerName && isOwner) ? ownerName : members.find(m => m.id === myMemberId)?.name || "멤버";
     const titleFn = PAT_TITLES[Math.floor(Math.random() * PAT_TITLES.length)];
     const { data: pat } = await getSupabase().from("meal_pats").insert({
@@ -1017,7 +1018,7 @@ export default function GroupPage() {
       .filter((p) => (typeof p.score === "number" ? p.score <= -5 : p.preference_type === "dislike"))
       .map((p) => p.food_name);
     const dislikes = expandDislikes(dislikeNames, await loadIngredientMap()).hard;
-    const { items: all, radius: searchedRadius } = await searchNearbyWidening(selectedMenus);
+    const { items: all, radius: searchedRadius } = await searchNearbyWidening(expandMenuQueries(selectedMenus));
     /* 메뉴마다 검색해 합치므로 같은 가게가 여러 번 들어온다. 이름+주소 완전일치로는
        주소 표기가 갈린 같은 집을 못 잡는다 → 이름을 다듬고 좌표로 견준다. */
     const unique = dedupePlaces(all);
@@ -1077,8 +1078,9 @@ export default function GroupPage() {
     const DEFAULT_QUERIES = ["한식", "중식", "일식", "양식", "분식", "고기", "카페"];
     let queries: string[];
     if (presetMenus.length > 0) {
-      // 홈에서 선택한 메뉴 전체 사용
-      queries = presetMenus;
+      /* 홈에서 고른 것을 검색어로 펼친다. `고기 전체` 처럼 카테고리를 통째로 고른
+         것은 실제로 검색되는 말들로 바뀐다(고기·삼겹살·갈비). */
+      queries = expandMenuQueries(presetMenus);
     } else if (filterMedium) {
       queries = [filterMedium];
     } else if (filterLarge) {
@@ -2677,7 +2679,7 @@ export default function GroupPage() {
             showSearchGuidance && presetMenus.length > 0 ? (
               <div style={{ padding: "16px 20px", borderRadius: 14, background: "linear-gradient(135deg,var(--primary-light),#FFF8F0)", border: "1.5px solid var(--primary)", textAlign: "center" }}>
                 <p style={{ fontSize: 15, fontWeight: 700, color: "var(--primary)", margin: "0 0 4px" }}>
-                  🍽️ {presetMenus[0]} 먹을 사람 모여라!
+                  🍽️ {menuDisplayName(presetMenus[0])} 먹을 사람 모여라!
                 </p>
                 <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>
                   👆 함께 먹을 멤버를 선택하고 맛집을 찾아봐요
