@@ -37,13 +37,22 @@ export async function alertAdmin(
     // 2) 보냈다고 먼저 적는다 — 알림 전송이 느려도 같은 요청이 몰려 여러 번 가지 않게
     await admin.from("app_settings").upsert({ key: stateKey, value: String(Date.now()) }, { onConflict: "key" });
 
-    // 3) 관리자 계정 찾기
-    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-    if (!adminEmail) return;
-    const { data: profile } = await admin.from("user_profiles").select("id").eq("email", adminEmail).single();
-    if (!profile?.id) return;
+    // 3) 남는 기록 — 푸시를 못 받는 상황에서도 나중에 확인할 수 있게 (최근 20건)
+    try {
+      const { data: logRow } = await admin.from("app_settings").select("value").eq("key", "admin_alert_log").single();
+      const log: { at: string; kind: string; message: string }[] = logRow?.value ? JSON.parse(String(logRow.value)) : [];
+      log.unshift({ at: new Date().toISOString(), kind, message });
+      await admin.from("app_settings").upsert(
+        { key: "admin_alert_log", value: JSON.stringify(log.slice(0, 20)) },
+        { onConflict: "key" },
+      );
+    } catch { /* 기록 실패는 넘긴다 */ }
 
-    const { data: subs } = await admin.from("push_subscriptions").select("*").eq("user_id", profile.id);
+    // 4) 관리자 계정 찾기
+    const adminUserId = await findAdminUserId(admin);
+    if (!adminUserId) return;
+
+    const { data: subs } = await admin.from("push_subscriptions").select("*").eq("user_id", adminUserId);
     if (!subs || subs.length === 0) return;
 
     webpush.setVapidDetails(
@@ -64,6 +73,55 @@ export async function alertAdmin(
   } catch {
     /* 알림에 실패해도 서비스는 계속 돈다 — 여기서 던지면 사용자 요청이 깨진다 */
   }
+}
+
+/**
+ * 관리자 계정 id 찾기.
+ *
+ * 🔴 user_profiles.email 로만 찾으면 못 찾는다 — 소셜 로그인 계정은 그 칸이 비어 있는
+ * 경우가 많다(실제 DB 에서 23명 중 8명만 채워져 있었다). auth 쪽 이메일도 함께 본다.
+ * 한 번 찾으면 app_settings 에 적어 두고 다시 찾지 않는다.
+ */
+async function findAdminUserId(admin: ReturnType<typeof getAdmin>): Promise<string | null> {
+  const adminEmail = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "").trim().toLowerCase();
+  if (!adminEmail) return null;
+
+  try {
+    const { data: cached } = await admin.from("app_settings").select("value").eq("key", "admin_user_id").single();
+    if (cached?.value) return String(cached.value);
+  } catch { /* 없으면 찾는다 */ }
+
+  let found: string | null = null;
+
+  // 1) 프로필의 이메일
+  try {
+    const { data } = await admin.from("user_profiles").select("id").ilike("email", adminEmail).limit(1);
+    if (data?.[0]?.id) found = data[0].id;
+  } catch { /* 넘어간다 */ }
+
+  // 2) 로그인 계정의 이메일 (소셜 로그인은 여기에만 있다)
+  if (!found) {
+    try {
+      for (let page = 1; page <= 5 && !found; page++) {
+        const { data } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+        const users = data?.users || [];
+        if (users.length === 0) break;
+        const hit = users.find((u) => {
+          const meta = (u.user_metadata || {}) as Record<string, unknown>;
+          return [u.email, meta.original_email, meta.email]
+            .some((e) => typeof e === "string" && e.toLowerCase() === adminEmail);
+        });
+        if (hit) found = hit.id;
+      }
+    } catch { /* 넘어간다 */ }
+  }
+
+  if (found) {
+    try {
+      await admin.from("app_settings").upsert({ key: "admin_user_id", value: found }, { onConflict: "key" });
+    } catch { /* 넘어간다 */ }
+  }
+  return found;
 }
 
 /** 외부 지도/장소 API 가 실패했을 때. 상태코드로 원인을 갈라 문구를 만든다. */
