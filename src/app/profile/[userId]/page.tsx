@@ -140,7 +140,7 @@ export default function PublicProfilePage() {
                   <div style={{ flex:1 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
                       <span style={{ fontSize:13, fontWeight:600 }}>{item.food_name}</span>
-                      <span style={{ fontSize:11, color:"var(--text-3)" }}>{item.score}점</span>
+                      <span style={{ fontSize:11, color:"var(--text-3)" }}>{Math.round(item.score)}점</span>
                     </div>
                     <div style={{ height:6, borderRadius:99, background:"var(--bg-2)" }}>
                       <div style={{ width:`${barPct}%`, height:"100%", borderRadius:99, background:"var(--primary)" }} />

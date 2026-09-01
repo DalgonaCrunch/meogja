@@ -517,7 +517,7 @@ function BattleContent() {
                       </div>
                     </div>
                     <div style={{ textAlign:"right", flexShrink:0 }}>
-                      <p style={{ fontSize:16, fontWeight:800, color:"var(--primary)", fontFamily:"var(--font-display)" }}>{item.score}</p>
+                      <p style={{ fontSize:16, fontWeight:800, color:"var(--primary)", fontFamily:"var(--font-display)" }}>{Math.round(item.score)}</p>
                       <p style={{ fontSize:10, color:"var(--text-3)" }}>점수</p>
                     </div>
                   </button>

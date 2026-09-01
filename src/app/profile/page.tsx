@@ -1167,7 +1167,7 @@ export default function ProfilePage() {
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
                       <span style={{ fontSize:13, fontWeight:600, color:"var(--text)" }}>{item.food_name}</span>
-                      <span style={{ fontSize:11, color:"var(--text-3)", fontWeight:600 }}>{item.score}점</span>
+                      <span style={{ fontSize:11, color:"var(--text-3)", fontWeight:600 }}>{Math.round(item.score)}점</span>
                     </div>
                     <div style={{ height:6, borderRadius:99, background:"var(--bg-2)", overflow:"hidden" }}>
                       <div style={{ width:`${barPct}%`, height:"100%", borderRadius:99, background: barColor, transition:"width .6s" }} />
