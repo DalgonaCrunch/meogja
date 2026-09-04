@@ -1,0 +1,368 @@
+<title>meogja 스토어 등록 길잡이</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;600;800&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  /* meogja 자신의 토큰에서 가져온다 — public/manifest.json 의 theme_color / background_color */
+  :root {
+    --ground: #FDF6EE;
+    --raised: #FFFDFA;
+    --ink: #2A1F18;
+    --ink-soft: #6B5A4E;
+    --ink-faint: #9A887A;
+    --accent: #FF7A45;
+    --accent-deep: #D2542A;
+    --accent-wash: #FFEEE5;
+    --mine: #A63A3A;
+    --mine-wash: #FBEAE8;
+    --good: #3E7A55;
+    --good-wash: #E7F2EA;
+    --line: #EADFD2;
+    --line-strong: #DCCDBC;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --ground: #191411;
+      --raised: #221A16;
+      --ink: #F2E8E0;
+      --ink-soft: #BFAEA1;
+      --ink-faint: #8B7A6D;
+      --accent: #FF9366;
+      --accent-deep: #FFB694;
+      --accent-wash: #35211A;
+      --mine: #E8837C;
+      --mine-wash: #37201F;
+      --good: #7FBF98;
+      --good-wash: #1C2A22;
+      --line: #33271F;
+      --line-strong: #45362C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #191411;
+    --raised: #221A16;
+    --ink: #F2E8E0;
+    --ink-soft: #BFAEA1;
+    --ink-faint: #8B7A6D;
+    --accent: #FF9366;
+    --accent-deep: #FFB694;
+    --accent-wash: #35211A;
+    --mine: #E8837C;
+    --mine-wash: #37201F;
+    --good: #7FBF98;
+    --good-wash: #1C2A22;
+    --line: #33271F;
+    --line-strong: #45362C;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans KR", system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    word-break: keep-all;
+  }
+  .wrap { max-width: 46rem; margin: 0 auto; padding: 2.5rem 1.25rem 6rem; }
+
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .88em; }
+  code {
+    background: var(--accent-wash);
+    color: var(--accent-deep);
+    padding: .12em .38em;
+    border-radius: 4px;
+    word-break: break-all;
+  }
+
+  /* ---- 머리 ---- */
+  header { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 2.25rem; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .72rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent-deep);
+  }
+  h1 {
+    font-family: "Gothic A1", system-ui, sans-serif;
+    font-weight: 800; font-size: clamp(1.9rem, 6vw, 2.6rem); line-height: 1.2;
+    letter-spacing: -.02em; margin: 0; text-wrap: balance;
+  }
+  .lede { color: var(--ink-soft); font-size: 1.03rem; max-width: 34rem; }
+
+  h2 {
+    font-family: "Gothic A1", system-ui, sans-serif;
+    font-weight: 800; font-size: 1.32rem; letter-spacing: -.015em;
+    margin: 3rem 0 .35rem; text-wrap: balance;
+  }
+  h2:first-of-type { margin-top: 2.5rem; }
+  .sub { color: var(--ink-faint); font-size: .92rem; margin: 0 0 1.1rem; }
+
+  /* ---- 순서 (진짜 순서라 번호를 쓴다) ---- */
+  ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; counter-reset: s; }
+  ol.steps > li {
+    counter-increment: s;
+    display: grid; grid-template-columns: 2.1rem 1fr; gap: 0 .95rem;
+    padding: 1.05rem 0; border-top: 1px solid var(--line);
+  }
+  ol.steps > li:last-child { border-bottom: 1px solid var(--line); }
+  ol.steps > li::before {
+    content: counter(s);
+    font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: .82rem;
+    color: var(--accent-deep); background: var(--accent-wash);
+    width: 2.1rem; height: 2.1rem; border-radius: 50%;
+    display: grid; place-items: center; align-self: start;
+  }
+  .step-t { font-weight: 600; font-size: 1.02rem; }
+  .step-b { color: var(--ink-soft); font-size: .94rem; margin-top: .2rem; }
+  .step-b:has(+ .step-b) { margin-bottom: 0; }
+
+  /* ---- 준비물 체크리스트 ---- */
+  .todo { display: flex; flex-direction: column; gap: 0; }
+  .todo label {
+    display: grid; grid-template-columns: 1.35rem 1fr auto; gap: .7rem; align-items: baseline;
+    padding: .62rem .2rem; border-bottom: 1px solid var(--line); cursor: pointer;
+  }
+  .todo label:first-child { border-top: 1px solid var(--line); }
+  .todo input { width: 1.05rem; height: 1.05rem; accent-color: var(--accent); margin: 0; align-self: center; }
+  .todo input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .todo .t { font-size: .97rem; }
+  .todo input:checked ~ .t { color: var(--ink-faint); text-decoration: line-through; }
+  .chip {
+    font-family: "IBM Plex Mono", monospace; font-size: .68rem; letter-spacing: .06em;
+    padding: .16rem .5rem; border-radius: 999px; white-space: nowrap;
+  }
+  .chip.have { background: var(--good-wash); color: var(--good); }
+  .chip.need { background: var(--accent-wash); color: var(--accent-deep); }
+
+  /* ---- 지뢰: 카드가 아니라 왼쪽 띠 ---- */
+  .mines { display: flex; flex-direction: column; gap: 1.35rem; }
+  .mine {
+    border-left: 3px solid var(--mine); padding-left: 1rem;
+  }
+  .mine.worst { border-left-width: 6px; }
+  .mine h3 {
+    font-family: "Gothic A1", sans-serif; font-weight: 600; font-size: 1.02rem;
+    margin: 0 0 .25rem; color: var(--ink); text-wrap: balance;
+  }
+  .mine p { margin: 0 0 .45rem; color: var(--ink-soft); font-size: .94rem; }
+  .mine .fix {
+    background: var(--mine-wash); color: var(--ink); font-size: .9rem;
+    padding: .55rem .75rem; border-radius: 6px;
+  }
+  .cost {
+    font-family: "IBM Plex Mono", monospace; font-size: .68rem; letter-spacing: .06em;
+    color: var(--mine); display: block; margin-bottom: .2rem;
+  }
+
+  /* ---- 표 ---- */
+  .tw { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  th, td { text-align: left; padding: .58rem .7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-family: "IBM Plex Mono", monospace; font-weight: 600;
+    font-size: .7rem; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink-faint); border-bottom-color: var(--line-strong);
+  }
+  td:first-child { font-weight: 500; white-space: nowrap; }
+
+  pre {
+    background: var(--raised); border: 1px solid var(--line);
+    border-radius: 8px; padding: .9rem 1rem; overflow-x: auto;
+    font-family: "IBM Plex Mono", monospace; font-size: .84rem; line-height: 1.65;
+    color: var(--ink);
+  }
+  .note {
+    border: 1px solid var(--line-strong); border-radius: 8px;
+    padding: .85rem 1rem; font-size: .93rem; color: var(--ink-soft);
+    background: var(--raised);
+  }
+  .note strong { color: var(--ink); }
+  ul.plain { padding-left: 1.15rem; color: var(--ink-soft); font-size: .95rem; }
+  ul.plain li { margin: .25rem 0; }
+  footer {
+    margin-top: 3.5rem; padding-top: 1.1rem; border-top: 1px solid var(--line);
+    color: var(--ink-faint); font-size: .85rem;
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+<header>
+  <span class="eyebrow">meogja · 2026-09-04</span>
+  <h1>구글 플레이에 meogja 올리기</h1>
+  <p class="lede">BLOCKPOP 을 실제로 등록하면서 밟은 순서와, 그때 빠진 함정들. 추측이 아니라 그날 화면을 보며 한 것들이다.</p>
+</header>
+
+<div class="note">
+  <strong>meogja 는 출발점이 다르다.</strong> Next.js 웹앱이라 안드로이드 프로젝트가 아예 없다.
+  대신 <code>manifest.json</code> 이 <code>standalone</code> + 아이콘 192·512(maskable) 을 갖췄고
+  <code>sw.js</code> 도 등록돼 있다 — <strong>TWA 가 요구하는 것이 정확히 그것들</strong>이라 감싸는 일은 짧다.
+</div>
+
+<h2>먼저 확인할 것 — 12명 규칙</h2>
+<p class="sub">이게 전체 일정을 결정한다</p>
+<div class="tw"><table>
+  <tr><th>계정</th><th>비공개 테스트 12명 × 14일</th></tr>
+  <tr><td>2023-11-13 <em>이후</em> 개인</td><td>필요하다 — 프로덕션 전 필수</td></tr>
+  <tr><td>2023-11-13 <em>이전</em> 개인</td><td>면제 (소급 적용 없음)</td></tr>
+  <tr><td>법인 · 조직</td><td>면제 — 대신 D-U-N-S 번호와 사업자 서류</td></tr>
+</table></div>
+<p class="sub" style="margin-top:.8rem">앱 종류와 무관하다. 게임이든 유틸이든 계정에 걸린다. BLOCKPOP 으로 한 번 통과하면 meogja 때도 필요한지 알 수 있다 — 계정 단위인지 앱 단위인지는 구글 문서에 안 적혀 있다.</p>
+
+<h2>순서</h2>
+<p class="sub">앞 단계를 건너뛰면 뒤가 안 열린다</p>
+<ol class="steps">
+  <li>
+    <div>
+      <div class="step-t">개인정보처리방침 페이지 만들기</div>
+      <div class="step-b">없으면 어느 단계도 못 넘어간다. 별도 저장소 + GitHub Pages 가 편하다. 계정 기능이 있으면 <strong>계정 삭제 요청 페이지</strong>도 따로 필요하다 — 방침 안의 한 줄로는 부족하다.</div>
+    </div>
+  </li>
+  <li>
+    <div>
+      <div class="step-t">TWA 로 감싸기 + 서명 키</div>
+      <div class="step-b"><code>bubblewrap init --manifest https://meogja.vercel.app/manifest.json</code> → <code>bubblewrap build</code>. 패키지는 <code>com.dalgonacrunch.meogja</code>.</div>
+      <div class="step-b"><strong>서명 키를 잃으면 같은 앱으로 업데이트를 영원히 못 한다.</strong> 만들자마자 백업.</div>
+    </div>
+  </li>
+  <li>
+    <div>
+      <div class="step-t">Play Console 앱 만들기</div>
+      <div class="step-b">앱 이름 · 기본 언어 · 앱/게임 · 무료/유료 · 패키지 이름. 패키지 이름은 <strong>여기서 처음</strong> 넣는다.</div>
+    </div>
+  </li>
+  <li>
+    <div>
+      <div class="step-t">앱 콘텐츠 선언 9종</div>
+      <div class="step-b">개인정보처리방침 · 로그인 세부정보 · 광고 · 콘텐츠 등급 · 타겟층 · 데이터 보안 · 정부 앱 · 금융 기능 · 건강. 전부 채워야 테스트 트랙이 열린다.</div>
+      <div class="step-b">데이터 보안은 <strong>스토어에 공개</strong>된다. <code>supabase-schema.sql</code> 을 보고 실제 저장 항목대로 채울 것.</div>
+    </div>
+  </li>
+  <li>
+    <div>
+      <div class="step-t">AAB 업로드 → 앱 서명 키 지문 확보</div>
+      <div class="step-b">여기서 순서가 꼬인다. <code>assetlinks.json</code> 에 넣을 지문은 <strong>업로드 키가 아니라 구글이 발급한 앱 서명 키</strong>의 SHA-256 인데, 그건 AAB 를 한 번 올려야 생긴다.</div>
+    </div>
+  </li>
+  <li>
+    <div>
+      <div class="step-t">assetlinks.json 배포</div>
+      <div class="step-b"><code>public/.well-known/assetlinks.json</code> 에 두면 Vercel 이 그대로 서빙한다. 이게 있어야 앱에서 <strong>주소창이 사라진다.</strong></div>
+      <div class="step-b">확인: <code>meogja.vercel.app/.well-known/assetlinks.json</code> 이 200</div>
+    </div>
+  </li>
+  <li>
+    <div>
+      <div class="step-t">스토어 등록정보</div>
+      <div class="step-b">아이콘 512 · 그래픽 1024×500 · 스크린샷 1080×1920 2~8장 · 간단한 설명 80자 · 자세한 설명 4000자.</div>
+    </div>
+  </li>
+  <li>
+    <div>
+      <div class="step-t">테스터 등록 → 14일 → 프로덕션 신청</div>
+      <div class="step-b">지메일이 아니어도 된다. <strong>구글 계정으로 등록된 주소</strong>면 통과한다. Workspace 회사 메일도, 구글 그룹스도 된다.</div>
+    </div>
+  </li>
+</ol>
+
+<h2>meogja 에 아직 없는 것</h2>
+<p class="sub">눌러서 지워 나가면 된다 — 이 브라우저에 저장된다</p>
+<div class="todo" id="todo">
+  <label><input type="checkbox" data-k="pp"><span class="t">개인정보처리방침 페이지</span><span class="chip need">만들 것</span></label>
+  <label><input type="checkbox" data-k="del"><span class="t">계정 삭제 요청 페이지</span><span class="chip need">만들 것</span></label>
+  <label><input type="checkbox" data-k="key"><span class="t">안드로이드 서명 키 <span class="mono">.jks</span> + 백업</span><span class="chip need">만들 것</span></label>
+  <label><input type="checkbox" data-k="twa"><span class="t">TWA 프로젝트 (Bubblewrap)</span><span class="chip need">만들 것</span></label>
+  <label><input type="checkbox" data-k="al"><span class="t"><span class="mono">.well-known/assetlinks.json</span></span><span class="chip need">만들 것</span></label>
+  <label><input type="checkbox" data-k="fg"><span class="t">그래픽 이미지 1024×500</span><span class="chip need">만들 것</span></label>
+  <label><input type="checkbox" data-k="ss"><span class="t">스크린샷 1080×1920 · 2~8장</span><span class="chip need">만들 것</span></label>
+  <label><input type="checkbox" data-k="copy"><span class="t">스토어 문안 (80자 / 4000자)</span><span class="chip need">만들 것</span></label>
+  <label><input type="checkbox" data-k="test"><span class="t">테스터 12명 이상 명단</span><span class="chip need">모을 것</span></label>
+  <label><input type="checkbox" data-k="mani" checked><span class="t">PWA manifest · service worker</span><span class="chip have">있음</span></label>
+  <label><input type="checkbox" data-k="icon" checked><span class="t">아이콘 <span class="mono">icon-512.png</span></span><span class="chip have">있음</span></label>
+</div>
+
+<h2>밟은 지뢰</h2>
+<p class="sub">BLOCKPOP 에서 실제로 당한 것들. 순서는 비용순</p>
+<div class="mines">
+  <div class="mine worst">
+    <span class="cost">비용 — 패키지 이름을 통째로 버렸다</span>
+    <h3>개발자 인증 화면에서 패키지 이름을 미리 등록했다</h3>
+    <p>Play Console 의 <strong>Android 개발자 인증</strong>에서 <code>com.blockpop.puzzle</code> 을 수동 등록했더니 그 이름이 <strong>영구히 잠겼다.</strong> 앱 만들기에서 "이미 사용 중"으로 거부됐고, 등록을 지워도 풀리지 않았다. 구글은 한 번 등록된 패키지 이름을 회수해 주지 않는다.</p>
+    <div class="fix">그 화면은 <strong>Play 밖에서 배포하는 앱용</strong>이다. Play 로만 배포할 앱은 앱 만들기 시점에 자동 등록된다. <strong>손대지 마라.</strong></div>
+  </div>
+
+  <div class="mine">
+    <span class="cost">비용 — 출시 직전 기능 하나를 갈아엎었다</span>
+    <h3>사용자끼리 글이 오가면 신고·차단이 필요하다</h3>
+    <p>채팅이나 공개 닉네임이 있으면 UGC 정책이 <strong>신고 · 차단 · 모더레이션</strong> 셋을 요구한다. BLOCKPOP 은 대기실 자유 채팅이 있었는데 셋 다 없어서, 정해진 문구 고르기로 바꿨다. 사용자가 글을 만들지 않으면 UGC 가 아니다.</p>
+    <div class="fix">meogja 는 <strong>모임 이름 · 닉네임 · 메뉴 직접 입력</strong>이 여기 해당할 수 있다. 자유 입력을 남길 거면 신고 창구(최소한 메일 링크)라도 두자.</div>
+  </div>
+
+  <div class="mine">
+    <span class="cost">비용 — 반려됐으면 며칠</span>
+    <h3>스토어 설명에 관리자 전용 기능을 적었다</h3>
+    <p><code>modes.js</code> 에 모드가 여러 개 정의돼 있길래 사용자가 고를 수 있다고 적었는데, 그 손잡이들은 <strong>관리자 모드에서만 보이는</strong> 것이었다. 설명과 앱이 다르면 반려된다.</p>
+    <div class="fix">정의가 있다고 노출되는 것이 아니다. <strong>노출 지점(UI)까지 확인하고</strong> 적을 것.</div>
+  </div>
+
+  <div class="mine">
+    <span class="cost">비용 — 스크린샷 전부 다시</span>
+    <h3>실기기 캡처에 테스트 광고가 찍혔다</h3>
+    <p>광고가 있는 앱은 실기기 캡처에 "테스트 광고" 배너가 그대로 들어간다. 해상도도 450×840 으로 낮았다.</p>
+    <div class="fix">웹 빌드를 Playwright 로 1080×1920 캡처하면 광고가 아예 없다. meogja 는 광고가 없지만 <strong>해상도</strong>는 챙길 것.</div>
+  </div>
+
+  <div class="mine">
+    <span class="cost">비용 — 잘못된 진단으로 한 바퀴</span>
+    <h3>번들을 다시 만들지 않고 검사했다</h3>
+    <p>빌드를 건너뛰고 E2E 를 돌려 <strong>옛 번들</strong>을 검사해 놓고 "안 고쳐졌다"고 판단했다.</p>
+    <div class="fix">meogja 도 <code>next build</code> 뒤에 검사할 것.</div>
+  </div>
+</div>
+
+<h2>TWA 특유의 정책 위험</h2>
+<p class="sub">이건 진지하게 볼 것</p>
+<p style="color:var(--ink-soft);font-size:.95rem">구글은 <strong>"최소 기능" 앱</strong>을 반려한다. 웹사이트를 그냥 감싸기만 한 앱이 대표 사례다. TWA 자체는 합법이지만 심사자가 "이건 그냥 웹사이트인데?" 라고 보면 걸린다.</p>
+<ul class="plain">
+  <li>오프라인에서도 뭔가 보여줄 것 — service worker 캐시 전략 확인</li>
+  <li>앱다운 진입 — 스플래시 · standalone (manifest 에 이미 있다)</li>
+  <li><strong>웹에 없던 값이 하나라도 있으면</strong> 훨씬 안전하다</li>
+</ul>
+<div class="note" style="margin-top:1rem">
+  meogja 는 "모임 만들고 링크 공유 → 투표 → 결과"가 핵심이라, <strong>투표 마감·결과 알림 푸시</strong>가 붙으면 앱으로 존재할 이유가 분명해진다. 심사 방어와 제품 가치가 같은 방향인 드문 경우다.
+</div>
+
+<h2>베낄 수 있는 것</h2>
+<p class="sub">같은 계정으로 같은 절차를 이미 통과한 기록</p>
+<div class="tw"><table>
+  <tr><th>무엇</th><th>어디</th></tr>
+  <tr><td>등록 경위 전체</td><td class="mono">demo_1/docs/HISTORY.md · 2026-09-04</td></tr>
+  <tr><td>스토어 문안</td><td class="mono">demo_1/docs/STORE-LISTING.md</td></tr>
+  <tr><td>스크린샷 도구</td><td class="mono">demo_1/tools/shots.mjs</td></tr>
+  <tr><td>그래픽 이미지 도구</td><td class="mono">demo_1/tools/feature-graphic.mjs</td></tr>
+  <tr><td>방침 원본</td><td class="mono">demo_1/docs/PRIVACY-POLICY.md</td></tr>
+  <tr><td>계정 삭제 페이지</td><td class="mono">blockpop-privacy/delete-account.html</td></tr>
+</table></div>
+
+<footer>
+  전체 문서는 <span class="mono">meogja/docs/PLAY-STORE.md</span> 에 있다. 이 페이지는 그중 실제로 손을 움직일 부분만 뽑은 것이다.
+</footer>
+</div>
+
+<script>
+  // 체크 상태는 이 브라우저에만 남는다 — 폰에서 콘솔 클릭하며 지워 나가라고 둔 것
+  (function () {
+    var K = 'meogja.play.todo';
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem(K) || '{}'); } catch (e) { saved = {}; }
+    var boxes = document.querySelectorAll('#todo input[type=checkbox]');
+    boxes.forEach(function (b) {
+      var k = b.getAttribute('data-k');
+      if (Object.prototype.hasOwnProperty.call(saved, k)) b.checked = !!saved[k];
+      b.addEventListener('change', function () {
+        saved[k] = b.checked;
+        try { localStorage.setItem(K, JSON.stringify(saved)); } catch (e) { /* 저장이 막힌 브라우저면 그냥 이번 세션만 */ }
+      });
+    });
+  })();
+</script>
