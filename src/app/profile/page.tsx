@@ -1236,7 +1236,7 @@ export default function ProfilePage() {
             .from("groups").select("id, name, emoji").eq("owner_id", currentUser.user.id);
           const owned = ownedGroups || [];
 
-          let msg = "탈퇴하면 계정이 비활성화됩니다.\n리뷰·모임 기록 등은 보존됩니다.";
+          let msg = "탈퇴하면 계정이 비활성화되고, 참여 중인 모임·음식 취향·알림 설정이 삭제됩니다.\n닉네임은 다른 사람의 모임 기록에 남습니다.";
           if (owned.length > 0) {
             msg += `\n\n⚠️ 모임장인 모임 ${owned.length}개가 삭제됩니다:`;
             msg += owned.map(g => `\n• ${g.emoji || "🍱"} ${g.name}`).join("");
@@ -1373,7 +1373,7 @@ export default function ProfilePage() {
               <button className="tap" onClick={handleDeleteAccount} style={{ width:"100%", padding:"11px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--red)", background:"transparent", color:"var(--red)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
                 회원 탈퇴
               </button>
-              <p style={{ fontSize:11, color:"var(--text-3)", textAlign:"center", marginTop:6 }}>탈퇴 후 계정이 비활성화됩니다 · 리뷰/기록은 보존됨</p>
+              <p style={{ fontSize:11, color:"var(--text-3)", textAlign:"center", marginTop:6 }}>탈퇴 후 계정 비활성화 · 모임 참여 기록과 취향 정보 삭제</p>
             </div>
           </>
         );

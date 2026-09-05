@@ -164,7 +164,7 @@ export default function DeleteAccountPage() {
           </p>
           <ul style={{ paddingLeft: 20, margin: "0 0 12px" }}>
             <li>
-              <strong>닉네임</strong> — 내가 참여했던 다른 사람의 모임 기록이 깨지지 않도록 남깁니다.
+              <strong>닉네임</strong>(다른 참여자에게 보이던 이름) — 내가 참여했던 다른 사람의 모임 기록이 깨지지 않도록 남깁니다.
             </li>
             <li>
               <strong>탈퇴 처리 기록</strong>(탈퇴 일시) — 재가입 오남용을 막기 위해 남깁니다.

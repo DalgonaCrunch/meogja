@@ -38,7 +38,10 @@ export async function DELETE(req: NextRequest) {
     ]);
 
     // 4. 프로필 익명화 + 소프트 삭제.
-    //    닉네임(display_name)만 남긴다 — 남의 모임 기록에서 참여자 이름이 깨지지 않게.
+    //    다른 사람에게 보이던 이름(nickname·display_name)만 남긴다 —
+    //    남의 모임 기록에서 참여자 이름이 깨지지 않게 하려는 것이다.
+    //    ⚠️ nickname 이 실제 표시 이름이다(lib/auth.ts: nickname || display_name).
+    //       여기서 지우면 공개 페이지의 "닉네임은 남깁니다"가 거짓이 된다.
     //    나머지 개인정보는 전부 지운다. 공개 페이지(/delete-account)에 적은
     //    "남는 것은 닉네임·탈퇴기록·로그인 이메일뿐"과 실제 동작을 맞추기 위한 것이다.
     const deletedAt = new Date().toISOString();
@@ -46,7 +49,6 @@ export async function DELETE(req: NextRequest) {
       profile_image: null,
       email: null,
       name: null,
-      nickname: null,
       mobile: null,
       gender: null,
       birthday: null,
