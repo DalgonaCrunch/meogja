@@ -66,7 +66,7 @@ export default function DeleteAccountPage() {
         <div style={card}>
           <ol style={{ paddingLeft: 20, margin: 0 }}>
             <li>오늘 뭐 먹지? 앱 또는 웹에서 로그인합니다.</li>
-            <li>하단 메뉴에서 <strong>프로필</strong>을 엽니다.</li>
+            <li>하단 메뉴에서 <strong>내 정보</strong>를 엽니다.</li>
             <li>화면 맨 아래 <strong>회원 탈퇴</strong>를 누릅니다.</li>
             <li>확인창에서 <strong>탈퇴</strong>를 누르면 즉시 처리됩니다.</li>
           </ol>
@@ -84,7 +84,7 @@ export default function DeleteAccountPage() {
                 textDecoration: "none",
               }}
             >
-              프로필 열기
+              내 정보 열기
             </Link>
           </div>
         </div>
@@ -106,8 +106,8 @@ export default function DeleteAccountPage() {
             </a>
           </p>
           <p style={{ margin: "12px 0 0", fontSize: 13, color: "var(--text-2)" }}>
-            본인 확인 후 <strong>영업일 기준 7일 이내</strong>에 처리하고 회신드립니다.
-            이 경로로 요청하시면 아래 &lsquo;보관되는 데이터&rsquo;까지 모두 삭제됩니다.
+            본인 확인 후 담당자가 직접 처리하고 회신드립니다.
+            이 경로로 요청하시면 아래 &lsquo;보관되는 데이터&rsquo;까지 함께 삭제됩니다.
           </p>
         </div>
       </section>
@@ -169,10 +169,14 @@ export default function DeleteAccountPage() {
             <li>
               <strong>탈퇴 처리 기록</strong>(탈퇴 일시) — 재가입 오남용을 막기 위해 남깁니다.
             </li>
+            <li>
+              <strong>로그인 계정 식별정보</strong>(소셜 로그인에 쓰인 이메일 주소) — 같은 주소로
+              다시 가입할 때 기록이 충돌하지 않도록 남깁니다.
+            </li>
           </ul>
           <p style={{ margin: "0 0 10px" }}>
-            보관 기간은 <strong>탈퇴일로부터 1년</strong>이며, 이후 자동 파기합니다.
-            관련 법령에서 더 긴 보관을 요구하는 경우 그 기간을 따릅니다.
+            위 항목은 <strong>삭제 요청을 받을 때까지</strong> 보관하며, 요청이 오면 파기합니다.
+            관련 법령에서 보관을 요구하는 경우 그 기간을 따릅니다.
           </p>
           <p style={{ margin: 0, fontSize: 13, color: "var(--text-2)" }}>
             이 항목까지 <strong>즉시 완전 삭제</strong>를 원하시면 위 &lsquo;방법 2&rsquo;로 요청해 주세요.

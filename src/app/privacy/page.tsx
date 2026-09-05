@@ -27,7 +27,7 @@ export default function PrivacyPage() {
       <section style={{ marginBottom: 28 }}>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, marginBottom: 12 }}>3. 보관 기간</h2>
         <p>회원 탈퇴 시 모임·투표 기록, 음식 선호도, 푸시 구독 정보, 프로필 이미지는 즉시 삭제합니다.</p>
-        <p style={{ marginTop: 8 }}>다만 다른 참여자의 모임 기록이 깨지지 않도록 <strong>닉네임과 탈퇴 처리 기록은 탈퇴일로부터 1년간 보관</strong>한 뒤 파기합니다. 이 항목까지 즉시 완전 삭제를 원하시면 <a href="/delete-account" style={{ color: "var(--primary)" }}>계정 삭제 요청</a> 페이지의 이메일 경로를 이용해 주세요.</p>
+        <p style={{ marginTop: 8 }}>다만 다른 참여자의 모임 기록이 깨지지 않도록 <strong>닉네임, 탈퇴 처리 기록, 소셜 로그인에 쓰인 이메일 주소는 계속 보관</strong>합니다. 이 항목까지 삭제를 원하시면 <a href="/delete-account" style={{ color: "var(--primary)" }}>계정 삭제 요청</a> 페이지의 이메일 경로로 요청해 주세요.</p>
         <p style={{ marginTop: 8 }}>관련 법령에서 더 긴 보관을 요구하는 경우 해당 기간 동안 보관합니다.</p>
       </section>
 
