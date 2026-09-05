@@ -55,7 +55,7 @@ export default function PrivacyPage() {
 
       <section style={{ marginBottom: 28 }}>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, marginBottom: 12 }}>7. 문의</h2>
-        <p>개인정보 관련 문의사항은 서비스 내 문의하기 기능을 이용해 주세요.</p>
+        <p>개인정보 관련 문의는 <a href="mailto:doublesweeet@gmail.com" style={{ color: "var(--primary)" }}>doublesweeet@gmail.com</a> 으로 보내주세요.</p>
         <p style={{ marginTop: 8 }}>서비스 URL: <a href="https://meogja.vercel.app" style={{ color: "var(--primary)" }}>https://meogja.vercel.app</a></p>
       </section>
 

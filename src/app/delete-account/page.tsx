@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "오늘 뭐 먹지?(meogja) 계정과 데이터 삭제를 요청하는 방법을 안내합니다.",
 };
 
-const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@meogja.app";
+const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "doublesweeet@gmail.com";
 
 const wrap: React.CSSProperties = {
   maxWidth: 640,

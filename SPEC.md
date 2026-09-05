@@ -561,7 +561,8 @@
 - [x] 앱 내 회원 탈퇴 (`/profile` → `DELETE /api/auth/delete-account`)
 - [x] 계정 삭제 요청 공개 페이지 `/delete-account` — 로그인 없이 열리고 구글 요건 3종 충족
       (앱·개발자명 / 요청 절차 / 삭제·보관 데이터와 보관 기간). 확인: `scripts/check-delete-account.mjs`
-- [ ] 문의·삭제 요청용 공개 이메일 확정 (`NEXT_PUBLIC_SUPPORT_EMAIL`)
+- [x] 문의·삭제 요청용 공개 이메일 확정 — `doublesweeet@gmail.com` (`NEXT_PUBLIC_SUPPORT_EMAIL` 로 덮기 가능)
+- [x] 탈퇴 시 프로필 익명화 — 이메일·이름·휴대폰·성별·생일·나이·MBTI 등 전부 삭제, 닉네임만 유지
 - [ ] TWA 빌드 + 서명 키(.jks) 생성·백업
 - [ ] `public/.well-known/assetlinks.json` (AAB 업로드 후 앱 서명 키 지문 필요)
 - [ ] 스토어 그래픽 1024×500, 스크린샷 1080×1920 2~8장
