@@ -54,3 +54,4 @@ run_telegrambot.sh
 
 # playwright 브라우저 테스트 아티팩트(로그·스냅샷) — 저장소에 올릴 것이 아니다
 .playwright-mcp/
+store-assets/

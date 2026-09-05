@@ -13,6 +13,8 @@ export default function PrivacyPage() {
           <li>게스트 이용 시: 직접 입력한 닉네임</li>
           <li>서비스 이용 중: 음식 선호도 정보, 모임 참여 기록</li>
           <li>문의 시: 이메일 주소 (선택)</li>
+          <li>주변 맛집 검색 시: 기기의 위치 정보 (서버에 저장하지 않고 검색에만 사용)</li>
+          <li>모임의 &lsquo;근처에 있는 멤버 찾기&rsquo;를 켠 동안: 현재 위치 좌표 (아래 5번 참고)</li>
         </ul>
       </section>
 
@@ -23,6 +25,12 @@ export default function PrivacyPage() {
           <li>회원 식별 및 서비스 접근 관리</li>
           <li>문의 답변 및 서비스 개선</li>
         </ul>
+      </section>
+
+      <section style={{ marginBottom: 28 }}>
+        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, marginBottom: 12 }}>2-1. 위치 정보 이용</h2>
+        <p>주변 맛집을 찾을 때 기기의 위치를 사용합니다. 이 좌표는 <strong>서버에 저장하지 않고</strong> 검색 요청에만 씁니다. 위치는 직접 지정할 수도 있습니다.</p>
+        <p style={{ marginTop: 8 }}>모임 화면에서 <strong>&lsquo;근처에 있는 멤버 찾기&rsquo;</strong>를 켜면, 켜 둔 동안에만 현재 위치가 서버에 올라가 다른 이용자에게 보일 수 있습니다. 화면을 벗어나면 삭제되고, 마지막 갱신으로부터 5분이 지난 위치는 표시되지 않습니다. 이 기능은 <strong>직접 켜야만 동작</strong>하며, 켜지 않으면 위치가 서버에 올라가지 않습니다.</p>
       </section>
 
       <section style={{ marginBottom: 28 }}>

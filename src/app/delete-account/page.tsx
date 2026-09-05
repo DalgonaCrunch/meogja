@@ -143,6 +143,10 @@ export default function DeleteAccountPage() {
                 <td style={td}>즉시 삭제</td>
               </tr>
               <tr>
+                <td style={td}>&lsquo;근처 멤버 찾기&rsquo;로 올라간 위치 좌표</td>
+                <td style={td}>즉시 삭제</td>
+              </tr>
+              <tr>
                 <td style={td}>프로필 이미지</td>
                 <td style={td}>즉시 삭제</td>
               </tr>

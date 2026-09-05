@@ -31,10 +31,13 @@ export async function DELETE(req: NextRequest) {
     // 2. 내가 멤버인 모임에서 탈퇴
     await supabase.from("group_memberships").delete().eq("user_id", userId);
 
-    // 3. 개인 데이터 정리 (push, 음식 선호도)
+    // 3. 개인 데이터 정리 (push, 음식 선호도, 위치)
+    //    nearby_presence 는 '근처 멤버 찾기'를 켰을 때 올라간 좌표다. auth 계정을 지우지
+    //    않으므로 CASCADE 가 안 걸린다 — 여기서 직접 지워야 위치가 남지 않는다.
     await Promise.allSettled([
       supabase.from("push_subscriptions").delete().eq("user_id", userId),
       supabase.from("user_food_preferences").delete().eq("user_id", userId),
+      supabase.from("nearby_presence").delete().eq("user_id", userId),
     ]);
 
     // 4. 프로필 익명화 + 소프트 삭제.
