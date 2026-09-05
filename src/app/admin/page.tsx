@@ -11,7 +11,7 @@ type MenuCategory = { emoji: string; label: string; menus: string[]; menuIcons?:
 
 type Feedback = { id: string; category: string; content: string; email: string | null; guest_name: string | null; status: string; created_at: string; };
 type GuestAccount = { id: string; name: string; password: string | null; created_at: string; };
-type Report = { id: string; target_type: string; target_id: string; target_name: string | null; reason: string; status: string; created_at: string; };
+type Report = { id: string; target_type: string; target_id: string; target_name: string | null; target_content?: string | null; group_id?: string | null; reason: string; status: string; created_at: string; };
 type AdminUser = { id: string; type: "auth" | "guest"; name: string; email: string | null; created_at: string; suspended_until: string | null; is_deleted?: boolean; };
 type UserGroup = { id: string; name: string; emoji: string | null; is_private: boolean; created_at: string; };
 
@@ -473,7 +473,10 @@ export default function AdminPage() {
             return (
               <div key={r.id} style={{ padding:"14px 16px", borderRadius:14, background:"var(--card)", border: r.status==="pending" ? "1.5px solid #E53935" : "var(--card-border)", boxShadow:"var(--card-shadow)" }}>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
-                  <span style={{ fontSize:13, fontWeight:700 }}>{r.target_type==="user"?"👤":"👥"} {r.target_name || r.target_id}</span>
+                  <span style={{ fontSize:13, fontWeight:700 }}>
+                    {r.target_type==="user"?"👤":r.target_type==="message"?"💬":"👥"} {r.target_name || r.target_id}
+                    {r.target_type==="message" && <span style={{ fontSize:11, fontWeight:400, color:"var(--text-3)" }}> 의 메시지</span>}
+                  </span>
                   <span style={{ fontSize:11, padding:"2px 8px", borderRadius:99, background: r.status==="resolved"?"#D4EDDA":r.status==="reviewed"?"#FFF3CD":"#FFE0DE", color: r.status==="resolved"?"#155724":r.status==="reviewed"?"#856404":"#721c24" }}>
                     {r.status==="resolved"?"처리완료":r.status==="reviewed"?"검토중":"미처리"}
                   </span>
@@ -486,7 +489,13 @@ export default function AdminPage() {
                     {isSuspended && <span style={{ color:"#E53935", fontWeight:700 }}>정지중 ~{new Date(targetUser.suspended_until!).toLocaleDateString("ko-KR")}</span>}
                   </div>
                 )}
-                <p style={{ fontSize:13, color:"var(--text)", marginBottom:6 }}>{r.reason}</p>
+                {/* 신고된 글 자체. 메시지는 지워질 수 있어서 신고 시점의 내용을 같이 남긴다 */}
+                {r.target_content && (
+                  <p style={{ fontSize:13, color:"var(--text)", marginBottom:6, padding:"8px 10px", borderRadius:8, background:"var(--bg-2)", border:"1px solid var(--border)", whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
+                    {r.target_content}
+                  </p>
+                )}
+                <p style={{ fontSize:13, color:"var(--text-2)", marginBottom:6 }}>사유: {r.reason}</p>
                 <p style={{ fontSize:11, color:"var(--text-3)", marginBottom:8 }}>{new Date(r.created_at).toLocaleString("ko-KR")}</p>
                 <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                   {r.status !== "reviewed" && <button className="tap" onClick={() => updateReportStatus(r.id, "reviewed")} style={{ padding:"4px 12px", borderRadius:99, border:"1.5px solid var(--border)", background:"transparent", fontSize:12, cursor:"pointer" }}>검토중으로</button>}
@@ -495,6 +504,11 @@ export default function AdminPage() {
                     <button className="tap" onClick={() => { setSelectedUser(targetUser); setSuspendDate(targetUser.suspended_until ? targetUser.suspended_until.slice(0,10) : ""); setAdminTab("guests"); }} style={{ padding:"4px 12px", borderRadius:99, border:"none", background:"#E53935", color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>
                       🚫 제재
                     </button>
+                  )}
+                  {r.group_id && (
+                    <a href={`/groups/${r.group_id}`} target="_blank" rel="noreferrer" style={{ padding:"4px 12px", borderRadius:99, border:"1.5px solid var(--border)", fontSize:12, color:"var(--text-2)", textDecoration:"none" }}>
+                      모임 열기 ↗
+                    </a>
                   )}
                 </div>
               </div>

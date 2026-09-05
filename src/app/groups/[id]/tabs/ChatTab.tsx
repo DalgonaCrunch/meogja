@@ -6,6 +6,9 @@ import { groupMemberName } from "@/lib/memberName";
 import { getCurrentUser } from "@/lib/auth";
 import { HANDSUP_POSES, POSE_WAVE } from "@/lib/mascot";
 import LoadingCat from "@/components/LoadingCat";
+import ReportModal from "@/components/ReportModal";
+import { fetchMyBlocks, blockUser } from "@/lib/blocks";
+import { showConfirm, toast } from "@/lib/dialog";
 
 interface ChatMessage {
   id: string;
@@ -38,6 +41,13 @@ export default function ChatTab({ groupId, groupName, groupImageUrl, groupEmoji,
   const [stickersLoading, setStickersLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  /* ── 신고·차단 (구글 플레이 UGC 정책) ────────────────────────────────
+     사용자끼리 글이 오가면 신고와 차단이 앱 안에 있어야 한다.
+     차단한 사람의 글은 화면에서 아예 지운다 — 접어 두면 차단이 아니다. */
+  const [blocked, setBlocked] = useState<Set<string>>(new Set());
+  const [actionMsg, setActionMsg] = useState<ChatMessage | null>(null);
+  const [reportMsg, setReportMsg] = useState<ChatMessage | null>(null);
+
   const POSE_STICKERS = [...HANDSUP_POSES, POSE_WAVE];
 
   const avatarStickers = avatarCfgs
@@ -53,6 +63,28 @@ export default function ChatTab({ groupId, groupName, groupImageUrl, groupEmoji,
     ...avatarStickers.map(s => s.src),
     ...emotionStickers.map(s => s.src),
   ];
+
+  /** 차단한 사람의 글은 보이지 않는다. 게스트 메시지(user_id 없음)는 차단 대상이 아니다. */
+  const visibleMessages = messages.filter((m) => !m.user_id || !blocked.has(m.user_id));
+
+  async function handleBlock(target: ChatMessage) {
+    if (!currentUserId || !target.user_id) return;
+    const name = groupMemberName(members, target.user_id, target.display_name);
+    const ok = await showConfirm(
+      `${name} 님을 차단할까요?\n이 사람이 쓴 글이 더 이상 보이지 않습니다.`,
+      { icon: "🚫", title: "사용자 차단", confirmLabel: "차단", danger: true },
+    );
+    if (!ok) return;
+    const err = await blockUser(currentUserId, target.user_id);
+    if (err) { toast(err, "⚠️"); return; }
+    setBlocked((prev) => new Set(prev).add(target.user_id!));
+    toast(`${name} 님을 차단했어요`, "🚫");
+  }
+
+  useEffect(() => {
+    if (!currentUserId) { setBlocked(new Set()); return; }
+    fetchMyBlocks(currentUserId).then(setBlocked);
+  }, [currentUserId]);
 
   useEffect(() => {
     getSupabase().from("avatar_config").select("id,purpose,cropped_url").then(({ data }) => {
@@ -222,15 +254,15 @@ export default function ChatTab({ groupId, groupName, groupImageUrl, groupEmoji,
       </div>
       {/* 메시지 목록 */}
       <div style={{ flex:1, overflowY:"auto", padding:"12px 16px", display:"flex", flexDirection:"column", gap:10, minHeight:0 }}>
-        {messages.length === 0 && (
+        {visibleMessages.length === 0 && (
           <div style={{ textAlign:"center", padding:"40px 16px", color:"var(--text-2)" }}>
             <p style={{ fontSize:32, marginBottom:8 }}>💬</p>
             <p style={{ fontSize:14 }}>첫 메시지를 보내보세요!</p>
           </div>
         )}
-        {messages.map((msg, idx) => {
+        {visibleMessages.map((msg, idx) => {
           const isMine = msg.user_id === currentUserId || (!currentUserId && msg.display_name === currentUserName);
-          const prevMsg = messages[idx - 1];
+          const prevMsg = visibleMessages[idx - 1];
           const showDateSep = !prevMsg || dayKey(prevMsg.created_at) !== dayKey(msg.created_at);
           const sticker = isSticker(msg.content);
           return (
@@ -250,8 +282,21 @@ export default function ChatTab({ groupId, groupName, groupImageUrl, groupEmoji,
                       : <span style={{ fontSize:14 }}>👤</span>}
                   </div>
                 )}
-                <div style={{ maxWidth:"72%", display:"flex", flexDirection:"column", alignItems: isMine ? "flex-end" : "flex-start", gap:3 }}>
-                  {!isMine && <span style={{ fontSize:11, color:"var(--text-2)", fontWeight:600 }}>{groupMemberName(members, msg.user_id, msg.display_name)}</span>}
+                <div
+                  style={{ maxWidth:"72%", display:"flex", flexDirection:"column", alignItems: isMine ? "flex-end" : "flex-start", gap:3 }}
+                  onContextMenu={(e) => { if (!isMine) { e.preventDefault(); setActionMsg(msg); } }}
+                >
+                  {!isMine && (
+                    <span style={{ fontSize:11, color:"var(--text-2)", fontWeight:600, display:"flex", alignItems:"center", gap:6 }}>
+                      {groupMemberName(members, msg.user_id, msg.display_name)}
+                      <button
+                        className="tap"
+                        onClick={() => setActionMsg(msg)}
+                        aria-label="신고 또는 차단"
+                        style={{ border:"none", background:"transparent", color:"var(--text-3)", fontSize:12, lineHeight:1, padding:"0 2px", cursor:"pointer" }}
+                      >⋯</button>
+                    </span>
+                  )}
                   {sticker ? (
                     <img src={stickerSrc(msg.content)} alt="스티커" style={{ width:80, height:80, objectFit:"contain" }} />
                   ) : (
@@ -316,6 +361,53 @@ export default function ChatTab({ groupId, groupName, groupImageUrl, groupEmoji,
           flexShrink:0,
         }}>전송</button>
       </div>
+
+      {/* 신고·차단 액션 시트 — 이름 옆 ⋯ 또는 길게 눌러서 연다 */}
+      {actionMsg && (
+        <div
+          onClick={() => setActionMsg(null)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.45)", zIndex:120, display:"flex", alignItems:"flex-end" }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width:"100%", background:"var(--surface)", borderRadius:"20px 20px 0 0", padding:"8px 0 calc(12px + env(safe-area-inset-bottom, 0px))" }}
+          >
+            <div style={{ width:38, height:4, borderRadius:2, background:"var(--border-2)", margin:"6px auto 12px" }} />
+            <p style={{ padding:"0 20px 10px", fontSize:12.5, color:"var(--text-3)" }}>
+              {groupMemberName(members, actionMsg.user_id, actionMsg.display_name)} 님의 메시지
+            </p>
+            <button
+              className="tap"
+              onClick={() => { const m = actionMsg; setActionMsg(null); setReportMsg(m); }}
+              style={{ width:"100%", padding:"15px 20px", border:"none", background:"transparent", textAlign:"left", fontSize:15, color:"#E53935", cursor:"pointer" }}
+            >🚨 신고하기</button>
+            {currentUserId && actionMsg.user_id && actionMsg.user_id !== currentUserId && (
+              <button
+                className="tap"
+                onClick={() => { const m = actionMsg; setActionMsg(null); if (m) handleBlock(m); }}
+                style={{ width:"100%", padding:"15px 20px", border:"none", background:"transparent", textAlign:"left", fontSize:15, color:"var(--text)", cursor:"pointer" }}
+              >🚫 이 사용자 차단하기</button>
+            )}
+            <button
+              className="tap"
+              onClick={() => setActionMsg(null)}
+              style={{ width:"100%", padding:"15px 20px", border:"none", borderTop:"1px solid var(--border)", background:"transparent", fontSize:15, color:"var(--text-2)", cursor:"pointer" }}
+            >취소</button>
+          </div>
+        </div>
+      )}
+
+      {reportMsg && (
+        <ReportModal
+          targetType="message"
+          targetId={reportMsg.id}
+          targetName={groupMemberName(members, reportMsg.user_id, reportMsg.display_name)}
+          targetContent={isSticker(reportMsg.content) ? "(스티커)" : reportMsg.content}
+          groupId={groupId}
+          reporterUserId={currentUserId}
+          onClose={() => setReportMsg(null)}
+        />
+      )}
     </div>
   );
 }

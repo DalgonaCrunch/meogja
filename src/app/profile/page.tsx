@@ -11,6 +11,7 @@ import { ALL_AVATARS, DEFAULT_AVATARS } from "@/lib/mascot";
 import ImageCropModal from "@/app/ImageCropModal";
 import { usePushSubscription } from "@/lib/usePushSubscription";
 import { BADGES, BADGE_MAP, RARITY_COLOR } from "@/lib/badges";
+import { fetchMyBlockList, unblockUser } from "@/lib/blocks";
 
 const selectStyle: React.CSSProperties = {
   flex:1, padding:"6px 10px", borderRadius:"var(--r-sm)", border:"1.5px solid var(--primary)",
@@ -340,6 +341,9 @@ export default function ProfilePage() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [myReports, setMyReports] = useState<{id:string;target_type:string;target_name:string;reason:string;status:string;created_at:string}[]>([]);
   const [showReports, setShowReports] = useState(false);
+  /* 차단 목록 — 차단만 있고 푸는 길이 없으면 그건 기능이 아니라 함정이다. */
+  const [myBlocks, setMyBlocks] = useState<{ id: string; name: string }[]>([]);
+  const [showBlocks, setShowBlocks] = useState(false);
 
   const [showAllAvatars, setShowAllAvatars] = useState(false);
   const [avatarCfgs, setAvatarCfgs] = useState<Record<string, {purpose:string;object_position:string;cropped_url?:string}>>({});
@@ -462,6 +466,8 @@ export default function ProfilePage() {
       getSupabase().from("reports").select("id,target_type,target_name,reason,status,created_at").eq("reporter_user_id", currentUser.user.id).order("created_at", { ascending: false }).then(({ data }) => {
         if (data) setMyReports(data);
       });
+      // 차단 목록
+      fetchMyBlockList(currentUser.user.id).then(setMyBlocks);
     }
   }, [currentUser]);
 
@@ -1377,7 +1383,7 @@ export default function ProfilePage() {
                 <div key={r.id} style={{ padding:"12px 16px", borderBottom: i < myReports.length-1 ? "1px solid var(--border)" : "none" }}>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
                     <span style={{ fontSize:13, fontWeight:600, color:"var(--text)" }}>
-                      {r.target_type === "user" ? "👤" : "👥"} {r.target_name}
+                      {r.target_type === "user" ? "👤" : r.target_type === "message" ? "💬" : "👥"} {r.target_name}
                     </span>
                     <span style={{ fontSize:11, padding:"2px 8px", borderRadius:99,
                       background: r.status === "resolved" ? "var(--green-soft)" : r.status === "reviewed" ? "#FFF3CD" : "var(--bg-2)",
@@ -1387,6 +1393,40 @@ export default function ProfilePage() {
                   </div>
                   <p style={{ fontSize:12, color:"var(--text-2)", marginBottom:2 }}>{r.reason}</p>
                   <p style={{ fontSize:11, color:"var(--text-3)" }}>{new Date(r.created_at).toLocaleDateString("ko-KR")}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 차단 목록 (로그인 사용자만) */}
+      {currentUser.type === "auth" && (
+        <div className="fade-up" style={{ marginTop: 8 }}>
+          <button className="tap" onClick={() => setShowBlocks((v) => !v)} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%", background:"none", border:"none", cursor:"pointer", padding:0, marginBottom: showBlocks ? 14 : 0 }}>
+            <p style={{ fontFamily:"var(--font-display)", fontSize:17 }}>🚫 차단한 사용자 {myBlocks.length > 0 && `(${myBlocks.length})`}</p>
+            <span style={{ fontSize:20, color:"var(--text-2)", transition:"transform .2s", transform: showBlocks ? "rotate(180deg)" : "" }}>⌄</span>
+          </button>
+          {showBlocks && (
+            <div style={{ background:"var(--surface)", borderRadius:16, border:"var(--card-border)", overflow:"hidden" }}>
+              {myBlocks.length === 0 ? (
+                <p style={{ padding:"20px 16px", textAlign:"center", color:"var(--text-3)", fontSize:14 }}>
+                  차단한 사용자가 없습니다<br />
+                  <span style={{ fontSize:12 }}>모임 채팅에서 이름 옆 ⋯ 을 눌러 차단할 수 있어요</span>
+                </p>
+              ) : myBlocks.map((b, i) => (
+                <div key={b.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 16px", borderBottom: i < myBlocks.length-1 ? "1px solid var(--border)" : "none" }}>
+                  <span style={{ fontSize:14, color:"var(--text)" }}>👤 {b.name}</span>
+                  <button className="tap" onClick={async () => {
+                    const ok = await showConfirm(`${b.name} 님의 차단을 해제할까요?`, { icon:"🔓", title:"차단 해제", confirmLabel:"해제" });
+                    if (!ok) return;
+                    const err = await unblockUser(currentUser.user.id, b.id);
+                    if (err) { toast(err, "⚠️"); return; }
+                    setMyBlocks((prev) => prev.filter((x) => x.id !== b.id));
+                    toast("차단을 해제했어요", "🔓");
+                  }} style={{ padding:"6px 12px", borderRadius:100, fontSize:12.5, border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", cursor:"pointer" }}>
+                    해제
+                  </button>
                 </div>
               ))}
             </div>
