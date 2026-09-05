@@ -1,15 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 const HOLD_MS = 1200;
 const FADE_MS = 450;
 
+// 스토어 심사자·외부 링크가 곧장 보는 정적 문서 페이지에는 스플래시를 띄우지 않는다
+const NO_SPLASH = ["/privacy", "/delete-account"];
+
 export default function SplashScreen() {
+  const pathname = usePathname();
+  const skip = NO_SPLASH.includes(pathname);
   const [fading, setFading] = useState(false);
   const [gone, setGone] = useState(false);
 
   useEffect(() => {
+    if (skip) {
+      setGone(true);
+      return;
+    }
+
     // 같은 세션에서 이미 봤다면 바로 제거 (inline script가 html.splash-seen 을 붙여둠)
     let seen = false;
     try {
@@ -39,13 +50,14 @@ export default function SplashScreen() {
       clearTimeout(t2);
       document.body.style.overflow = "";
     };
-  }, []);
+  }, [skip]);
 
   useEffect(() => {
     if (gone) document.body.style.overflow = "";
   }, [gone]);
 
-  if (gone) return null;
+  // skip 은 렌더 시점에 바로 걸러야 SSR 마크업에도 스플래시가 안 들어간다
+  if (gone || skip) return null;
 
   return (
     <div

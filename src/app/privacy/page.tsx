@@ -2,7 +2,7 @@ export default function PrivacyPage() {
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "32px 20px", fontFamily: "var(--font-body)", color: "var(--text)", lineHeight: 1.8 }}>
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: 28, marginBottom: 8 }}>개인정보처리방침</h1>
-      <p style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 32 }}>최종 업데이트: 2026년 6월 4일</p>
+      <p style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 32 }}>최종 업데이트: 2026년 9월 5일</p>
 
       <section style={{ marginBottom: 28 }}>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, marginBottom: 12 }}>1. 수집하는 개인정보</h2>
@@ -26,7 +26,9 @@ export default function PrivacyPage() {
 
       <section style={{ marginBottom: 28 }}>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, marginBottom: 12 }}>3. 보관 기간</h2>
-        <p>회원 탈퇴 시 즉시 삭제합니다. 단, 관련 법령에 따라 보관이 필요한 경우 해당 기간 동안 보관합니다.</p>
+        <p>회원 탈퇴 시 모임·투표 기록, 음식 선호도, 푸시 구독 정보, 프로필 이미지는 즉시 삭제합니다.</p>
+        <p style={{ marginTop: 8 }}>다만 다른 참여자의 모임 기록이 깨지지 않도록 <strong>닉네임과 탈퇴 처리 기록은 탈퇴일로부터 1년간 보관</strong>한 뒤 파기합니다. 이 항목까지 즉시 완전 삭제를 원하시면 <a href="/delete-account" style={{ color: "var(--primary)" }}>계정 삭제 요청</a> 페이지의 이메일 경로를 이용해 주세요.</p>
+        <p style={{ marginTop: 8 }}>관련 법령에서 더 긴 보관을 요구하는 경우 해당 기간 동안 보관합니다.</p>
       </section>
 
       <section style={{ marginBottom: 28 }}>
@@ -43,6 +45,7 @@ export default function PrivacyPage() {
       <section style={{ marginBottom: 28 }}>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, marginBottom: 12 }}>5. 이용자 권리</h2>
         <p>이용자는 언제든지 자신의 개인정보를 조회, 수정, 삭제할 수 있습니다. 서비스 내 프로필 페이지에서 계정 정보를 관리하거나, 아래 연락처로 요청할 수 있습니다.</p>
+        <p style={{ marginTop: 8 }}>계정 삭제 절차는 <a href="/delete-account" style={{ color: "var(--primary)" }}>계정 삭제 요청</a> 페이지에 자세히 안내되어 있습니다.</p>
       </section>
 
       <section style={{ marginBottom: 28 }}>
