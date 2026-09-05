@@ -9,7 +9,7 @@ export default function PrivacyPage() {
         <p>meogja(오늘 뭐 먹지?)는 서비스 제공을 위해 아래 정보를 수집합니다.</p>
         <ul style={{ paddingLeft: 20, marginTop: 8 }}>
           <li>소셜 로그인 시: 이름, 이메일 주소 (Google/Naver/Kakao OAuth 제공)</li>
-          <li>네이버 로그인 시 추가로: 닉네임, 프로필 이미지, 휴대전화번호, 성별, 생년월일, 연령대</li>
+          <li>네이버 로그인 시 추가로: 닉네임, 프로필 이미지, 성별, 생년월일, 연령대</li>
           <li>게스트 이용 시: 직접 입력한 닉네임</li>
           <li>서비스 이용 중: 음식 선호도 정보, 모임 참여 기록</li>
           <li>문의 시: 이메일 주소 (선택)</li>

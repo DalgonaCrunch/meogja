@@ -299,7 +299,6 @@ export default function ProfilePage() {
     const realEmail = rawEmail && !rawEmail.endsWith("@meogja.app") ? rawEmail : null;
     const originalEmail = meta?.original_email && !String(meta.original_email).endsWith("@meogja.app") ? String(meta.original_email) : null;
     const email: string | null = realEmail || originalEmail || null;
-    const mobile: string | null = merged.phone_number || merged.mobile || null;
 
     const update: Record<string, string> = {};
     if (avatarUrl) update.profile_image = avatarUrl;
@@ -311,7 +310,6 @@ export default function ProfilePage() {
       if (!myProfile.nickname) update.display_name = fullName;
     }
     if (email) update.email = email;
-    if (mobile) update.mobile = mobile;
 
     if (Object.keys(update).length > 0) {
       const { error } = await getSupabase().from("user_profiles").upsert(
@@ -742,13 +740,6 @@ export default function ProfilePage() {
         const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
         const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0"));
 
-        function formatMobile(value: string) {
-          const digits = value.replace(/\D/g, "").slice(0, 11);
-          if (digits.length <= 3) return digits;
-          if (digits.length <= 7) return `${digits.slice(0,3)}-${digits.slice(3)}`;
-          return `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`;
-        }
-
         function enterEditMode() {
           setProfileEditForm({
             nickname: myProfile.nickname || "",
@@ -760,7 +751,6 @@ export default function ProfilePage() {
             birthyear: myProfile.birthyear || "",
             age: myProfile.age || "",
             mbti: myProfile.mbti || "",
-            mobile: myProfile.mobile || "",
           });
           setProfileEditMode(true);
         }
@@ -786,8 +776,6 @@ export default function ProfilePage() {
             const val = (profileEditForm[key] || "").trim();
             if (val !== (myProfile[key] || "")) update[key] = val;
           }
-          const mobile = profileEditForm.mobile || "";
-          if (mobile !== (myProfile.mobile || "")) update.mobile = mobile;
           const bm = profileEditForm.birthday_month, bd = profileEditForm.birthday_day;
           const birthday = bm && bd ? `${bm}-${bd}` : "";
           if (birthday !== (myProfile.birthday || "")) update.birthday = birthday;
@@ -861,7 +849,6 @@ export default function ProfilePage() {
                   { label:"출생연도", value: myProfile.birthyear },
                   { label:"연령대", value: myProfile.age },
                   { label:"MBTI", value: myProfile.mbti },
-                  { label:"휴대전화", value: myProfile.mobile },
                 ].map((f, i, arr) => (
                   <div key={f.label} style={{ ...rowStyle, borderBottom: i < arr.length-1 ? "1px solid var(--border)" : "none" }}>
                     <span style={labelStyle}>{f.label}</span>
@@ -923,10 +910,6 @@ export default function ProfilePage() {
                     <option value="">선택</option>
                     {MBTI_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
-                </div>
-                <div style={{ ...rowStyle, borderBottom:"none" }}>
-                  <span style={labelStyle}>휴대전화</span>
-                  <input type="tel" value={profileEditForm.mobile || ""} onChange={e => setProfileEditForm(prev => ({ ...prev, mobile: formatMobile(e.target.value) }))} placeholder="010-0000-0000" maxLength={13} style={inputStyle} />
                 </div>
                 <div style={{ display:"flex", gap:8, padding:"12px 16px", borderTop:"1.5px solid var(--border)" }}>
                   <button className="tap" onClick={() => setProfileEditMode(false)} style={{ flex:1, padding:"11px", borderRadius:"var(--r-pill)", border:"1.5px solid var(--border)", background:"transparent", color:"var(--text-2)", fontSize:13, cursor:"pointer" }}>

@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
     client_id: process.env.NEXT_PUBLIC_NAVER_CLIENT_ID!,
     redirect_uri: `https://meogja.vercel.app/api/auth/naver/callback`,
     state,
-    scope: "name email nickname profile_image gender birthday age mobile birthyear",
+    // 휴대전화번호는 앱에서 쓰는 곳이 없어 받지 않는다 (최소수집)
+    scope: "name email nickname profile_image gender birthday age birthyear",
   });
 
   // reprompt=1: 재시도 시 Naver 로그인 화면 강제 표시 (다른 계정 선택 가능)

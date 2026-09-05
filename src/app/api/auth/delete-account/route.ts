@@ -49,7 +49,6 @@ export async function DELETE(req: NextRequest) {
       profile_image: null,
       email: null,
       name: null,
-      mobile: null,
       gender: null,
       birthday: null,
       age: null,

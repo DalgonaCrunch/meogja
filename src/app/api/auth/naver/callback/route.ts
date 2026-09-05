@@ -113,7 +113,6 @@ export async function GET(request: NextRequest) {
         const decade = Math.floor(ageNum / 10) * 10;
         profileData.age = decade >= 60 ? "60대 이상" : `${Math.max(10, Math.min(decade, 50))}대`;
       }
-      if (naverUser.mobile) profileData.mobile = naverUser.mobile;
       if (naverUser.birthyear) profileData.birthyear = naverUser.birthyear;
       await supabaseAdmin.from("user_profiles").insert(profileData);
     }
