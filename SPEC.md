@@ -577,9 +577,17 @@
 - [x] TWA 빌드 + 서명 키(.jks) — AAB·APK 생성, 서명 확인. 빌드 방법은 `docs/TWA-BUILD.md`
       키는 `/home/user/meogja-signing/` (저장소 밖) + **백업 완료**:
       `meogja-secrets` 의 `keystore/meogja-upload.jks` · `android/keystore.properties`
-- [ ] Play Console 앱 생성 + 첫 AAB 업로드 — **사람이 해야 한다.** androidpublisher v3 에
-      `applications.insert` 가 없고, 새 앱은 첫 AAB 를 콘솔에서 올려야 그 뒤부터 API 가 받는다.
-      2번째 버전부터는 `node scripts/play-upload.mjs` (서비스 계정 JSON 필요, 미검증)
+- [x] Play Console 앱 생성 + 첫 AAB 업로드 (2026-09-07) — 앱 ID `4975077377149967436`
+      `오늘 뭐 먹지?` · 한국어 · 앱 · 무료 · 버전 1 (1.0.0) · 타겟 SDK 36
+- [x] 내부 테스트 출시 — **활성 · 내부 테스터에게 제공됨**
+      옵트인 링크: https://play.google.com/apps/internaltest/4700722179994729610
+      테스터 목록 `먹자냥 내부 테스터` (개발자 계정 이메일 1명)
+- [ ] 2번째 버전부터는 `node scripts/play-upload.mjs` 로 올린다 (서비스 계정 JSON 필요, 미검증)
+      androidpublisher v3 에 `applications.insert` 가 없어 앱 생성은 API 로 안 되고,
+      첫 AAB 도 콘솔에서 올려야 한다 — 그 둘은 위에서 끝냈다
+- [ ] **비공개 테스트 12명 / 14일** — 개인 계정(2023-11-13 이후)이라 프로덕션 액세스 전제.
+      Block Pop 테스터 목록(`테스터2`, 8명)을 재사용할 수 있다. 같은 사람으로 두 앱을 같이 돌리면
+      14일 시계를 한 번만 기다린다
 - [ ] `public/.well-known/assetlinks.json` — 업로드 키 지문으로 먼저 넣어 뒀다.
       **Play Console → 앱 완전성의 "앱 서명 키" SHA-256 을 배열에 추가해야 검증이 통과한다.**
       Play 앱 서명이 업로드한 AAB 를 다시 서명하므로 업로드 키 지문만으로는 부족하다
@@ -608,4 +616,4 @@
 
 ---
 
-*마지막 업데이트: 2026-09-07 (마이그레이션 3개 적용 완료 — UGC 신고·차단, 위치 RLS)*
+*마지막 업데이트: 2026-09-07 (앱 생성·AAB 업로드·내부 테스트 출시 완료)*
