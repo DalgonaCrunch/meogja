@@ -582,6 +582,8 @@
 - [x] 내부 테스트 출시 — **활성 · 내부 테스터에게 제공됨**
       옵트인 링크: https://play.google.com/apps/internaltest/4700722179994729610
       테스터 목록 `먹자냥 내부 테스터` (개발자 계정 이메일 1명)
+- [x] 런처 이름 수정 (2026-09-07) — `launcherName` 이 `먹자냥` 이라 홈 화면 이름이
+      스토어 이름과 달랐다. 둘 다 `오늘 뭐 먹지?` 로 맞추고 versionCode 2 (1.0.1) 출시
 - [ ] 2번째 버전부터는 `node scripts/play-upload.mjs` 로 올린다 (서비스 계정 JSON 필요, 미검증)
       androidpublisher v3 에 `applications.insert` 가 없어 앱 생성은 API 로 안 되고,
       첫 AAB 도 콘솔에서 올려야 한다 — 그 둘은 위에서 끝냈다
