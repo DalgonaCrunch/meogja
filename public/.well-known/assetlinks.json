@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.dalgonacrunch.meogja",
+      "sha256_cert_fingerprints": [
+        "3C:7D:98:7A:7F:01:EA:73:B1:1A:38:59:10:BE:A3:4F:93:18:26:E4:13:53:23:5E:D9:FD:B2:F9:B9:7B:D3:A8"
+      ]
+    }
+  }
+]
