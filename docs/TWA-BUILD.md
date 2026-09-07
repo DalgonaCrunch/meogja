@@ -94,3 +94,24 @@ $SDK/cmdline-tools/latest/bin/apkanalyzer manifest print app-release-signed.apk 
 
 2026-09-07 빌드 결과: `com.dalgonacrunch.meogja`, versionCode 1, versionName
 1.0.0, minSdk 23, targetSdk 36, 서명 지문이 업로드 키와 일치.
+
+## 6. 다음 릴리스
+
+`twa/twa-manifest.json` 은 저장소에 남겨 뒀다(빌드 산출물만 무시한다). 여기에
+`appVersionCode` 가 들어 있고, Play 는 **같은 versionCode 를 두 번 받지 않는다.**
+이 머신을 잃으면 다음 버전 번호를 알 수 없게 되므로 파일을 남기는 것이 중요하다.
+
+```bash
+# twa-manifest.json 에서 appVersionCode +1, appVersionName 갱신 후
+cd twa
+bubblewrap update --skipVersionUpgrade   # --skipVersionUpgrade: 내가 적은 번호를 그대로 쓴다
+export BUBBLEWRAP_KEYSTORE_PASSWORD="$(cat ~/meogja-signing/store.pass)"
+export BUBBLEWRAP_KEY_PASSWORD="$BUBBLEWRAP_KEYSTORE_PASSWORD"
+bubblewrap build --skipPwaValidation
+```
+
+빌드가 끝나면 Gradle 데몬을 내린다(JVM 4개가 1GB 쯤 잡고 남는다).
+
+```bash
+cd twa && ./gradlew --stop
+```

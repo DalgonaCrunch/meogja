@@ -574,9 +574,9 @@
       확인 쿼리 4칸(`blocks_ok` `report_content_ok` `presence_ok` `mobile_gone`) 전부 true.
       → 차단·메시지 신고가 이제 실제로 저장된다. 세 파일 모두 재실행 안전하므로
       나중에 CLI 인증이 돌아와 `db push` 가 한 번 더 적용해도 무해하다(`migration repair` 불필요)
-- [~] TWA 빌드 + 서명 키(.jks) — 키는 만들었다(`/home/user/meogja-signing/`, 저장소 밖).
+- [ ] TWA 빌드 + 서명 키(.jks) — 키는 만들었다(`/home/user/meogja-signing/`, 저장소 밖).
       **사용자가 다른 곳에 백업해야 한다.** 빌드 산출물은 `twa/`(gitignore)
-- [~] `public/.well-known/assetlinks.json` — 업로드 키 지문으로 먼저 넣어 뒀다.
+- [ ] `public/.well-known/assetlinks.json` — 업로드 키 지문으로 먼저 넣어 뒀다.
       **Play Console → 앱 완전성의 "앱 서명 키" SHA-256 을 배열에 추가해야 검증이 통과한다.**
       Play 앱 서명이 업로드한 AAB 를 다시 서명하므로 업로드 키 지문만으로는 부족하다
 - [x] 스토어 그래픽 1024×500, 스크린샷 1080×1920 7장 — `store-assets/` (저장소에는 안 올린다)
