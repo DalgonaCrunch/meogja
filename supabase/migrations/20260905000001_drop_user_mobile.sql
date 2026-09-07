@@ -5,9 +5,9 @@
 -- 데이터 보안 선언에 "전화번호 수집"을 적어야 하고, 최소수집 원칙에도 어긋난다.
 --
 -- 스코프와 저장 코드는 앱에서 제거했다. 여기서는 이미 쌓인 값을 지운다.
--- 먼저 비우고 컬럼을 떨어뜨린다 (컬럼만 떨어뜨려도 값은 사라지지만,
--- 순서를 명시해 두면 나중에 로그를 볼 때 의도가 분명하다).
-
-UPDATE user_profiles SET mobile = NULL WHERE mobile IS NOT NULL;
+-- DROP COLUMN 자체가 값을 없애므로 따로 UPDATE 하지 않는다. 예전에는
+-- 의도를 드러내려고 UPDATE ... SET mobile = NULL 을 앞에 뒀는데, 컬럼이
+-- 이미 없는 데이터베이스에서는 그 줄이 에러를 내고 배치 전체를 멈춘다.
+-- 두 번 실행해도 통과하는 것이 주석보다 중요하다.
 
 ALTER TABLE user_profiles DROP COLUMN IF EXISTS mobile;

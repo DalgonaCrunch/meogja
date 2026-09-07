@@ -8,6 +8,8 @@
 -- 그러면 볼 수 있어야 하는 범위도 딱 그만큼이다.
 
 DROP POLICY IF EXISTS "nearby_presence_read" ON nearby_presence;
+-- 새 정책도 먼저 떨어뜨린다. 두 번 실행해도 통과해야 한다.
+DROP POLICY IF EXISTS "nearby_presence_read_group" ON nearby_presence;
 
 CREATE POLICY "nearby_presence_read_group" ON nearby_presence
   FOR SELECT USING (
