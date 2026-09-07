@@ -576,8 +576,9 @@
       나중에 CLI 인증이 돌아와 `db push` 가 한 번 더 적용해도 무해하다(`migration repair` 불필요)
 - [ ] TWA 빌드 + 서명 키(.jks) 생성·백업
 - [ ] `public/.well-known/assetlinks.json` (AAB 업로드 후 앱 서명 키 지문 필요)
-- [ ] 스토어 그래픽 1024×500, 스크린샷 1080×1920 2~8장
-- [ ] 스토어 문안 (간단한 설명 80자 / 자세한 설명 4000자)
+- [x] 스토어 그래픽 1024×500, 스크린샷 1080×1920 7장 — `store-assets/` (저장소에는 안 올린다)
+      다시 뽑기: `node scripts/store-shots.mjs` + `node scripts/feature-graphic.mjs`
+- [x] 스토어 문안 (간단한 설명 80자 / 자세한 설명 4000자) — `docs/STORE-LISTING.md` 붙여넣기용
 - [ ] 테스터 12명 모집 → 14일 연속 참여
 
 ---
