@@ -1,8 +1,8 @@
 {
   "packageId": "com.dalgonacrunch.meogja",
   "host": "meogja.vercel.app",
-  "name": "오늘 뭐 먹지? - 먹자냥",
-  "launcherName": "먹자냥",
+  "name": "오늘 뭐 먹지?",
+  "launcherName": "오늘 뭐 먹지?",
   "display": "standalone",
   "themeColor": "#FF7A45",
   "themeColorDark": "#FF7A45",
@@ -20,14 +20,16 @@
     "path": "/home/user/meogja-signing/meogja-upload.jks",
     "alias": "meogja-upload"
   },
-  "appVersionName": "1.0.0",
-  "appVersionCode": 1,
+  "appVersionName": "1.0.1",
+  "appVersionCode": 2,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://meogja.vercel.app/manifest.json",
   "fallbackType": "customtabs",
   "features": {},
-  "alphaDependencies": { "enabled": false },
+  "alphaDependencies": {
+    "enabled": false
+  },
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
@@ -37,5 +39,5 @@
   "fingerprints": [],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
-  "appVersion": "1.0.0"
+  "appVersion": "1.0.1"
 }
