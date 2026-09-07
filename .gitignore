@@ -62,3 +62,7 @@ store-assets/
 /twa/*
 # 다음 릴리스에서 appVersionCode 를 올릴 자리다. 이건 남긴다(비밀 없음).
 !/twa/twa-manifest.json
+
+# Play 서비스 계정 키 — 저장소에 올릴 것이 아니다
+play-sa.json
+*-sa.json

@@ -65,6 +65,10 @@ $JAVA_HOME/bin/keytool -genkeypair -alias meogja-upload \
   -storepass:file store.pass -keypass:file store.pass
 ```
 
+키와 비밀번호는 **`meogja-secrets` 저장소에 백업해 뒀다**(`keystore/meogja-upload.jks`,
+`android/keystore.properties`). 이 머신을 잃으면 그쪽에서 복구한다 — 복구 절차는
+그 저장소 README 에 있다.
+
 `-storepass:file` 을 쓴다. `-storepass <값>` 은 비밀번호가 프로세스 목록과
 셸 히스토리에 남는다. 키스토어는 **저장소 밖**에 둔다(`.gitignore` 에
 `*.jks`·`*.keystore` 도 넣어 뒀지만, 애초에 안에 두지 않는 것이 낫다).

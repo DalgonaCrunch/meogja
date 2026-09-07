@@ -574,8 +574,12 @@
       확인 쿼리 4칸(`blocks_ok` `report_content_ok` `presence_ok` `mobile_gone`) 전부 true.
       → 차단·메시지 신고가 이제 실제로 저장된다. 세 파일 모두 재실행 안전하므로
       나중에 CLI 인증이 돌아와 `db push` 가 한 번 더 적용해도 무해하다(`migration repair` 불필요)
-- [ ] TWA 빌드 + 서명 키(.jks) — 키는 만들었다(`/home/user/meogja-signing/`, 저장소 밖).
-      **사용자가 다른 곳에 백업해야 한다.** 빌드 산출물은 `twa/`(gitignore)
+- [x] TWA 빌드 + 서명 키(.jks) — AAB·APK 생성, 서명 확인. 빌드 방법은 `docs/TWA-BUILD.md`
+      키는 `/home/user/meogja-signing/` (저장소 밖) + **백업 완료**:
+      `meogja-secrets` 의 `keystore/meogja-upload.jks` · `android/keystore.properties`
+- [ ] Play Console 앱 생성 + 첫 AAB 업로드 — **사람이 해야 한다.** androidpublisher v3 에
+      `applications.insert` 가 없고, 새 앱은 첫 AAB 를 콘솔에서 올려야 그 뒤부터 API 가 받는다.
+      2번째 버전부터는 `node scripts/play-upload.mjs` (서비스 계정 JSON 필요, 미검증)
 - [ ] `public/.well-known/assetlinks.json` — 업로드 키 지문으로 먼저 넣어 뒀다.
       **Play Console → 앱 완전성의 "앱 서명 키" SHA-256 을 배열에 추가해야 검증이 통과한다.**
       Play 앱 서명이 업로드한 AAB 를 다시 서명하므로 업로드 키 지문만으로는 부족하다
