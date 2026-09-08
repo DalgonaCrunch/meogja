@@ -574,3 +574,45 @@ API 로 보내기 때문이다 — 넘겨 답하는 쪽이 안전하다(과소 �
 - **목적 체크박스를 일괄 체크하지 마라.** 위치의 공유 목적에 광고·마케팅까지 붙었다.
   미리보기에서 잡아 12개를 해제했다.
 - 스크롤은 `window.scrollBy` 가 아니라 내부 컨테이너의 `scrollTop` 을 움직여야 한다.
+
+## 14. 테스터 이메일 목록 다루기 (2026-09-08)
+
+owner 가 열어 둔 Play Console 창에 **CDP(9222)로 붙어서** 읽고 고친다. 사람이 로그인해 둔
+창을 그대로 쓰므로 다시 로그인할 필요가 없다. 내가 만든 탭만 닫고, **사람 창은 닫지 않는다.**
+
+| 스크립트 | 하는 일 |
+| --- | --- |
+| `scripts/play-cdp.mjs <url> <prefix>` | 아무 콘솔 화면을 열어 shadow DOM 텍스트 + 스크린샷 |
+| `scripts/play-track-testers.mjs <트랙이름\|URL> <prefix>` | 트랙의 테스터 탭 — 이메일 목록별 체크 상태(`aria-checked`) |
+| `scripts/play-list-detail.mjs <목록이름> <prefix>` | 목록 세부정보를 열어 구성원 이메일 |
+| `scripts/play-list-delete.mjs <목록이름>` | 이메일 목록 삭제 (되돌릴 수 없다 — 먼저 detail 로 구성원을 남겨라) |
+| `scripts/play-recon.mjs` | 예비 수단 — owner 창이 안 열려 있을 때 저장된 프로필(`~/.play-console-profile`)로 새 창을 띄운다. 지금은 그 프로필 세션이 죽어 `node scripts/play-login.mjs` 로 다시 로그인해야 쓸 수 있다 |
+
+알아낸 것:
+
+- **`~/.play-console-profile` 세션은 죽었다** (열면 `/console/about` 로 튕긴다). 대신
+  owner 창이 쓰는 프로필은 `~/.cache/playconsole-profile` 이고 `--remote-debugging-port=9222`
+  가 켜져 있다. `chromium.connectOverCDP("http://localhost:9222")` 로 붙으면 된다.
+- **내부 테스트 트랙 URL 은 숫자가 아니다** — `.../app/<앱ID>/tracks/internal-testing` 로
+  직행이 된다. 반면 `.../email-lists` 는 `app-list` 로 튕긴다(9장 참고). 비공개 테스트는
+  `closed-testing` 이 트랙 고르는 화면이고, 실제 트랙은 `.../tracks/4699907832861231971`.
+- **왼쪽 메뉴는 접혀 있다.** 트랙으로 들어가려면 `테스트 및 출시` → `테스트` → `내부 테스트`
+  순서로 눌러야 한다. 접힌 항목은 `isVisible()` 이 false 라 Playwright 클릭이 안 먹으므로
+  `evaluate` 안에서 조상 요소에 `.click()` 을 직접 보낸다.
+- **목록 행은 `<tr>` 이 아니다.** `locator("tr", {hasText})` 는 실패한다. 목록 이름 텍스트
+  노드에서 위로 올라가 `세부정보` 를 품은 조상을 찾아 그 안의 링크를 누른다.
+- 🔴 **삭제 확인 팝업이 두 겹이다.** `이메일 목록 수정` 패널 자체도 `role=dialog` 라서
+  `getByRole("dialog").first()` 는 편집 패널을 잡는다. 그 안의 `삭제` 를 누르면 **또 다른**
+  dialog(`이메일 목록을 삭제하시겠습니까?`)가 뜬다. dialog 목록을 **뒤에서부터**,
+  그리고 `이메일 목록 수정` 이 아닌 것부터 보고 눌러야 실제로 지워진다.
+  Playwright 의 일반 클릭은 `mdc-button__touch` 오버레이가 포인터를 먹어 타임아웃 난다 →
+  `evaluate` 안에서 `.click()`.
+- 지운 뒤에는 **트랙 페이지를 다시 읽어 확인한다.** 클릭 성공 로그만 보고 끝내면 안 된다
+  (실제로 첫 시도는 성공 로그가 떴는데 목록이 그대로 남아 있었다).
+
+### 2026-09-08 상태
+
+- 내부 테스트 트랙: 이메일 목록 **`테스터1` 선택됨(2명)** — `doublesweeet2@gmail.com`(콘솔 계정), `doublesweeet@gmail.com`(스토어 문의 주소와 같다). `테스터2`(8명)는 선택 안 됨.
+- `먹자냥 내부 테스터` 목록은 **삭제했다**(구성원은 owner 계정 하나뿐이었고 `테스터1` 에 이미 들어 있다).
+- 🔴 비공개 테스트 트랙(Alpha)은 **테스터 목록이 하나도 선택돼 있지 않다.** 검토를 받으려면
+  여기서 `테스터1`(또는 `테스터2`)을 골라야 한다 — 12장 순서 2번.
