@@ -697,8 +697,13 @@ owner 가 열어 둔 Play Console 창에 **CDP(9222)로 붙어서** 읽고 고�
 ### 남은 것
 
 - 검토 결과 대기 (콘솔 안내: 보통 7일 이내). 승인되면 관리형 게시가 꺼져 있어 **바로 게시**된다
-- 옵트인 0명 → 테스터가 링크를 열어야 시작:
-  `https://play.google.com/apps/internaltest/4700722179994729610` 은 내부 테스트 링크이고,
-  비공개 테스트 링크는 트랙의 `테스터` 탭에서 따로 복사한다
+- 옵트인 0명 → 테스터가 링크를 열어야 시작. **트랙마다 링크가 다르다:**
+  - 내부 테스트: `https://play.google.com/apps/internaltest/4700722179994729610`
+  - 비공개 테스트(웹에서 참여): `https://play.google.com/apps/testing/com.dalgonacrunch.meogja`
+    (200 확인. 패키지 이름을 쓴다 — 트랙 ID 가 아니다)
+  - 트랙 `테스터` 탭의 `링크 복사`(Android에서 참여)는 스토어 상세 주소
+    `…/store/apps/details?id=com.dalgonacrunch.meogja` 를 준다. 게시 전에는 404 다.
+    링크 뽑기: `node scripts/play-optin-link.mjs 4699907832861231971`
+    (클립보드 `readText()` 는 권한 프롬프트에 걸려 멈춘다 → `writeText` 를 가로채 값을 받는다)
 - 프로덕션 액세스: 12명 이상 옵트인 + 14일 연속. 지금 `테스터1` 2명 → `테스터2`(8명)를 붙여도
   10명이라 2명 더 필요하다
