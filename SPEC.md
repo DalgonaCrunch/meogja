@@ -349,6 +349,7 @@
 - [x] Supabase 일시정지 방지 — Vercel Cron 이 매일 09:00(KST) `/api/keep-alive` 호출 → `app_settings` 1줄 조회
   - 같은 호출로 **BLOCKPOP** Supabase 도 깨운다(`app_config` anon 조회, env `BLOCKPOP_SUPABASE_URL`/`BLOCKPOP_SUPABASE_ANON_KEY`). 미설정이면 건너뛴다
       (무료 플랜은 7일 무활동 시 정지). `CRON_SECRET` 이 있으면 Bearer 토큰 검사
+  - 실행 결과를 런타임 로그(`[keep-alive]`)와 `app_settings.keep_alive_last_run` 에 남긴다 (Hobby 로그는 금방 사라져서)
 
 ---
 
@@ -632,4 +633,4 @@
 
 ---
 
-*마지막 업데이트: 2026-10-20 (Supabase 일시정지 방지 크론 추가)*
+*마지막 업데이트: 2026-10-22 (keep-alive 실행 결과 기록)*

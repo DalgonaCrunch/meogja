@@ -50,9 +50,32 @@ export async function GET(req: NextRequest) {
     pingBlockpop(),
   ]);
   const ok = meogja.ok !== false && blockpop.ok !== false;
+  const result = { ok, at: new Date().toISOString(), meogja, blockpop };
 
-  return NextResponse.json(
-    { ok, at: new Date().toISOString(), meogja, blockpop },
-    { status: ok ? 200 : 500 }
-  );
+  // Hobby 플랜 런타임 로그는 금방 사라진다. 결과를 로그로 남기고,
+  // 나중에 "오늘 크론 돌았나?" 를 볼 수 있게 app_settings 에도 마지막 결과를 적어 둔다.
+  console.log("[keep-alive]", JSON.stringify(result));
+  await recordLastRun(result);
+
+  return NextResponse.json(result, { status: ok ? 200 : 500 });
+}
+
+// app_settings 는 누구나 읽는 표라 비밀 값은 넣지 않는다(성공 여부·오류 문구·시각만).
+// 기록에 실패해도 크론 응답은 그대로 둔다.
+async function recordLastRun(result: object) {
+  try {
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const { error } = await admin
+      .from("app_settings")
+      .upsert(
+        { key: "keep_alive_last_run", value: result, updated_at: new Date().toISOString() },
+        { onConflict: "key" }
+      );
+    if (error) console.error("[keep-alive] 기록 실패:", error.message);
+  } catch (e) {
+    console.error("[keep-alive] 기록 실패:", e instanceof Error ? e.message : String(e));
+  }
 }
