@@ -20,22 +20,43 @@ async function pingMeogja(): Promise<Result> {
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
-// BLOCKPOP 의 app_config 는 anon 키로 읽는 공개 표다(앱이 켤 때마다 같은 조회를 한다).
-// anon 키는 앱 번들에도 들어 있는 공개 값이라 비밀키가 필요 없다.
+// BLOCKPOP 은 anon 키로 깨운다(앱 번들에도 들어 있는 공개 값이라 비밀키가 필요 없다).
+//
+// 하루 한 번 app_config 를 읽기만 했더니 "활동이 부족하다"는 일시정지 경고가 왔다
+// (2026-10-29). 그래서 keep_alive() RPC 로 한 행짜리 표에 **쓰기**도 한다(blockpop
+// supabase.sql 의 keep_alive 블록). 읽기도 그대로 한다 — RPC 가 아직 없거나 실패해도
+// 최소한 지금까지만큼은 깨운다.
 async function pingBlockpop(): Promise<Result> {
   const url = process.env.BLOCKPOP_SUPABASE_URL;
   const key = process.env.BLOCKPOP_SUPABASE_ANON_KEY;
   if (!url || !key) return { ok: null, skipped: "BLOCKPOP_SUPABASE_URL/ANON_KEY 미설정" };
-  try {
-    const res = await fetch(`${url}/rest/v1/app_config?select=min_build&id=eq.1&limit=1`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
-      cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
-    });
-    return res.ok ? { ok: true } : { ok: false, error: `HTTP ${res.status}` };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
-  }
+  const headers = { apikey: key, Authorization: `Bearer ${key}` };
+  const call = async (path: string, init: RequestInit = {}): Promise<string | null> => {
+    try {
+      const res = await fetch(`${url}${path}`, {
+        ...init,
+        headers: { ...headers, ...(init.headers ?? {}) },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      });
+      return res.ok ? null : `HTTP ${res.status}`;
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
+    }
+  };
+  const [readErr, writeErr] = await Promise.all([
+    call("/rest/v1/app_config?select=min_build&id=eq.1&limit=1"),
+    call("/rest/v1/rpc/keep_alive", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    }),
+  ]);
+  if (!readErr && !writeErr) return { ok: true };
+  const error = [readErr && `read: ${readErr}`, writeErr && `write: ${writeErr}`]
+    .filter(Boolean)
+    .join(", ");
+  return { ok: false, error };
 }
 
 export async function GET(req: NextRequest) {
