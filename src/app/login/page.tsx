@@ -6,6 +6,7 @@ import { signInWithGoogle, signInWithKakao, setGuestUser, getCurrentUser } from 
 import { getSupabase } from "@/lib/supabase";
 import { toast } from "@/lib/dialog";
 import LoadingCat from "@/components/LoadingCat";
+import { openInExternalBrowser as openExternal } from "@/lib/inapp";
 
 function LoginContent() {
   const router = useRouter();
@@ -65,10 +66,8 @@ function LoginContent() {
 
   function openInExternalBrowser() {
     const url = window.location.href;
-    if (/Android/.test(navigator.userAgent)) {
-      const urlWithoutScheme = url.replace(/^https?:\/\//, "");
-      window.location.href = `intent://${urlWithoutScheme}#Intent;scheme=https;action=android.intent.action.VIEW;end`;
-    } else if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+    if (openExternal(url)) return;
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
       if (navigator.share) {
         navigator.share({ url, title: "meogja" }).catch(() => {
           navigator.clipboard?.writeText(url);

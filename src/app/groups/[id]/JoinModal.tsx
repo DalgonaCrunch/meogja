@@ -5,6 +5,7 @@ import { getSupabase } from "@/lib/supabase";
 import { getCurrentUser, setGuestUser, signInWithGoogle, signInWithKakao, getDeviceId, CurrentUser } from "@/lib/auth";
 import { toast } from "@/lib/dialog";
 import LoadingCat from "@/components/LoadingCat";
+import { openInExternalBrowser } from "@/lib/inapp";
 
 type Props = {
   groupId: string;
@@ -243,10 +244,8 @@ export default function JoinModal({ groupId, requiresApproval, onJoined, onClose
                 </p>
                 <button onClick={() => {
                   const url = window.location.href;
-                  if (/Android/.test(navigator.userAgent)) {
-                    const u = url.replace(/^https?:\/\//, "");
-                    window.location.href = `intent://${u}#Intent;scheme=https;action=android.intent.action.VIEW;end`;
-                  } else if (navigator.share) {
+                  if (openInExternalBrowser(url)) return;
+                  if (navigator.share) {
                     navigator.share({ url, title: "meogja" }).catch(() => navigator.clipboard?.writeText(url));
                   } else {
                     navigator.clipboard?.writeText(url);

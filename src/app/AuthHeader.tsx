@@ -6,6 +6,7 @@ import { toast } from "@/lib/dialog";
 import { useRouter } from "next/navigation";
 import { getCurrentUser, CurrentUser, getGuestUser } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
+import { openInExternalBrowser } from "@/lib/inapp";
 
 interface NotifThread { userId: string; name: string; image: string | null; count: number; lastMsg: string; }
 interface GeoPlace { name: string; address: string; lat: number; lng: number; }
@@ -388,12 +389,8 @@ export default function AuthHeader() {
             </p>
             <button className="tap" onClick={() => {
               const url = window.location.href;
-              if (isAndroid) {
-                const host = url.replace(/^https?:\/\//, "");
-                window.location.href = `intent://${host}#Intent;scheme=https;package=com.android.chrome;end`;
-              } else {
-                window.location.href = `googlechromes://${url.replace(/^https?:\/\//, "")}`;
-              }
+              if (openInExternalBrowser(url)) return;
+              window.location.href = `googlechromes://${url.replace(/^https?:\/\//, "")}`;
             }} style={{ width:"100%", padding:"13px", borderRadius:"var(--r-pill)", border:"none", background:"var(--primary)", color:"#fff", fontFamily:"var(--font-display)", fontSize:15, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
               🌐 Chrome에서 열기
             </button>
