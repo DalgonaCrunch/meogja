@@ -6,6 +6,7 @@ import { getSupabase, Group } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
 import { showConfirm } from "@/lib/dialog";
 import { getFoodIconUrl } from "@/lib/foodIcons";
+import ScrollSafeRange from "../ScrollSafeRange";
 
 type MenuCategory = { emoji: string; label: string; menus: string[]; menuIcons?: Record<string, string> };
 
@@ -669,8 +670,8 @@ export default function AdminPage() {
                 </div>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                   <span style={{ fontSize:11, color:"var(--text-3)" }}>끔</span>
-                  <input type="range" min={0} max={100} value={homeSettings[key]}
-                    onChange={e => setHomeSettings(prev => ({ ...prev, [key]: parseInt(e.target.value) }))}
+                  <ScrollSafeRange min={0} max={100} value={homeSettings[key]}
+                    onValue={v => setHomeSettings(prev => ({ ...prev, [key]: v }))}
                     style={{ flex:1, accentColor:"var(--primary)" }} />
                   <span style={{ fontSize:11, color:"var(--text-3)" }}>최대</span>
                 </div>
