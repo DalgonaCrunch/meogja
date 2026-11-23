@@ -21,7 +21,7 @@ export default function BottomNav() {
   };
 
   return (
-    <nav style={{
+    <nav className="app-chrome" style={{
       position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50,
       background: "var(--surface)",
       borderTop: "1px solid var(--border)",

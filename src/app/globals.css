@@ -175,3 +175,20 @@ html.splash-seen .meogja-splash { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .meogja-splash img { animation: none !important; }
 }
+
+/* ── 기기별 화면 크기 (2026-11-23, 꾹꾹투표·풋살스타즈와 같은 단계) ──────────────
+   태블릿(≥744×600) 1.15 · 노트북/모니터(≥1280×700) 1.25 · 큰 모니터(≥1800×950) 1.5. 폰은 그대로.
+   지도는 확대 배율이 섞이면 터치 위치가 어긋날 수 있어 원래 크기로 되돌린다(.map-unzoom). */
+html, body, button, input, select, textarea { touch-action: manipulation; }
+@media (min-width: 744px) and (min-height: 600px) {
+  .app-main, .app-chrome { zoom: 1.15; }
+  .app-main .map-unzoom { zoom: calc(1 / 1.15); }
+}
+@media (min-width: 1280px) and (min-height: 700px) {
+  .app-main, .app-chrome { zoom: 1.25; }
+  .app-main .map-unzoom { zoom: calc(1 / 1.25); }
+}
+@media (min-width: 1800px) and (min-height: 950px) {
+  .app-main, .app-chrome { zoom: 1.5; }
+  .app-main .map-unzoom { zoom: calc(1 / 1.5); }
+}

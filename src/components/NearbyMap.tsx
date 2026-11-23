@@ -482,7 +482,7 @@ export default function NearbyMap({
   }
 
   return (
-    <div style={{ position: "relative" }}>
+    <div className="map-unzoom" data-allow-pinch style={{ position: "relative" }}>
       <style>{`@keyframes meogja-map-pulse{0%{transform:scale(.6);opacity:.85}100%{transform:scale(1.5);opacity:0}}`}</style>
       <div ref={boxRef} style={boxStyle} />
       {status === "loading" && (

@@ -446,7 +446,7 @@ export default function AuthHeader() {
 
   return (
     <>
-    <header style={{
+    <header className="app-chrome" style={{
       position: "sticky", top: 0, zIndex: 40,
       background: "rgba(255,248,241,0.95)",
       backdropFilter: "blur(12px)",

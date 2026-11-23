@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import AuthHeader from "./AuthHeader";
 import BottomNav from "./BottomNav";
@@ -6,6 +6,7 @@ import ThemeLoader from "./ThemeLoader";
 import InstallBanner from "./InstallBanner";
 import DialogProvider from "./DialogProvider";
 import SplashScreen from "./SplashScreen";
+import ZoomGuard from "./ZoomGuard";
 
 export const metadata: Metadata = {
   title: "오늘 뭐 먹지? — meogja",
@@ -38,6 +39,9 @@ export const metadata: Metadata = {
   },
 };
 
+// (2026-11-23) iPhone Safari ignores user-scalable=no — maximum-scale=1 stops the zoom on focus; ZoomGuard stops pinch on buttons
+export const viewport: Viewport = { width: "device-width", initialScale: 1, maximumScale: 1, viewportFit: "cover" };
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko" className="h-full">
@@ -61,11 +65,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             __html: `try{if(sessionStorage.getItem('meogja_splash')==='1')document.documentElement.classList.add('splash-seen')}catch(e){}`,
           }}
         />
+        <ZoomGuard />
         <SplashScreen />
         <ThemeLoader />
         <DialogProvider />
         <AuthHeader />
-        <main style={{ flex: 1, maxWidth: 480, margin: "0 auto", width: "100%", padding: "0 0 8px" }}>
+        <main className="app-main" style={{ flex: 1, maxWidth: 480, margin: "0 auto", width: "100%", padding: "0 0 8px" }}>
           {children}
         </main>
         <BottomNav />
